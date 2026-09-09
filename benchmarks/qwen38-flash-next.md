@@ -39,3 +39,19 @@ Un barrido previo hecho con `llama-bench` **y un modelo distinto** dio la curva 
 ## Pendiente
 
 Todas estas cifras son a **33k tokens**. A ~90k con `ubatch` 4096 se observó un cuelgue de GPU, sin reverificar. Falta el barrido a contexto largo.
+
+---
+
+## Nota posterior: estas cifras están infravaloradas
+
+Todo este barrido se midió con la **carga diferida de tensores activa** (el valor por
+defecto de `llama.cpp`). Añadiendo `--lazy-mode off` el prefill sube de 216 a **415 t/s**
+en la misma máquina. El barrido sigue siendo válido *como comparación relativa entre
+valores de `ubatch`* —todos los puntos comparten la misma condición— pero los valores
+absolutos de `pp` hay que leerlos como un suelo.
+
+Además, la configuración de producción usa **`ubatch 2048`, no 4096**: la diferencia entre
+ambos es de ~1%, y 4096 consume más memoria y se acerca a un cuelgue conocido en torno a
+90k tokens de prefill.
+
+👉 [`../docs/carga-diferida-y-oom.md`](../docs/carga-diferida-y-oom.md)

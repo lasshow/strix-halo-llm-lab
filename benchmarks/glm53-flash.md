@@ -1,12 +1,12 @@
-# GLM-5.3-Flash — 250B a 1 bit por peso
+# GLM-5.3-Flash — 313B a 1 bit por peso
 
 **Fecha:** 2026-09-09 · **Cuantización:** `UD-IQ1_S` (Unsloth Dynamic) · **Tamaño:** 93,1 GB
-**Arquitectura:** `glm5next` — MoE de ~250B parámetros totales, **~18B activos** por token
+**Arquitectura:** `glm5next` — MoE de 313B parámetros totales, **~18B activos** por token
 **Build:** `llama.cpp` con el PR de soporte `glm5next`, **aún sin mergear en upstream**
 
 ## Pregunta que queríamos responder
 
-¿Merece la pena un modelo de 250B comprimido a ~1 bit por peso, frente a uno de 177B con
+¿Merece la pena un modelo de 313B comprimido a ~1 bit por peso, frente a uno de 177B con
 cuantización holgada (IQ4_XS)? Los dos ocupan prácticamente lo mismo en memoria —
 93 GB contra 87 GiB — así que la máquina obliga a elegir uno de los dos.
 
@@ -21,10 +21,10 @@ Sobrevive bien. Va lento.
 
 | Métrica | GLM-5.3-Flash IQ1_S | Qwen3.8-Flash-Next IQ4_XS | Diferencia |
 |---|---|---|---|
-| Parámetros totales | ~250B | 177B | +41% |
+| Parámetros totales | 313B | 177B | +77% |
 | **Parámetros activos** | **~18B** | **~3B** | **6×** |
 | Tamaño en disco | 93,1 GB | 87 GiB | ≈ igual |
-| Prefill (`pp`) | 124,8 t/s | 299,8 t/s | **2,4× más lento** |
+| Prefill (`pp`) | 124,8 t/s | 299,8 t/s † | **2,4× más lento** |
 | Generación (`tg`) | **8,3 t/s** | **27,4 t/s** | **3,3× más lento** |
 | Carga del modelo | ~20 s | ~20 s | igual |
 
@@ -99,7 +99,7 @@ producción antes de cargar el segundo modelo, y restaurarlo después.
 cambio de una calidad que en estas pruebas no demostró ser mejor.
 
 Dicho eso, el experimento responde algo valioso: **la cuantización extrema no era el
-problema; los parámetros activos sí**. Un modelo de 250B a 1 bit razona correctamente,
+problema; los parámetros activos sí**. Un modelo de 313B a 1 bit razona correctamente,
 pero en una máquina limitada por ancho de banda paga el precio de activar 18B por token.
 
 **Siguiente candidato:** `REAP50-IQ4_XS` (88 GB) — el mismo modelo con el **50% de los

@@ -4,6 +4,66 @@ Orden cronológico inverso. Incluye las conclusiones que resultaron ser **falsas
 
 ---
 
+## H-010 · `OOMScoreAdjust` negativo convierte un OOM en una caída total
+**Estado:** confirmado · **coste:** un reinicio físico
+
+Al pasar el servicio a `--lazy-mode off` (H-009), la máquina quedó **inalcanzable**:
+respondía al ping pero SSH rechazaba la conexión, y no se recuperó sola en 15 minutos.
+
+La unidad systemd llevaba `OOMScoreAdjust=-500`, que le dice al kernel *«mata cualquier
+cosa antes que a este proceso»*. Cuando faltó memoria, el kernel obedeció literalmente y
+fue matando `sshd`, `NetworkManager`, `systemd-resolved`, `tailscaled`, `polkit`, `crond`
+y `auditd` — todo para salvar al servidor de inferencia, que **murió igualmente** después.
+
+```
+Out of memory: Killed process 1871 (llama-server) ... oom_score_adj:-500
+```
+
+**Por qué faltó memoria:** con `lazy auto` los pesos van mapeados a fichero y el kernel
+puede reclamarlos; con `lazy off` los 87 GiB quedan residentes y **no reclamables**. Con
+el KV de 262.144 y 24 GB de `--cache-ram` encima, no cabía en 124 GB.
+
+**Corrección:** `OOMScoreAdjust=500` (positivo), `--cache-ram` 24576 → 4096,
+`--ubatch-size` 4096 → 2048. Verificado: arranca en 30 s, `oom_score_adj = 0`,
+0 reinicios, 27,2–27,4 t/s en peticiones consecutivas, presión de memoria 0.
+
+**Regla:** un servicio que ocupa el 80% de la RAM debe ser lo **primero** en morir, nunca
+lo último. Si muere el servicio, systemd lo reinicia; si muere la máquina, hay que ir a
+pulsar el botón. Nunca `OOMScoreAdjust` negativo en un servidor de inferencia.
+
+**Diagnóstico falso que descarté por el camino:** culpé a `brush-server` de competir por
+memoria. El log lo desmiente: consumió 10,2 MB de pico. No tuvo nada que ver.
+
+👉 [`carga-diferida-y-oom.md`](carga-diferida-y-oom.md)
+
+---
+
+## H-009 · La carga diferida de tensores cuesta la mitad del prefill en iGPU
+**Estado:** confirmado · A/B con `-r 3`
+
+| `lazy_mode` | pp512 | tg128 |
+|---|---:|---:|
+| `auto` (por defecto) | 216,03 ± 0,81 | 25,45 ± 0,25 |
+| **`off`** | **415,38 ± 4,43** | **27,68 ± 0,02** |
+| | **+92%** | +8,8% |
+
+El prefill casi se dobla con una sola flag y **sin recompilar**: el binario ya soportaba
+`-lzm`. El fix que desactiva la carga diferida en iGPUs (`f3f1a8f`, PR #28326) entró
+**diez horas después** del commit de la build de producción (`9113cc1`).
+
+Que la generación apenas mejore es coherente: `tg` está limitada por ancho de banda de
+memoria, no por cómo se carguen los tensores.
+
+**Cómo se detectó, y es lo reutilizable:** comparando el rendimiento medido con el techo
+teórico de ancho de banda. Los modelos densos rendían al **78–87%** de su techo; el MoE se
+quedaba en el **19%**. Un modelo que va desproporcionadamente mal *respecto a sí mismo*
+apunta a un problema de software, no de hardware.
+
+**Consecuencia:** todas las cifras de prefill anteriores del cuaderno están
+infravaloradas. El CSV incorpora ya columnas `commit` y `lazy_mode`.
+
+---
+
 ## H-008 · Con modelos razonadores, un `max_tokens` corto parece una alucinación
 **Estado:** confirmado
 
@@ -21,9 +81,9 @@ Ese modelo gasta entre 200 y 2.800 caracteres razonando antes de contestar; para
 | Modelo | Totales | Activos | Tamaño | pp t/s | tg t/s |
 |---|---|---|---|---|---|
 | Qwen3.8-Flash-Next | 177B | ~3B | 87 GiB | 299,8 | **27,4** |
-| GLM-5.3-Flash IQ1_S | 250B | ~18B | 93 GB | 124,8 | **8,3** |
+| GLM-5.3-Flash IQ1_S | 313B | ~18B | 93 GB | 124,8 | **8,3** |
 
-Dos modelos que ocupan **lo mismo** en memoria y difieren **3,3×** en velocidad de generación. El de 250B es más grande en todo salvo en lo que importa aquí: activa seis veces más parámetros por token, y en una máquina limitada por ancho de banda eso se paga linealmente.
+Dos modelos que ocupan **lo mismo** en memoria y difieren **3,3×** en velocidad de generación. El de 313B es más grande en todo salvo en lo que importa aquí: activa seis veces más parámetros por token, y en una máquina limitada por ancho de banda eso se paga linealmente.
 
 H-006 decía "MoE grande > denso mediano". Este hallazgo lo precisa: **no es el tamaño, es cuántos parámetros hay que leer por token**. Un MoE con muchos expertos activos se comporta como un denso grande.
 

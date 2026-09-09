@@ -22,16 +22,19 @@ ExecStart=/opt/llama.cpp/build/bin/llama-server \
   -fa on \
   -kvu \
   --cache-reuse 256 \
-  --cache-ram 24576 \
+  --cache-ram 4096 \
   --batch-size 4096 \
-  --ubatch-size 4096 \
+  --ubatch-size 2048 \
   --no-context-shift \
+  --lazy-mode off \
   --threads 16 \
   --host 0.0.0.0 --port 8080 \
   --api-key ${LLAMA_API_KEY} \
   --metrics
 Restart=on-failure
 RestartSec=10
+# NUNCA negativo: ver "El OOM que mata la maquina" mas abajo
+OOMScoreAdjust=500
 
 [Install]
 WantedBy=multi-user.target
@@ -46,7 +49,9 @@ WantedBy=multi-user.target
 | `-np 2` | Dos slots concurrentes. |
 | `-kvu` | KV unificada: los slots comparten el pool en vez de partirlo. |
 | `-fa on` | Flash attention. |
-| `--batch/--ubatch 4096` | **Medido**, no copiado. Ver [`metodologia.md`](metodologia.md). |
+| `--batch 4096 / --ubatch 2048` | **Medido**, no copiado. Ver [`metodologia.md`](metodologia.md). El barrido dio un +1% marginal de 2048 a 4096, y 4096 agrava el consumo de memoria: 2048 es la eleccion prudente. |
+| `--lazy-mode off` | **+92% de prefill** en iGPU. Ver [`carga-diferida-y-oom.md`](carga-diferida-y-oom.md). |
+| `OOMScoreAdjust=500` | Que muera el modelo, nunca la maquina. Ver abajo. |
 | `--api-key` | Vía `EnvironmentFile`, nunca escrita en la unidad. |
 | `--metrics` | Expone `/metrics` para Prometheus. |
 
@@ -69,6 +74,20 @@ sudo systemctl restart llama-server
 ```
 
 Diagnóstico rápido: `ls -Z` sobre el binario, y `sudo ausearch -m avc -ts recent`.
+
+## ⚠️ El OOM que mata la maquina entera
+
+`OOMScoreAdjust` **negativo** en un servicio que ocupa el 80% de la RAM es una trampa
+mortal. Le dice al kernel "mata lo que sea antes que a este proceso", y el kernel obedece:
+va matando `sshd`, `NetworkManager`, `systemd-resolved`, `tailscaled`... Sintoma tipico:
+
+- el equipo **responde al ping** (el kernel vive)
+- pero **SSH rechaza la conexion** (no queda espacio de usuario)
+- y **no se recupera solo**: exige reinicio fisico
+
+Un servidor de inferencia debe ser lo **primero** en morir, no lo ultimo: si muere el
+servicio, systemd lo reinicia; si muere la maquina, hay que ir a pulsar el boton.
+Historia completa en [`carga-diferida-y-oom.md`](carga-diferida-y-oom.md).
 
 ## Secreto de API
 

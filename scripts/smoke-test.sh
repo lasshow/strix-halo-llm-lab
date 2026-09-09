@@ -16,12 +16,23 @@ for m in json.load(sys.stdin)["data"]:
 
 echo
 echo "== Prueba de coherencia (aritmetica + instruccion)"
+# Nota: los modelos con razonamiento (Qwen3.8-Flash-Next, GLM-5.x) emiten primero
+# reasoning_content y solo despues content. Con max_tokens bajo se agota el
+# presupuesto razonando y content llega vacio -> falso negativo. De ahi el margen amplio.
 RESP=$(curl -sf -H "$AUTH" -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"Cuanto es 17*23? Responde solo el numero."}],"max_tokens":16,"temperature":0}' \
+  -d '{"messages":[{"role":"user","content":"Cuanto es 17*23? Responde solo el numero."}],"max_tokens":512,"temperature":0}' \
   "$URL/v1/chat/completions")
 
-OUT=$(echo "$RESP" | python3 -c 'import sys,json; print(json.load(sys.stdin)["choices"][0]["message"]["content"].strip())')
-echo "  respuesta: $OUT"
+OUT=$(echo "$RESP" | python3 -c '
+import sys, json
+m = json.load(sys.stdin)["choices"][0]["message"]
+# buscar en content y, si viene vacio, en el razonamiento
+txt = (m.get("content") or "").strip()
+if not txt:
+    txt = (m.get("reasoning_content") or "").strip()
+print(txt)
+')
+echo "  respuesta: ${OUT:0:120}"
 if [[ "$OUT" == *"391"* ]]; then
   echo "  ✅ correcto"
 else
@@ -34,8 +45,10 @@ echo "$RESP" | python3 -c '
 import sys, json
 t = json.load(sys.stdin).get("timings", {})
 if t:
-    print(f"  prefill: {t.get(\"prompt_per_second\", 0):.1f} t/s")
-    print(f"  generacion: {t.get(\"predicted_per_second\", 0):.2f} t/s")
+    pp = t.get("prompt_per_second", 0)
+    tg = t.get("predicted_per_second", 0)
+    print("  prefill: %.1f t/s" % pp)
+    print("  generacion: %.2f t/s" % tg)
 else:
     print("  (el servidor no devolvio timings)")
 '

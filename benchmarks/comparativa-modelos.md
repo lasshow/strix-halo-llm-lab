@@ -6,14 +6,14 @@
 |---|---|---|---|---|---|---|
 | Qwen3-8B | 8B | 8B | denso | 4,7 GB | 1.286,8 | **45,4** |
 | Qwen3.8-27B | 27B | 27B | denso | ~16 GB | 365,1 | **13,1** |
-| Qwen3.8-Flash-Next | 177B | ~3B | MoE | 87 GB | 299,8 | **27,4** |
-| GLM-5.3-Flash | 250B | ~18B | MoE | 93 GB | 124,8 | **8,3** |
+| Qwen3.8-Flash-Next | 177B | ~3B | MoE | 87 GB | 299,8 † | **27,4** |
+| GLM-5.3-Flash | 313B | ~18B | MoE | 93 GB | 124,8 | **8,3** |
 
 ## Lo contraintuitivo
 
 El modelo de **177B genera al doble de velocidad** que el de 27B, aunque ocupe cinco veces más memoria.
 
-Y el de **250B genera a un tercio** que el de 177B, aunque ocupe prácticamente lo mismo (93 vs 87 GB). El tamaño en disco no predice nada.
+Y el de **313B genera a un tercio** que el de 177B, aunque ocupe prácticamente lo mismo (93 vs 87 GB). El tamaño en disco no predice nada.
 
 ## Por qué
 
@@ -21,7 +21,7 @@ En generación, cada token exige releer de memoria los pesos **activos**. Con me
 
 - El denso de 27B lee **27B de parámetros** por token.
 - El MoE de 177B enruta a unos pocos expertos y lee **~3B** por token.
-- El MoE de 250B enruta a bastantes más y lee **~18B** por token.
+- El MoE de 313B enruta a bastantes más y lee **~18B** por token.
 
 Nueve veces menos tráfico en el segundo caso. Que el modelo pese 87 GB solo significa que necesitas sitio para tenerlo cargado; no que cada token cueste 87 GB de lecturas.
 
@@ -45,3 +45,5 @@ GLM-5.3-Flash a `UD-IQ1_S` (≈1 bit por peso) acertó las 5 pruebas de coherenc
 👉 Detalle completo en [`glm53-flash.md`](glm53-flash.md).
 
 **Siguiente comparación pendiente:** la variante `REAP50-IQ4_XS` (88 GB) — mismo modelo con el 50% de expertos podados y cuantización IQ4. Si podar expertos reduce los parámetros activos, debería ser a la vez más rápido *y* más preciso que el IQ1_S. Sería la prueba limpia de que en esta máquina conviene optimizar activos, no bits.
+
+† Prefill medido con la carga diferida activa (por defecto). Con `--lazy-mode off` sube a **415,4 t/s**; ver [`../docs/carga-diferida-y-oom.md`](../docs/carga-diferida-y-oom.md). La comparación entre modelos sigue siendo válida: todos se midieron en las mismas condiciones.

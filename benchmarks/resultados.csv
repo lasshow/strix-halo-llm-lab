@@ -1,11 +1,13 @@
-fecha,modelo,params_totales,params_activos,arquitectura,cuantizacion,tamano_gb,backend,batch,ubatch,contexto,prompt_tokens,pp_ts,tg_ts,notas
-2026-09-08,Qwen3-8B,8B,8B,denso,Q4_K_M,4.7,vulkan,,,,512,1279.19,45.34,carveout UMA minimo
-2026-09-08,Qwen3-8B,8B,8B,denso,Q4_K_M,4.7,vulkan,,,,512,1286.84,45.42,carveout UMA ampliado - sin diferencia
-2026-09-08,Qwen3.8-27B,27B,27B,denso,Q4,16,vulkan,,,,512,365.10,13.10,llama-bench pp512/tg128
-2026-09-08,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,,,262144,512,225.30,25.40,caracterizacion inicial llama-bench
-2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,512,512,262144,32951,259.60,27.36,medido contra llama-server 3 pasadas
-2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,1024,1024,262144,32951,287.40,25.31,medido contra llama-server 3 pasadas
-2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,2048,2048,262144,32951,296.70,27.25,medido contra llama-server 3 pasadas
-2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,4096,262144,32951,299.80,27.35,ADOPTADO - configuracion de produccion
-2026-09-09,GLM-5.3-Flash,250B,18B,MoE,UD-IQ1_S,93.1,vulkan,512,512,8192,63,20.60,8.25,primera carga - soporte glm5next sin mergear
-2026-09-09,GLM-5.3-Flash,250B,18B,MoE,UD-IQ1_S,93.1,vulkan,512,512,8192,2098,124.80,8.14,prompt largo - ops fusionadas desactivadas en Vulkan
+fecha,modelo,params_totales,params_activos,arquitectura,cuantizacion,tamano_gb,backend,batch,ubatch,contexto,prompt_tokens,pp_ts,tg_ts,commit,lazy_mode,notas
+2026-09-08,Qwen3-8B,8B,8B,denso,Q4_K_M,4.7,vulkan,,,,512,1279.19,45.34,9113cc1,auto,carveout UMA minimo
+2026-09-08,Qwen3-8B,8B,8B,denso,Q4_K_M,4.7,vulkan,,,,512,1286.84,45.42,9113cc1,auto,carveout UMA ampliado - sin diferencia
+2026-09-08,Qwen3.8-27B,27B,27B,denso,Q4,16,vulkan,,,,512,365.10,13.10,9113cc1,auto,llama-bench pp512/tg128
+2026-09-08,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,,,262144,512,225.30,25.40,9113cc1,auto,caracterizacion inicial llama-bench
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,512,512,262144,32951,259.60,27.36,9113cc1,auto,medido contra llama-server 3 pasadas
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,1024,1024,262144,32951,287.40,25.31,9113cc1,auto,medido contra llama-server 3 pasadas
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,2048,2048,262144,32951,296.70,27.25,9113cc1,auto,medido contra llama-server 3 pasadas
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,4096,262144,32951,299.80,27.35,9113cc1,auto,ADOPTADO - configuracion de produccion
+2026-09-09,GLM-5.3-Flash,250B,18B,MoE,UD-IQ1_S,93.1,vulkan,512,512,8192,63,20.60,8.25,9113cc1,auto,primera carga - soporte glm5next sin mergear
+2026-09-09,GLM-5.3-Flash,250B,18B,MoE,UD-IQ1_S,93.1,vulkan,512,512,8192,2098,124.80,8.14,9113cc1,auto,prompt largo - ops fusionadas desactivadas en Vulkan
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,2048,2048,,512,216.03,25.45,9113cc1,auto,llama-bench -r 3 - carga diferida ACTIVA (regresion #28160)
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,2048,2048,,512,415.38,27.68,9113cc1,off,llama-bench -r 3 - ADOPTADO: +92% prefill con -lzm off

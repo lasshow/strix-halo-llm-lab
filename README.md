@@ -26,7 +26,7 @@ Este repositorio es el registro público de esas pruebas: cuantizaciones, tamañ
 
 > **Hallazgo que resume el proyecto:** un MoE de **177B** parámetros genera al **doble de velocidad** que un modelo denso de **27B** en esta máquina. El cuello de botella no es el cómputo, es el ancho de banda de memoria — y eso lo cambia todo a la hora de elegir modelo.
 >
-> **Corolario, medido después:** ese mismo límite castiga a los MoE con *muchos* expertos activos. Un modelo de 250B que activa 18B por token cae a 8,3 t/s — 3,3× más lento que el de 177B que activa 3B. **Lo que importa no es el tamaño del modelo, son los parámetros activos.**
+> **Corolario, medido después:** ese mismo límite castiga a los MoE con *muchos* expertos activos. Un modelo de 313B que activa 18B por token cae a 8,3 t/s — 3,3× más lento que el de 177B que activa 3B. **Lo que importa no es el tamaño del modelo, son los parámetros activos.**
 
 ---
 
@@ -36,26 +36,41 @@ Medido con `llama.cpp` sobre Vulkan/RADV. `pp` = prefill (leer el prompt), `tg` 
 
 | Modelo | Params (activos) | Cuant. | Tamaño | pp t/s | tg t/s | Veredicto |
 |---|---|---|---|---|---|---|
-| **Qwen3.8-Flash-Next** | 177B MoE (~3B) | UD-IQ4_XS | 87 GiB | **299,8** | **27,4** | ⭐ En producción |
+| **Qwen3.8-Flash-Next** | 177B MoE (~3B) | UD-IQ4_XS | 87 GiB | **415,4** | **27,7** | ⭐ En producción (`--lazy-mode off`) |
 | Qwen3.8-27B | 27B denso | Q4 | ~16 GiB | 365,1 | 13,1 | ❌ Inútil aquí |
 | Qwen3-8B | 8B denso | Q4_K_M | 4,7 GiB | 1.286,8 | 45,4 | ✅ Referencia rápida |
-| GLM-5.3-Flash | 250B MoE (~18B) | UD-IQ1_S | 93 GB | 124,8 | 8,3 | ⚠️ Correcto pero 3,3× lento |
+| GLM-5.3-Flash | 313B MoE (~18B) | UD-IQ1_S | 93 GB | 124,8 | 8,3 | ⚠️ Correcto pero 3,3× lento |
 
 📄 **Detalle completo, metodología y datos crudos:** [`benchmarks/`](benchmarks/) · [`benchmarks/resultados.csv`](benchmarks/resultados.csv)
 
 ---
 
-## 🧠 Los seis hallazgos que más ahorran tiempo
+## 🧠 Los siete hallazgos que más ahorran tiempo
+
+### 0. Una sola flag daba +92% de prefill (y no lo sabía)
+`llama.cpp` trae la *carga diferida* de tensores en `auto` por defecto, y en iGPU sale
+carísima: **216 → 415 t/s de prefill** con solo añadir `--lazy-mode off`. El fix que lo
+desactiva solo entró diez horas después del commit con el que estaba compilado el binario
+de producción. Cómo detectarlo sin leer changelogs: compara tu rendimiento con el techo
+de ancho de banda — los densos rendían al 78–87% de su techo, el MoE al **19%**.
+Esa asimetría es la señal.
+👉 [`docs/carga-diferida-y-oom.md`](docs/carga-diferida-y-oom.md)
 
 ### 1. El modelo denso mediano no tiene sitio en esta máquina
 27B denso a 13 t/s vs 177B MoE a 27 t/s. Con memoria unificada lenta comparada con VRAM (~256 GB/s frente a ~1 TB/s de una GPU dedicada), lo que manda es **cuántos bytes de pesos hay que leer por token**. Un MoE que activa 3B lee muchísimo menos que un denso que activa 27B, aunque pese cinco veces más en disco. **Regla práctica: en Strix Halo, MoE grande > denso mediano.**
 
 ### 2. …pero un MoE con muchos expertos activos vuelve a ser lento
-El corolario del punto anterior, comprobado a la mala: un MoE de **250B que activa ~18B** por token rinde **8,3 t/s**, frente a los **27,4 t/s** del MoE de 177B que activa ~3B. Pesa lo mismo en memoria (93 vs 87 GB) y da respuestas correctas, pero va **3,3× más despacio**. La cifra que predice el rendimiento es **parámetros activos**, no parámetros totales ni gigabytes en disco.
+El corolario del punto anterior, comprobado a la mala: un MoE de **313B que activa ~18B** por token rinde **8,3 t/s**, frente a los **27,4 t/s** del MoE de 177B que activa ~3B. Pesa lo mismo en memoria (93 vs 87 GB) y da respuestas correctas, pero va **3,3× más despacio**. La cifra que predice el rendimiento es **parámetros activos**, no parámetros totales ni gigabytes en disco.
 👉 [`benchmarks/glm53-flash.md`](benchmarks/glm53-flash.md)
 
 ### 3. `llama-bench` con *otro* modelo te miente
-El barrido de `ubatch` hecho con un modelo pequeño daba una curva **descendente** y recomendaba `ub 1024`. Midiendo contra `llama-server` con el modelo real y un prompt real de 33k tokens, la curva es **ascendente** y el ganador es `ub 4096`. Son conclusiones opuestas.
+El barrido de `ubatch` hecho con un modelo pequeño daba una curva **descendente** y recomendaba `ub 1024`. Midiendo contra `llama-server` con el modelo real y un prompt real de 33k tokens, la curva
+es **ascendente**. Son conclusiones opuestas.
+
+**Corrección posterior:** publiqué `ub 4096` como recomendación, pero la diferencia real
+entre 2048 y 4096 es de **~1%**, y 4096 agrava el consumo de memoria y se acerca a un
+cuelgue conocido en torno a 90k tokens. La configuración de producción usa **2048**. Ganar
+un 1% no justifica acercarse a una zona inestable.
 👉 [`docs/metodologia.md`](docs/metodologia.md) — cómo medir sin engañarse.
 
 ### 4. El carveout de VRAM en BIOS es irrelevante (con Vulkan)
@@ -67,7 +82,10 @@ Un binario compilado fuera de `/usr` arranca a mano pero falla como servicio sys
 👉 [`docs/servicio-systemd.md`](docs/servicio-systemd.md) — el `semanage fcontext` que lo arregla.
 
 ### 6. Un contexto de 256k no cuesta 256k de KV cache
-El modelo en producción declara ventana nativa de **262.144 tokens** y la sirve entera **por slot**, con dos slots simultáneos. Es viable porque de sus 48 capas solo 12 son de atención; el resto son capas lineales de estado fijo. La caché KV apenas crece con el contexto.
+El modelo en producción declara ventana nativa de **262.144 tokens** y **reserva** esa
+ventana entera por slot, con dos slots simultáneos (verificado en el log). Aviso honesto:
+lo que está *medido* llega solo hasta **33k tokens** — la cifra de 256k es capacidad
+reservada, no validada de punta a punta. Es viable porque de sus 48 capas solo 12 son de atención; el resto son capas lineales de estado fijo. La caché KV apenas crece con el contexto.
 👉 [`docs/ventana-de-contexto.md`](docs/ventana-de-contexto.md)
 
 ---
@@ -112,12 +130,13 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
 │   ├── bios-y-memoria.md        UMA carveout, GTT, el experimento que salió en nada
 │   ├── servicio-systemd.md      Servir el modelo 24/7 (+ la trampa de SELinux)
 │   ├── metodologia.md           Cómo medimos y por qué así
-│   ├── ventana-de-contexto.md   256k reales: qué lo hace posible
+│   ├── ventana-de-contexto.md   256k servidos, 33k verificados
+│   ├── carga-diferida-y-oom.md  La flag que duplicó el prefill y el OOM que mató la máquina
 │   └── hallazgos.md             Bitácora de conclusiones (incluidas las erróneas)
 ├── benchmarks/
 │   ├── resultados.csv           Datos crudos, una fila por medición
 │   ├── qwen38-flash-next.md     Barrido completo de ubatch
-│   ├── glm53-flash.md           250B a 1 bit: cabe, acierta, pero va lento
+│   ├── glm53-flash.md           313B a 1 bit: cabe, acierta, pero va lento
 │   └── comparativa-modelos.md   MoE vs denso, y activos vs totales
 └── scripts/
     ├── bench-ubatch.py          Mide pp/tg contra llama-server con prompt real
