@@ -25,3 +25,9 @@ fecha,modelo,params_totales,params_activos,arquitectura,cuantizacion,tamano_gb,b
 2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,2048,262144,48761,284.3,17.38,9113cc1,off,barrido contexto llama-server 2 pasadas + aguja OK
 2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,2048,262144,74993,240.1,14.5,9113cc1,off,barrido contexto llama-server 2 pasadas + aguja OK
 2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,2048,262144,98201,209.3,13.03,9113cc1,off,barrido contexto llama-server 2 pasadas + aguja OK
+2026-09-09,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,2048,262144,3772,792.5,45.26,9113cc1,off,barrido contexto servidor :8081; pasada 0 fria tg=9.75 descartada; media caliente
+2026-09-09,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,2048,262144,15022,779.0,33.51,9113cc1,off,barrido contexto servidor :8081
+2026-09-09,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,2048,262144,29992,680.0,31.68,9113cc1,off,barrido contexto servidor :8081
+2026-09-09,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,2048,262144,60892,487.3,28.67,9113cc1,off,barrido contexto servidor :8081
+2026-09-09,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,2048,262144,93682,321.8,25.81,9113cc1,off,barrido contexto servidor :8081
+2026-09-09,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,2048,262144,122692,239.7,24.57,9113cc1,off,barrido contexto servidor :8081; aguja OK en los 6 puntos

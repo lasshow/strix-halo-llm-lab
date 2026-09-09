@@ -247,3 +247,50 @@ El modelo en producción declara `context_length = 262144` nativo (RoPE base 10M
 Es sostenible porque solo 12 de las 48 capas son de atención (2 cabezas KV + indexador disperso); las otras 36 son lineales de estado fijo, cuyo coste **no crece** con la longitud. Ver [`ventana-de-contexto.md`](ventana-de-contexto.md).
 
 **Pendiente:** se observó un cuelgue de GPU alrededor de 90k tokens con `ubatch` alto. Sin reverificar.
+
+## H-013 — Qwen3-Next-80B-A3B: generación casi plana hasta 122k (2026-09-09)
+
+Barrido de contexto idéntico al de H-012, mismo método (2 pasadas por punto, aguja
+de código enterrada a mitad de texto, `prompt_n` real medido), sobre
+**Qwen3-Next-80B-A3B-Instruct IQ4_XS** (42,6 GB, arquitectura `qwen3next`: MoE con
+atención híbrida lineal/gated). Servidor en :8081, `-ub 2048`, `-lzm off`, `-c 262144`.
+
+| prompt_n | pp t/s | tg t/s | aguja |
+|---:|---:|---:|:---|
+| 3.772 | 792,5 | 45,3* | OK |
+| 15.022 | 779,0 | 33,5 | OK |
+| 29.992 | 680,0 | 31,7 | OK |
+| 60.892 | 487,3 | 28,7 | OK |
+| 93.682 | 321,8 | 25,8 | OK |
+| 122.692 | 239,7 | 24,6 | OK |
+
+\* pasada caliente; la fría dio 9,75 t/s (primer toque de expertos) y se descarta.
+
+**Lo importante no es que sea rápido: es CÓMO decae.** Del punto de 15k al de 122k
+la generación solo pierde un 27% (33,5 → 24,6), y de 61k a 122k apenas un 14%.
+El Flash-Next en el mismo barrido caía de 24,6 (12k) a 13,0 (98k), un −47%.
+La causa es arquitectural: `qwen3next` usa atención híbrida (la mayoría de capas
+son lineales, solo unas pocas hacen atención completa), así que el coste por token
+crece mucho más despacio con el contexto que en un transformer clásico.
+
+Comparativa directa en los puntos comunes (Flash-Next 87 GiB vs 80B 42,6 GiB):
+
+| contexto ≈ | Flash-Next pp/tg | 80B pp/tg | ventaja 80B |
+|---:|---:|---:|:---|
+| 12–15k | 365 / 24,6 | 779 / 33,5 | 2,1x / 1,4x |
+| 24–30k | 347 / 22,8 | 680 / 31,7 | 2,0x / 1,4x |
+| 49–61k | 284 / 17,4 | 487 / 28,7 | 1,7x / 1,7x |
+| 94–98k | 209 / 13,0 | 322 / 25,8 | 1,5x / 2,0x |
+
+Y a 122k el 80B (240 / 24,6) sigue siendo más rápido que el Flash-Next a 12k en
+generación. Todo con **la mitad de memoria** (54 GB en uso frente a 109) y 6/6
+agujas correctas: la ventana larga no es decorativa.
+
+**Consecuencia práctica:** el 80B es el candidato natural a modelo de producción
+del M5. Libera ~55 GB, suficiente para convivir con un pipeline de difusión de
+imagen (fase B del plan). Queda pendiente la batería de calidad (A8) antes de
+promocionarlo: velocidad no es inteligencia.
+
+**Método:** los objetivos pedidos (4k…131k) produjeron `prompt_n` reales un 6-8%
+menores; confirmado el sesgo del estimador de H-012. Los 131k reales del límite
+publicitado siguen sin tocarse: harían falta ~140k pedidos.

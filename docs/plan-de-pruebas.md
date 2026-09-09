@@ -19,7 +19,7 @@
 |---|--------|--------|------|
 | A1 | Barrido ubatch con `lazy off` | ✅ H-011 | 2048 óptimo; 4096 no arranca |
 | A2 | Contexto largo hasta 98k + aguja | ✅ H-012 | tg −50% por KV; aguja 6/6 |
-| A3 | **Qwen3-Next-80B-A3B IQ4_XS (42,6 GB)** | 🔜 siguiente | Mismos ~3B activos que Flash-Next en la mitad de memoria. Pregunta: ¿cuánta calidad/velocidad compra 512→512 expertos con 177B→80B totales? Y de paso: con 42 GB libres de sobra, ¿mejora tg por menos presión de memoria? |
+| A3 | **Qwen3-Next-80B-A3B IQ4_XS (42,6 GB)** | ✅ hecho ([H-013](hallazgos.md), [ficha](../benchmarks/qwen3-next-80b.md)) | Respuesta: 1,5-2x más rápido, generación casi plana hasta 122k (atención híbrida), mitad de memoria, 6/6 agujas. Falta la batería A8 para decidir promoción. Pregunta: ¿cuánta calidad/velocidad compra 512→512 expertos con 177B→80B totales? Y de paso: con 42 GB libres de sobra, ¿mejora tg por menos presión de memoria? |
 | A4 | 131k reales y 262k punta a punta | pendiente | El estimador se quedó corto (98k al pedir 131k). Recalibrar y empujar hasta la ventana entera |
 | A5 | GLM-5.3-Flash **REAP50-IQ4_XS (88 GB)** | pendiente | 50% expertos podados + cuantización decente vs el IQ1_S ya medido (8,3 t/s) |
 | A6 | Actualizar llama.cpp (≥15 commits) y re-medir A1 | pendiente | El fix del lazy-mode por defecto ya está upstream; verificar que no cambia nada más |
