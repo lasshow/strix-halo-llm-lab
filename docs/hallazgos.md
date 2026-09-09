@@ -4,6 +4,48 @@ Orden cronológico inverso. Incluye las conclusiones que resultaron ser **falsas
 
 ---
 
+## H-012 · Contexto largo: la generación cae a la mitad a 98k, pero la aguja se recupera siempre
+**Estado:** confirmado · 6 puntos × 2 pasadas contra `llama-server` + prueba de aguja por punto
+
+Barrido de longitud de contexto con la configuración de producción (`ubatch 2048`,
+`lazy off`), sin reiniciar el servicio: la única variable es el tamaño del prompt.
+En cada punto, además del rendimiento, se enterró un código único **a la mitad** del
+texto y se le pidió al modelo recuperarlo (los extremos son la parte fácil: primacía
+y recencia).
+
+| prompt real (tokens) | pp (t/s) | tg (t/s) | latencia total | aguja |
+|---:|---:|---:|---:|:---:|
+| 3.065 | 308,8 | 26,32 | 11,0 s | OK |
+| 12.065 | 365,4 | 24,56 | 34,7 s | OK |
+| 24.041 | 347,1 | 22,75 | 70,9 s | OK |
+| 48.761 | 284,3 | 17,38 | 173,1 s | OK |
+| 74.993 | 240,1 | 14,50 | 314,5 s | OK |
+| 98.201 | 209,3 | 13,03 | 470,2 s | OK |
+
+**Lecturas:**
+
+1. **La generación cae a la mitad** (26,3 → 13,0 t/s, −50%) entre 3k y 98k. Es el KV
+   cache: por cada token generado hay que releer un KV que crece linealmente con el
+   contexto, y en una máquina limitada por ancho de banda eso se paga entero. El
+   prefill aguanta mejor (−32%).
+2. **El máximo de prefill no está en el prompt más corto** (365 t/s a 12k > 309 a 3k):
+   con 3k tokens no hay trabajo suficiente para amortizar el arranque de los kernels.
+   Los números de marketing con prompts diminutos subestiman el prefill real.
+3. **Recuperación perfecta 6/6** con el dato enterrado a la mitad del texto, hasta
+   98k tokens. La ventana anunciada de 262k no se verificó entera, pero hasta 98k es
+   ventana *útil*, no solo reservada.
+4. **Repetibilidad excelente**: las dos pasadas de cada punto difieren <1%
+   (p. ej. 208,8 vs 209,9 a 98k).
+5. **Coste práctico**: meter ~100k tokens cuesta **~8 minutos** de prefill. Para RAG
+   con documentos largos, esto manda más que el tg.
+
+**Nota de método:** el estimador tokens/palabra (1,78, calibrado con `prompt_n` real
+a 33k) se queda corto en prompts cortos (pedí 4k, salieron 3.065; −23%): la
+tokenización no es lineal con la repetición. Por eso la tabla registra `prompt_n`
+real y no el objetivo. Servicio estable todo el barrido: 0 reinicios.
+
+---
+
 ## H-011 · Con la carga diferida desactivada, `ubatch 4096` ya no arranca
 **Estado:** confirmado · barrido sobre `llama-server`, 2 pasadas medidas por punto + 1 descartada
 

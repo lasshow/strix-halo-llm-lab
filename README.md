@@ -149,6 +149,7 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
 │   └── comparativa-modelos.md   MoE vs denso, y activos vs totales
 └── scripts/
     ├── bench-ubatch.py          Mide pp/tg contra llama-server con prompt real
+    ├── bench-context.py         Barrido de longitud de contexto + prueba de aguja
     └── smoke-test.sh            Comprobación rápida de carga y coherencia
 ```
 
@@ -158,7 +159,9 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
 
 - [x] **GLM-5.3-Flash UD-IQ1_S (93 GB)** — cargado y medido: coherente a ~1 bit/peso, pero 8,3 t/s. No sustituye al modelo en producción. → [`benchmarks/glm53-flash.md`](benchmarks/glm53-flash.md)
 - [ ] Probar la variante **REAP50-IQ4_XS (88 GB)**: mismo modelo con el 50% de expertos podados y cuantización decente. Hipótesis: menos expertos activos ⇒ más rápido, y mejor precisión por peso.
-- [ ] Verificar estabilidad a contexto largo (>90k) con `ubatch` alto.
+- [x] **Contexto largo verificado hasta 98k tokens** con la config de producción: generación −50% (26,3 → 13,0 t/s) por el KV cache, prefill −32%, y **aguja recuperada 6/6** con el dato enterrado a la mitad del texto. ~100k tokens ≈ 8 min de prefill. → [`docs/hallazgos.md`](docs/hallazgos.md) H-012
+- [ ] Empujar la verificación de ventana hasta 131k reales y 262k de punta a punta.
+- [ ] **Qwen3-Next-80B-A3B** (IQ4_XS, 42,6 GB, ya descargado): mismos ~3B activos que Flash-Next en la mitad de memoria. ¿Cuánta calidad compra el doble de expertos totales a igual velocidad teórica?
 - [ ] Repetir GLM cuando el soporte `glm5next` entre en upstream y Vulkan implemente las operaciones fusionadas que hoy se desactivan.
 
 ---

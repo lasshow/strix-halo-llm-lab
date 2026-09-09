@@ -19,3 +19,9 @@ fecha,modelo,params_totales,params_activos,arquitectura,cuantizacion,tamano_gb,b
 2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,2048,2048,,32768,319.46,27.11,9113cc1,off,llama-bench -r 2 - discrepa del servidor real
 2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,4096,,32768,257.31,27.08,9113cc1,off,llama-bench -r 2 - discrepa del servidor real
 2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,512,512,,32768,315.67,27.25,9113cc1,off,llama-bench -r 2 - discrepa del servidor real
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,2048,262144,3065,308.8,26.32,9113cc1,off,barrido contexto llama-server 2 pasadas + aguja OK
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,2048,262144,12065,365.4,24.56,9113cc1,off,barrido contexto llama-server 2 pasadas + aguja OK
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,2048,262144,24041,347.1,22.75,9113cc1,off,barrido contexto llama-server 2 pasadas + aguja OK
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,2048,262144,48761,284.3,17.38,9113cc1,off,barrido contexto llama-server 2 pasadas + aguja OK
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,2048,262144,74993,240.1,14.5,9113cc1,off,barrido contexto llama-server 2 pasadas + aguja OK
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,2048,262144,98201,209.3,13.03,9113cc1,off,barrido contexto llama-server 2 pasadas + aguja OK

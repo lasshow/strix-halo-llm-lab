@@ -70,24 +70,49 @@ discrepar del servidor real: daba el máximo en **1024** (336,2 t/s) y **caída*
 (319,5) y 4096 (257,3). El servidor real dice **2048**. Se mantiene la regla del laboratorio:
 **decide `llama-server`, no `llama-bench`.**
 
+## Barrido de longitud de contexto (`ubatch 2048`, `lazy off`)
+
+**Condiciones:** configuración de producción sin tocar (servicio **no** reiniciado entre
+puntos: la única variable es el prompt), 2 pasadas por punto, `timings` de `llama-server`,
+y en cada punto una **prueba de aguja**: un código único enterrado a la mitad del texto
+que el modelo debe recuperar. Se registra `prompt_n` real, no el objetivo del script.
+
+| prompt real (tokens) | pp (t/s) | tg (t/s) | latencia total | aguja |
+|---:|---:|---:|---:|:---:|
+| 3.065 | 308,8 | 26,32 | 11,0 s | OK |
+| 12.065 | 365,4 | 24,56 | 34,7 s | OK |
+| 24.041 | 347,1 | 22,75 | 70,9 s | OK |
+| 48.761 | 284,3 | 17,38 | 173,1 s | OK |
+| 74.993 | 240,1 | 14,50 | 314,5 s | OK |
+| 98.201 | 209,3 | 13,03 | 470,2 s | OK |
+
+### Lectura
+
+- **La generación cae a la mitad** entre 3k y 98k (−50%): el KV cache se relee entero por
+  token generado y crece con el contexto. El prefill aguanta mejor (−32%).
+- **El máximo de prefill está en ~12k, no en el prompt más corto**: a 3k no hay trabajo
+  suficiente para amortizar el arranque de los kernels.
+- **Aguja 6/6 hasta 98k** con el dato a la mitad del texto: ventana útil verificada, no
+  solo reservada.
+- **Repetibilidad <1%** entre pasadas. Servicio estable: 0 reinicios en ~70 min de barrido.
+- Coste práctico: **~100k tokens ≈ 8 min de prefill**.
+
+Detalle y método: [`../docs/hallazgos.md`](../docs/hallazgos.md) H-012 ·
+script [`../scripts/bench-context.py`](../scripts/bench-context.py).
+
 ## Pendiente
 
-Todas estas cifras son a **~25k tokens**. A ~90k con `ubatch` 4096 se observó un cuelgue de
-GPU, hoy irrelevante porque 4096 ya no arranca; falta rehacer el barrido a contexto largo con
-2048. También falta reverificar la ventana completa de 262.144 de punta a punta.
+Verificar la ventana completa de **262.144** de punta a punta (el barrido llegó a 98k por
+la calibración del estimador de tokens; el siguiente paso es 131k reales y 262k).
 
 ---
 
-## Nota posterior: estas cifras están infravaloradas
+## Nota posterior: el barrido histórico está infravalorado
 
-Todo este barrido se midió con la **carga diferida de tensores activa** (el valor por
-defecto de `llama.cpp`). Añadiendo `--lazy-mode off` el prefill sube de 216 a **415 t/s**
-en la misma máquina. El barrido sigue siendo válido *como comparación relativa entre
-valores de `ubatch`* —todos los puntos comparten la misma condición— pero los valores
-absolutos de `pp` hay que leerlos como un suelo.
-
-Además, la configuración de producción usa **`ubatch 2048`, no 4096**: la diferencia entre
-ambos es de ~1%, y 4096 consume más memoria y se acerca a un cuelgue conocido en torno a
-90k tokens de prefill.
+El barrido histórico se midió con la **carga diferida de tensores activa** (el valor por
+defecto de la build `9113cc1`). Con `--lazy-mode off` el prefill sube **+16-19%** contra el
+servidor real a igual `ubatch` (el +92% que dio `llama-bench` era el banco sintético
+exagerando). Sigue siendo válido *como comparación relativa entre valores de `ubatch`*,
+pero sus valores absolutos de `pp` son un suelo.
 
 👉 [`../docs/carga-diferida-y-oom.md`](../docs/carga-diferida-y-oom.md)
