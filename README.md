@@ -20,7 +20,7 @@
 
 ## 🎯 De qué va esto
 
-Un mini-PC de ~1.500 € con memoria unificada de 128 GB puede cargar modelos que no caben en ninguna GPU de consumo. La pregunta interesante no es *si* caben, sino **a qué velocidad real corren y qué configuración los hace ir más rápido**.
+Un mini-PC de ~2.600 € con memoria unificada de 128 GB puede cargar modelos que no caben en ninguna GPU de consumo. La pregunta interesante no es *si* caben, sino **a qué velocidad real corren y qué configuración los hace ir más rápido**.
 
 Este repositorio es el registro público de esas pruebas: cuantizaciones, tamaños de batch, ventanas de contexto, trampas del sistema operativo y conclusiones que resultaron ser falsas.
 
