@@ -7,10 +7,13 @@
 | Qwen3-8B | 8B | 8B | denso | 4,7 GB | 1.286,8 | **45,4** |
 | Qwen3.8-27B | 27B | 27B | denso | ~16 GB | 365,1 | **13,1** |
 | Qwen3.8-Flash-Next | 177B | ~3B | MoE | 87 GB | 299,8 | **27,4** |
+| GLM-5.3-Flash | 250B | ~18B | MoE | 93 GB | 124,8 | **8,3** |
 
 ## Lo contraintuitivo
 
 El modelo de **177B genera al doble de velocidad** que el de 27B, aunque ocupe cinco veces más memoria.
+
+Y el de **250B genera a un tercio** que el de 177B, aunque ocupe prácticamente lo mismo (93 vs 87 GB). El tamaño en disco no predice nada.
 
 ## Por qué
 
@@ -18,8 +21,11 @@ En generación, cada token exige releer de memoria los pesos **activos**. Con me
 
 - El denso de 27B lee **27B de parámetros** por token.
 - El MoE de 177B enruta a unos pocos expertos y lee **~3B** por token.
+- El MoE de 250B enruta a bastantes más y lee **~18B** por token.
 
-Nueve veces menos tráfico. Que el modelo pese 87 GB solo significa que necesitas sitio para tenerlo cargado; no que cada token cueste 87 GB de lecturas.
+Nueve veces menos tráfico en el segundo caso. Que el modelo pese 87 GB solo significa que necesitas sitio para tenerlo cargado; no que cada token cueste 87 GB de lecturas.
+
+La proporción se sostiene bien en la práctica: 3B activos → 27,4 t/s; 18B activos → 8,3 t/s. Seis veces más parámetros activos, algo más de tres veces más lento (el resto lo amortigua que parte del modelo es común a todos los expertos).
 
 En **prefill** la relación se invierte parcialmente: ahí se procesan muchos tokens a la vez, hay trabajo suficiente para saturar el cómputo y el denso pequeño arrasa (1.286 t/s del 8B).
 
@@ -30,6 +36,12 @@ En **prefill** la relación se invierte parcialmente: ahí se procesan muchos to
 3. **Para velocidad pura: denso pequeño** (≤8B), que corre a 45+ t/s.
 4. **Mira los parámetros activos, no el tamaño del fichero.** Es el único número que predice los t/s de generación.
 
-## Corolario sobre cuantización
+## Corolario sobre cuantización (ya medido)
 
-Con 124 GB útiles caben modelos enormes a cuantización agresiva. Pero un MoE gigante a ~1 bit puede rendir **peor en calidad** que uno mediano a 4 bits, y no siempre compensa. La comparación pendiente en este repo es justamente esa: modelo enorme muy cuantizado vs modelo con expertos podados y cuantización decente.
+La sospecha inicial era que un MoE gigante a ~1 bit rendiría **peor en calidad** que uno mediano a 4 bits. **Resultó ser falsa en la parte de calidad y cierta en la de velocidad.**
+
+GLM-5.3-Flash a `UD-IQ1_S` (≈1 bit por peso) acertó las 5 pruebas de coherencia: aritmética, seguimiento de instrucciones, razonamiento temporal, código y redacción en español. No se degradó de forma apreciable. Lo que lo descarta para uso diario **no es la cuantización, son sus 18B activos**.
+
+👉 Detalle completo en [`glm53-flash.md`](glm53-flash.md).
+
+**Siguiente comparación pendiente:** la variante `REAP50-IQ4_XS` (88 GB) — mismo modelo con el 50% de expertos podados y cuantización IQ4. Si podar expertos reduce los parámetros activos, debería ser a la vez más rápido *y* más preciso que el IQ1_S. Sería la prueba limpia de que en esta máquina conviene optimizar activos, no bits.

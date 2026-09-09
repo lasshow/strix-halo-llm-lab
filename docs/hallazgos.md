@@ -4,6 +4,35 @@ Orden cronológico inverso. Incluye las conclusiones que resultaron ser **falsas
 
 ---
 
+## H-008 · Con modelos razonadores, un `max_tokens` corto parece una alucinación
+**Estado:** confirmado
+
+Probando GLM-5.3-Flash con `max_tokens` de 32–160, el campo `content` volvía **vacío** en 4 de 5 pruebas. Parecía que el modelo no sabía responder. En realidad agotaba todo el presupuesto dentro del bloque de razonamiento (`reasoning_content`) y nunca llegaba a emitir la respuesta.
+
+Ese modelo gasta entre 200 y 2.800 caracteres razonando antes de contestar; para "explica en dos frases" consumió 705 tokens y 87 segundos.
+
+**Regla:** con modelos razonadores, dar `max_tokens` holgado (600–900 como mínimo) y **mirar siempre `reasoning_content` antes de concluir que el modelo falla**. Una respuesta vacía suele ser truncamiento, no incompetencia.
+
+---
+
+## H-007 · Lo que manda son los parámetros activos, no el tamaño del modelo
+**Estado:** confirmado · **extiende H-006**
+
+| Modelo | Totales | Activos | Tamaño | pp t/s | tg t/s |
+|---|---|---|---|---|---|
+| Qwen3.8-Flash-Next | 177B | ~3B | 87 GiB | 299,8 | **27,4** |
+| GLM-5.3-Flash IQ1_S | 250B | ~18B | 93 GB | 124,8 | **8,3** |
+
+Dos modelos que ocupan **lo mismo** en memoria y difieren **3,3×** en velocidad de generación. El de 250B es más grande en todo salvo en lo que importa aquí: activa seis veces más parámetros por token, y en una máquina limitada por ancho de banda eso se paga linealmente.
+
+H-006 decía "MoE grande > denso mediano". Este hallazgo lo precisa: **no es el tamaño, es cuántos parámetros hay que leer por token**. Un MoE con muchos expertos activos se comporta como un denso grande.
+
+**Corolario sobre cuantización:** el IQ1_S (≈1 bit por peso) **no rompió el modelo** — acertó las 5 pruebas de coherencia, incluidas aritmética, código y razonamiento temporal. La cuantización extrema resultó ser mucho menos problemática que los parámetros activos. Ver [`../benchmarks/glm53-flash.md`](../benchmarks/glm53-flash.md).
+
+**Salvedad honesta:** el soporte de esa arquitectura no está mergeado en `llama.cpp`, Vulkan desactiva sus operaciones fusionadas y se ignora una capa entera (`nextn`). Las cifras son un **suelo**, no la última palabra.
+
+---
+
 ## H-006 · El modelo denso mediano no tiene hueco en esta máquina
 **Estado:** confirmado
 

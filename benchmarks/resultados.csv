@@ -7,3 +7,5 @@ fecha,modelo,params_totales,params_activos,arquitectura,cuantizacion,tamano_gb,b
 2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,1024,1024,262144,32951,287.40,25.31,medido contra llama-server 3 pasadas
 2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,2048,2048,262144,32951,296.70,27.25,medido contra llama-server 3 pasadas
 2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,4096,262144,32951,299.80,27.35,ADOPTADO - configuracion de produccion
+2026-09-09,GLM-5.3-Flash,250B,18B,MoE,UD-IQ1_S,93.1,vulkan,512,512,8192,63,20.60,8.25,primera carga - soporte glm5next sin mergear
+2026-09-09,GLM-5.3-Flash,250B,18B,MoE,UD-IQ1_S,93.1,vulkan,512,512,8192,2098,124.80,8.14,prompt largo - ops fusionadas desactivadas en Vulkan

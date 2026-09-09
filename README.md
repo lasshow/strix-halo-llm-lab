@@ -25,6 +25,8 @@ Un mini-PC de ~2.600 € con memoria unificada de 128 GB puede cargar modelos qu
 Este repositorio es el registro público de esas pruebas: cuantizaciones, tamaños de batch, ventanas de contexto, trampas del sistema operativo y conclusiones que resultaron ser falsas.
 
 > **Hallazgo que resume el proyecto:** un MoE de **177B** parámetros genera al **doble de velocidad** que un modelo denso de **27B** en esta máquina. El cuello de botella no es el cómputo, es el ancho de banda de memoria — y eso lo cambia todo a la hora de elegir modelo.
+>
+> **Corolario, medido después:** ese mismo límite castiga a los MoE con *muchos* expertos activos. Un modelo de 250B que activa 18B por token cae a 8,3 t/s — 3,3× más lento que el de 177B que activa 3B. **Lo que importa no es el tamaño del modelo, son los parámetros activos.**
 
 ---
 
@@ -37,30 +39,34 @@ Medido con `llama.cpp` sobre Vulkan/RADV. `pp` = prefill (leer el prompt), `tg` 
 | **Qwen3.8-Flash-Next** | 177B MoE (~3B) | UD-IQ4_XS | 87 GiB | **299,8** | **27,4** | ⭐ En producción |
 | Qwen3.8-27B | 27B denso | Q4 | ~16 GiB | 365,1 | 13,1 | ❌ Inútil aquí |
 | Qwen3-8B | 8B denso | Q4_K_M | 4,7 GiB | 1.286,8 | 45,4 | ✅ Referencia rápida |
-| GLM-5.3-Flash | ~250B MoE (~18B) | UD-IQ1_S | 93 GB | ⏳ | ⏳ | 🚧 En pruebas |
+| GLM-5.3-Flash | 250B MoE (~18B) | UD-IQ1_S | 93 GB | 124,8 | 8,3 | ⚠️ Correcto pero 3,3× lento |
 
 📄 **Detalle completo, metodología y datos crudos:** [`benchmarks/`](benchmarks/) · [`benchmarks/resultados.csv`](benchmarks/resultados.csv)
 
 ---
 
-## 🧠 Los cinco hallazgos que más ahorran tiempo
+## 🧠 Los seis hallazgos que más ahorran tiempo
 
 ### 1. El modelo denso mediano no tiene sitio en esta máquina
 27B denso a 13 t/s vs 177B MoE a 27 t/s. Con memoria unificada lenta comparada con VRAM (~256 GB/s frente a ~1 TB/s de una GPU dedicada), lo que manda es **cuántos bytes de pesos hay que leer por token**. Un MoE que activa 3B lee muchísimo menos que un denso que activa 27B, aunque pese cinco veces más en disco. **Regla práctica: en Strix Halo, MoE grande > denso mediano.**
 
-### 2. `llama-bench` con *otro* modelo te miente
+### 2. …pero un MoE con muchos expertos activos vuelve a ser lento
+El corolario del punto anterior, comprobado a la mala: un MoE de **250B que activa ~18B** por token rinde **8,3 t/s**, frente a los **27,4 t/s** del MoE de 177B que activa ~3B. Pesa lo mismo en memoria (93 vs 87 GB) y da respuestas correctas, pero va **3,3× más despacio**. La cifra que predice el rendimiento es **parámetros activos**, no parámetros totales ni gigabytes en disco.
+👉 [`benchmarks/glm53-flash.md`](benchmarks/glm53-flash.md)
+
+### 3. `llama-bench` con *otro* modelo te miente
 El barrido de `ubatch` hecho con un modelo pequeño daba una curva **descendente** y recomendaba `ub 1024`. Midiendo contra `llama-server` con el modelo real y un prompt real de 33k tokens, la curva es **ascendente** y el ganador es `ub 4096`. Son conclusiones opuestas.
 👉 [`docs/metodologia.md`](docs/metodologia.md) — cómo medir sin engañarse.
 
-### 3. El carveout de VRAM en BIOS es irrelevante (con Vulkan)
+### 4. El carveout de VRAM en BIOS es irrelevante (con Vulkan)
 Subir el *UMA Frame Buffer* de la BIOS no aporta **nada**: RADV suma VRAM + GTT en un único pool. Medido con el mismo modelo antes y después: pp 1.286,8 vs 1.279,2 · tg 45,4 vs 45,3 — ruido. **Deja el carveout al mínimo** y regula la memoria por parámetros del kernel.
 👉 [`docs/bios-y-memoria.md`](docs/bios-y-memoria.md)
 
-### 4. SELinux tira abajo el servicio y no te dice por qué
+### 5. SELinux tira abajo el servicio y no te dice por qué
 Un binario compilado fuera de `/usr` arranca a mano pero falla como servicio systemd con `203/EXEC: Permission denied`. No es un permiso de fichero, es la etiqueta de SELinux.
 👉 [`docs/servicio-systemd.md`](docs/servicio-systemd.md) — el `semanage fcontext` que lo arregla.
 
-### 5. Un contexto de 256k no cuesta 256k de KV cache
+### 6. Un contexto de 256k no cuesta 256k de KV cache
 El modelo en producción declara ventana nativa de **262.144 tokens** y la sirve entera **por slot**, con dos slots simultáneos. Es viable porque de sus 48 capas solo 12 son de atención; el resto son capas lineales de estado fijo. La caché KV apenas crece con el contexto.
 👉 [`docs/ventana-de-contexto.md`](docs/ventana-de-contexto.md)
 
@@ -111,7 +117,8 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
 ├── benchmarks/
 │   ├── resultados.csv           Datos crudos, una fila por medición
 │   ├── qwen38-flash-next.md     Barrido completo de ubatch
-│   └── comparativa-modelos.md   MoE vs denso
+│   ├── glm53-flash.md           250B a 1 bit: cabe, acierta, pero va lento
+│   └── comparativa-modelos.md   MoE vs denso, y activos vs totales
 └── scripts/
     ├── bench-ubatch.py          Mide pp/tg contra llama-server con prompt real
     └── smoke-test.sh            Comprobación rápida de carga y coherencia
@@ -121,9 +128,10 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
 
 ## 🚧 En curso
 
-- [ ] **GLM-5.3-Flash UD-IQ1_S (93 GB)** — descargado, compilado el soporte (`glm5next`, aún sin mergear en upstream). Pendiente: primera carga y medición.
+- [x] **GLM-5.3-Flash UD-IQ1_S (93 GB)** — cargado y medido: coherente a ~1 bit/peso, pero 8,3 t/s. No sustituye al modelo en producción. → [`benchmarks/glm53-flash.md`](benchmarks/glm53-flash.md)
+- [ ] Probar la variante **REAP50-IQ4_XS (88 GB)**: mismo modelo con el 50% de expertos podados y cuantización decente. Hipótesis: menos expertos activos ⇒ más rápido, y mejor precisión por peso.
 - [ ] Verificar estabilidad a contexto largo (>90k) con `ubatch` alto.
-- [ ] Plan B de calidad: variante con expertos podados y cuantización menos agresiva.
+- [ ] Repetir GLM cuando el soporte `glm5next` entre en upstream y Vulkan implemente las operaciones fusionadas que hoy se desactivan.
 
 ---
 
