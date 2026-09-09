@@ -139,12 +139,14 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
 │   ├── bios-y-memoria.md        UMA carveout, GTT, el experimento que salió en nada
 │   ├── servicio-systemd.md      Servir el modelo 24/7 (+ la trampa de SELinux)
 │   ├── metodologia.md           Cómo medimos y por qué así
-│   ├── ventana-de-contexto.md   256k servidos, 33k verificados
+│   ├── ventana-de-contexto.md   256k servidos, 98k verificados con aguja
 │   ├── carga-diferida-y-oom.md  La flag que duplicó el prefill y el OOM que mató la máquina
-│   └── hallazgos.md             Bitácora de conclusiones (incluidas las erróneas)
+│   ├── hallazgos.md             Bitácora de conclusiones (incluidas las erróneas)
+│   └── plan-de-pruebas.md       Hoja de ruta: texto → imagen → vídeo
 ├── benchmarks/
 │   ├── resultados.csv           Datos crudos, una fila por medición
 │   ├── qwen38-flash-next.md     Barrido completo de ubatch
+│   ├── plan-de-pruebas.md       Hoja de ruta del laboratorio
 │   ├── glm53-flash.md           313B a 1 bit: cabe, acierta, pero va lento
 │   └── comparativa-modelos.md   MoE vs denso, y activos vs totales
 └── scripts/
@@ -154,6 +156,11 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
 ```
 
 ---
+
+## 🗺️ Plan de pruebas
+
+La hoja de ruta completa (fases: texto → imagen → vídeo, con criterios de decisión) vive en
+[`docs/plan-de-pruebas.md`](docs/plan-de-pruebas.md).
 
 ## 🚧 En curso
 

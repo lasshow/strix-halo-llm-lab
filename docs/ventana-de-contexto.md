@@ -1,11 +1,14 @@
-# Ventana de contexto: 256k servidos, 33k verificados
+# Ventana de contexto: 256k servidos, 98k verificados
 
 > **Aviso de honestidad.** El servidor **arranca y reserva** la ventana completa de
 > 262.144 tokens, y eso está comprobado (`n_ctx_slot = 262144` en el log). Lo que **no**
-> está comprobado es el comportamiento *usando* esa ventana: el prompt más largo que he
-> medido de verdad es de **~33.000 tokens**. Entre 33k y 256k no tengo datos, y encima hay
-> un cuelgue observado alrededor de 90k (ver más abajo). Trata la cifra de 256k como
-> **capacidad reservada**, no como capacidad validada.
+> está comprobado es el comportamiento *usando* esa ventana entera: el prompt más largo
+> **medido y con recuperación de aguja verificada** es de **98.201 tokens** (barrido
+> completo en [`hallazgos.md`](hallazgos.md) H-012: 6 puntos, aguja 6/6, generación −50%
+> por el KV cache). El cuelgue que se observó alrededor de 90k era de `ubatch 4096` con
+> carga diferida, hoy irrelevante (producción usa 2048 y el barrido pasó por ahí sin
+> incidencias). Entre 98k y 256k sigue sin haber datos: trata ese tramo como
+> **capacidad reservada**, no validada.
 
 ## Lo que está servido
 
