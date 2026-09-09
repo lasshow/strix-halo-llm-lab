@@ -1,0 +1,7 @@
+*.gguf
+*.log
+__pycache__/
+.venv/
+*.env
+*.key
+.secrets/
