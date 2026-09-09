@@ -4,6 +4,45 @@ Orden cronológico inverso. Incluye las conclusiones que resultaron ser **falsas
 
 ---
 
+## H-011 · Con la carga diferida desactivada, `ubatch 4096` ya no arranca
+**Estado:** confirmado · barrido sobre `llama-server`, 2 pasadas medidas por punto + 1 descartada
+
+Rehecho el barrido de `ubatch` con `--lazy-mode off` (H-009), porque el publicado se midió
+con la carga diferida activa y el óptimo podía haberse movido. Se movió.
+
+**Prompt real de 24.782 tokens, servicio reiniciado entre puntos:**
+
+| ubatch | pp (t/s) | tg (t/s) | vs 512 |
+|---:|---:|---:|---:|
+| 512 | 307,9 | 22,16 | — |
+| 1.024 | 335,7 | 22,16 | +9,0% |
+| **2.048** | **345,0** | **22,24** | **+12,0%** |
+| 4.096 | **no arranca** | — | OOM al cargar |
+
+`ubatch 4096` es directamente **inviable**: el servidor muere por OOM durante la carga y
+systemd entra en bucle de reintentos (llegó a 20). Antes sí arrancaba porque con la carga
+diferida los pesos eran reclamables; sin ella, los buffers de un ubatch de 4096 ya no caben.
+
+**Esto cierra la corrección de H-006.** Publiqué `ubatch 4096` como configuración
+recomendada. No solo la ventaja era de ~1%: en la configuración actual **ni siquiera
+arranca**. La recomendación correcta es **2048**, y el margen sobre 1024 es de solo 2,8%.
+
+**Ganancia de `lazy off` a igual `ubatch`** (comparando con el barrido anterior, mismo
+script y mismo prompt): +18,6% / +16,8% / +16,3% para 512 / 1024 / 2048. Consistente, y
+más modesta que el +92% que midió `llama-bench` — otra razón para medir contra el servidor
+real y no contra el banco sintético.
+
+**Efecto colateral valioso:** este OOM ocurrió con `OOMScoreAdjust=+500` ya aplicado
+(H-010) y la máquina **siguió accesible por SSH** todo el tiempo. El mismo fallo que ayer
+costó un reinicio físico hoy solo costó un servicio caído. El arreglo está validado en un
+incidente real, no en teoría.
+
+**Nota sobre `tg`:** 22,2 t/s aquí frente a 27,4 t/s en las medidas cortas. No es una
+regresión: generar tras un prefill de 24k tokens obliga a recorrer un KV cache mucho mayor
+en cada token. Comparar solo cifras de `tg` tomadas a la misma longitud de contexto.
+
+---
+
 ## H-010 · `OOMScoreAdjust` negativo convierte un OOM en una caída total
 **Estado:** confirmado · **coste:** un reinicio físico
 

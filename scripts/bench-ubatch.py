@@ -38,12 +38,22 @@ def wait_ready(url, key, timeout=600):
             time.sleep(5)
     return False
 
+# Tokens por palabra, MEDIDO en este tokenizador con este texto castellano
+# (no estimado): pidiendo 33.000 con el factor teorico 0.75 salieron 58.742
+# tokens reales, es decir ~1.78 tokens por palabra. El castellano se
+# fragmenta mucho mas que el ingles en tokenizadores entrenados en ingles.
+TOKENS_POR_PALABRA = 1.78
+
 def make_prompt(n_tokens):
-    """Texto sintetico de longitud aproximada. ~0.75 tokens por palabra."""
+    """Texto sintetico de longitud aproximada.
+
+    Usa un factor medido, no teorico. Verifica siempre 'prompt_n' en la
+    salida: si se desvia mas de un 10% del objetivo, recalibra el factor.
+    """
     words = ("El sistema de inferencia procesa secuencias extensas de texto "
              "para evaluar el rendimiento sostenido de la memoria unificada ")
     unit = len(words.split())
-    reps = int(n_tokens / (unit * 0.75)) + 1
+    reps = int(n_tokens / (unit * TOKENS_POR_PALABRA)) + 1
     return words * reps
 
 def set_ubatch(unit, ub):
@@ -57,7 +67,21 @@ def set_ubatch(unit, ub):
     with open(path, "w") as f:
         f.write(src)
     subprocess.run(["systemctl", "daemon-reload"], check=True)
-    subprocess.run(["systemctl", "restart", unit], check=True)
+    # 'restart' directo falla: llama-server no atiende SIGTERM mientras procesa
+    # un prefill largo, systemd agota TimeoutStopSec y aborta el proceso a media
+    # transicion ("State 'stop-sigterm' timed out. Aborting."). El cliente ve un
+    # RemoteDisconnected que parece un fallo de memoria y no lo es.
+    # Paramos y esperamos de verdad a que el proceso se haya ido.
+    subprocess.run(["systemctl", "stop", unit], check=False)
+    for _ in range(60):
+        r = subprocess.run(["systemctl", "is-active", "--quiet", unit])
+        if r.returncode != 0:
+            break
+        time.sleep(2)
+    else:
+        sys.exit(f"{unit} no se detuvo en 120 s; abortando el barrido")
+    time.sleep(3)          # margen para que se libere la memoria de la iGPU
+    subprocess.run(["systemctl", "start", unit], check=True)
 
 def measure(url, key, prompt, model):
     r = http_post(f"{url}/v1/chat/completions", key, {

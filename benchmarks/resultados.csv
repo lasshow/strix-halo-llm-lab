@@ -11,3 +11,11 @@ fecha,modelo,params_totales,params_activos,arquitectura,cuantizacion,tamano_gb,b
 2026-09-09,GLM-5.3-Flash,250B,18B,MoE,UD-IQ1_S,93.1,vulkan,512,512,8192,2098,124.80,8.14,9113cc1,auto,prompt largo - ops fusionadas desactivadas en Vulkan
 2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,2048,2048,,512,216.03,25.45,9113cc1,auto,llama-bench -r 3 - carga diferida ACTIVA (regresion #28160)
 2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,2048,2048,,512,415.38,27.68,9113cc1,off,llama-bench -r 3 - ADOPTADO: +92% prefill con -lzm off
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,512,512,262144,24782,307.9,22.16,9113cc1,off,llama-server 2 pasadas - barrido ubatch
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,1024,1024,262144,24782,335.7,22.16,9113cc1,off,llama-server 2 pasadas - barrido ubatch
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,2048,262144,24782,345.0,22.24,9113cc1,off,llama-server 2 pasadas - ADOPTADO en produccion
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,4096,262144,24782,,,9113cc1,off,NO ARRANCA - OOM al cargar con lazy off
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,1024,1024,,32768,336.21,27.12,9113cc1,off,llama-bench -r 2 - discrepa del servidor real (ver H-004/H-005)
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,2048,2048,,32768,319.46,27.11,9113cc1,off,llama-bench -r 2 - discrepa del servidor real
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,4096,4096,,32768,257.31,27.08,9113cc1,off,llama-bench -r 2 - discrepa del servidor real
+2026-09-09,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87,vulkan,512,512,,32768,315.67,27.25,9113cc1,off,llama-bench -r 2 - discrepa del servidor real

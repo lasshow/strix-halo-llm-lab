@@ -117,3 +117,24 @@ rendimiento sin el commit que lo produjo no es reproducible.
 
 Lección metodológica, hermana de la del `ubatch`: **una medición sin la versión exacta del
 software es una anécdota, no un dato.**
+
+---
+
+## Addendum: cuánto de ese +92% es real
+
+`llama-bench` midió +92% de prefill. Repitiendo el barrido contra `llama-server` con un
+prompt real de ~25k tokens, la ganancia a igual `ubatch` es:
+
+| ubatch | lazy auto | lazy off | ganancia |
+|---:|---:|---:|---:|
+| 512 | 259,6 | 307,9 | +18,6% |
+| 1.024 | 287,4 | 335,7 | +16,8% |
+| 2.048 | 296,7 | 345,0 | +16,3% |
+
+**+16-19%, no +92%.** La mejora es real y gratis, pero el banco sintético la triplica.
+Regla del laboratorio: `llama-bench` sirve para detectar que *hay* algo, `llama-server`
+para saber *cuánto*.
+
+Y hay una contrapartida que no aparece en ningún benchmark: al no ser reclamables los
+pesos, **`--ubatch 4096` dejó de arrancar** (OOM durante la carga). Ver
+[`hallazgos.md`](hallazgos.md) H-011.

@@ -36,10 +36,15 @@ Medido con `llama.cpp` sobre Vulkan/RADV. `pp` = prefill (leer el prompt), `tg` 
 
 | Modelo | Params (activos) | Cuant. | Tamaño | pp t/s | tg t/s | Veredicto |
 |---|---|---|---|---|---|---|
-| **Qwen3.8-Flash-Next** | 177B MoE (~3B) | UD-IQ4_XS | 87 GiB | **415,4** | **27,7** | ⭐ En producción (`--lazy-mode off`) |
+| **Qwen3.8-Flash-Next** | 177B MoE (~3B) | UD-IQ4_XS | 87 GiB | **345,0** ‡ | **22,2** ‡ | ⭐ En producción (`--lazy-mode off`, `ub 2048`) |
 | Qwen3.8-27B | 27B denso | Q4 | ~16 GiB | 365,1 | 13,1 | ❌ Inútil aquí |
 | Qwen3-8B | 8B denso | Q4_K_M | 4,7 GiB | 1.286,8 | 45,4 | ✅ Referencia rápida |
 | GLM-5.3-Flash | 313B MoE (~18B) | UD-IQ1_S | 93 GB | 124,8 | 8,3 | ⚠️ Correcto pero 3,3× lento |
+
+‡ Medido contra `llama-server` con un prompt real de **24.782 tokens**, que es el caso de
+uso de esta máquina. Las demás filas son de `llama-bench` con prompts cortos (512), donde
+el KV cache apenas pesa: por eso su `tg` sale más alto. **No compares `tg` entre filas de
+longitud distinta.** El mismo modelo da 27,7 t/s medido a 512 tokens.
 
 📄 **Detalle completo, metodología y datos crudos:** [`benchmarks/`](benchmarks/) · [`benchmarks/resultados.csv`](benchmarks/resultados.csv)
 
@@ -47,13 +52,16 @@ Medido con `llama.cpp` sobre Vulkan/RADV. `pp` = prefill (leer el prompt), `tg` 
 
 ## 🧠 Los siete hallazgos que más ahorran tiempo
 
-### 0. Una sola flag daba +92% de prefill (y no lo sabía)
+### 0. Una sola flag daba +92% de prefill en el banco — +16% en el servidor real
 `llama.cpp` trae la *carga diferida* de tensores en `auto` por defecto, y en iGPU sale
-carísima: **216 → 415 t/s de prefill** con solo añadir `--lazy-mode off`. El fix que lo
-desactiva solo entró diez horas después del commit con el que estaba compilado el binario
-de producción. Cómo detectarlo sin leer changelogs: compara tu rendimiento con el techo
-de ancho de banda — los densos rendían al 78–87% de su techo, el MoE al **19%**.
-Esa asimetría es la señal.
+carísima. `llama-bench` mide **216 → 415 t/s** (+92%) con solo añadir `--lazy-mode off`;
+contra el servidor real, con un prompt de 24k, la ganancia es de **+16%** — real y gratis,
+pero un tercio de lo que promete el banco sintético. El fix que lo desactiva entró diez
+horas después del commit con el que estaba compilado el binario de producción.
+
+Cómo detectarlo sin leer changelogs: compara tu rendimiento con el techo de ancho de banda
+— los densos rendían al 78–87% de su techo, el MoE al **19%**. Esa asimetría es la señal.
+Y **cuidado**: desactivarla hace los pesos no reclamables, lo que tumbó `ubatch 4096`.
 👉 [`docs/carga-diferida-y-oom.md`](docs/carga-diferida-y-oom.md)
 
 ### 1. El modelo denso mediano no tiene sitio en esta máquina
@@ -67,10 +75,11 @@ El corolario del punto anterior, comprobado a la mala: un MoE de **313B que acti
 El barrido de `ubatch` hecho con un modelo pequeño daba una curva **descendente** y recomendaba `ub 1024`. Midiendo contra `llama-server` con el modelo real y un prompt real de 33k tokens, la curva
 es **ascendente**. Son conclusiones opuestas.
 
-**Corrección posterior:** publiqué `ub 4096` como recomendación, pero la diferencia real
-entre 2048 y 4096 es de **~1%**, y 4096 agrava el consumo de memoria y se acerca a un
-cuelgue conocido en torno a 90k tokens. La configuración de producción usa **2048**. Ganar
-un 1% no justifica acercarse a una zona inestable.
+**Corrección posterior, ya cerrada con medidas:** publiqué `ub 4096` como recomendación y
+era un error doble. Rehecho el barrido con `--lazy-mode off`, el óptimo es **2048** (345,0
+t/s) y **`ubatch 4096` ni siquiera arranca**: muere por OOM al cargar el modelo y systemd
+entra en bucle de reintentos. El salto de 1024 a 2048 son solo **+2,8%**.
+👉 [`docs/hallazgos.md`](docs/hallazgos.md) H-011
 👉 [`docs/metodologia.md`](docs/metodologia.md) — cómo medir sin engañarse.
 
 ### 4. El carveout de VRAM en BIOS es irrelevante (con Vulkan)

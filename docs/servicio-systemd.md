@@ -49,8 +49,8 @@ WantedBy=multi-user.target
 | `-np 2` | Dos slots concurrentes. |
 | `-kvu` | KV unificada: los slots comparten el pool en vez de partirlo. |
 | `-fa on` | Flash attention. |
-| `--batch 4096 / --ubatch 2048` | **Medido**, no copiado. Ver [`metodologia.md`](metodologia.md). El barrido dio un +1% marginal de 2048 a 4096, y 4096 agrava el consumo de memoria: 2048 es la eleccion prudente. |
-| `--lazy-mode off` | **+92% de prefill** en iGPU. Ver [`carga-diferida-y-oom.md`](carga-diferida-y-oom.md). |
+| `--batch 4096 / --ubatch 2048` | **Medido**, no copiado. Ver [`metodologia.md`](metodologia.md). Con `--lazy-mode off`, `--ubatch 4096` **no arranca**: OOM al cargar y bucle de reintentos de systemd. El optimo es 2048 (345,0 t/s); 1024 cuesta solo un 2,8% si necesitas margen. |
+| `--lazy-mode off` | **+16% de prefill** contra el servidor real (el banco `llama-bench` dice +92%, exagera). Contrapartida: los pesos dejan de ser reclamables, lo que hace inviable `--ubatch 4096`. Ver [`carga-diferida-y-oom.md`](carga-diferida-y-oom.md). |
 | `OOMScoreAdjust=500` | Que muera el modelo, nunca la maquina. Ver abajo. |
 | `--api-key` | Vía `EnvironmentFile`, nunca escrita en la unidad. |
 | `--metrics` | Expone `/metrics` para Prometheus. |
