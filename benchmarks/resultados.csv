@@ -40,3 +40,5 @@ fecha,modelo,params_totales,params_activos,arquitectura,cuantizacion,tamano_gb,b
 2026-09-10,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87.2,Vulkan RADV,4096,4096,262144,124196,144.37,11.68,311d421,auto,aguja depth=0.1 recuperada (AZUL-4417-KAPINET); servidor -np 2 = 131k por slot
 2026-09-10,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87.2,Vulkan RADV,4096,4096,262144,124196,147.72,11.61,311d421,auto,aguja depth=0.5 recuperada
 2026-09-10,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87.2,Vulkan RADV,4096,4096,262144,124154,147.40,11.62,311d421,auto,aguja depth=0.9 recuperada
+2026-09-10,GLM-5.3-Flash-REAP50,165B,~9B,MoE mHC (podado 50% expertos),IQ4_XS,82.0,CPU (-ngl 0 --no-repack),2048,512,8192,2273,63.22,6.32,glm5 2a4a412,n/a,build parcheado glm5-next-reap50-gguf-v1; requiere -fit off
+2026-09-10,GLM-5.3-Flash-REAP50,165B,~9B,MoE mHC (podado 50% expertos),IQ4_XS,82.0,Vulkan RADV (-ngl 99),2048,512,8192,2273,148.14,12.55,glm5 2a4a412,n/a,iGPU 2.3x pp y 2x tg frente a CPU; 83.6 GB en Vulkan0

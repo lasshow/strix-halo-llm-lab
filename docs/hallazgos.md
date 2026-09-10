@@ -444,3 +444,50 @@ efectivos por slot**). Se abortó y se reescribió calibrando contra el endpoint
 `/tokenize` del propio servidor: **47,91 tokens por bloque**. Regla para el
 laboratorio: el tamaño de un prompt sintético se **mide con el tokenizador del
 modelo**, nunca se estima.
+
+
+## H-018 — GLM-5.3-Flash-REAP50 arranca en Strix Halo, pero no compensa (2026-09-10)
+
+**Qué se probó.** El GGUF `patrickbdevaney/GLM-5.3-Flash-REAP50-GGUF` IQ4_XS (82 GiB, 321B podado al 50% de
+expertos → ~165B) sobre el M5. El modelo usa hiperconexiones mHC y no lo carga ningún `llama.cpp` de upstream:
+hace falta un build parcheado. Se compiló aparte, en `/models/llama.cpp-glm5`, desde la rama
+`glm5-next-reap50-gguf-v1` (`2a4a412`), sin tocar el build productivo `/models/llama.cpp` (`311d421`).
+
+**Trampas encontradas.**
+
+1. `llama-server` **aborta al arrancar** con `GGML_ASSERT(obj_new) failed` en `ggml_reshape_2d`, dentro de
+   `llama_params_fit` (el auto-ajuste de memoria de las builds nuevas). Se resuelve con **`-fit off`**.
+   Sin esa bandera el modelo no llega ni a cargarse, con GPU o sin ella.
+2. Los dos `--override-kv` de stop tokens que pide el README **deben ir separados por coma en un solo
+   argumento**: repetir la bandera hace que llama.cpp descarte el primero (`DEPRECATED: argument
+   '--override-kv' specified multiple times ... only last value will be used`).
+3. Con el servicio de producción levantado (73 GB) no cabe: 82 + 73 > 124 GB y la máquina pagina desde disco
+   hasta hacer inservible la prueba. Hay que **parar `llama-flashnext` antes** de medir.
+4. `llama-cli -no-cnv` ya no existe en esta base: `--no-conversation is not supported by llama-cli, please
+   use llama-completion instead`.
+
+**Medidas propias** (prompt real de 2 273 tokens en castellano, `-c 8192 -np 1 -fa on --threads 16`):
+
+| backend | pp (tok/s) | tg (tok/s) |
+|---|---|---|
+| CPU (`-ngl 0 --no-repack`, como recomienda el README del autor) | 63,22 | 6,32 |
+| **Vulkan RADV (`-ngl 99`)** | **148,14** | **12,55** |
+
+**Corrección al README del modelo:** la recomendación de `-ngl 0 --no-repack` para memoria unificada **no
+aplica aquí**. En este equipo descargar todo a la iGPU no da OOM (Vulkan0 reporta 127 834 MiB libres y toma
+83 639 MiB de tensores) y va **2,3× más rápido en prefill y 2× en generación**. El consejo del autor
+probablemente venga de máquinas con carveout pequeño.
+
+**Calidad.** Aritmética correcta (17×23 → 391, con razonamiento visible) y código Python válido. Pero:
+*el modelo está roto para castellano y euskera*. Responde en inglés a preguntas en español, y cuando se le
+fuerza el idioma produce mezclas — «El text is a repeated notice...», «raise ValueError("La list cannot be
+empty")» — o directamente **devuelve contenido vacío** (2 de 3 prompts en castellano/euskera acabaron en
+respuesta vacía gastando el presupuesto en razonamiento). Encaja con el coste del pruning que publica el
+propio autor: los dominios no anglosajones y de «ballast» son los que más se degradan (agreement 0,580 en
+ballast frente a 0,919 en código).
+
+**Veredicto.** No entra en producción. Frente al Qwen3.8-Flash-Next que ya sirve el M5 (pp 404 / tg 27,4 a
+contexto corto) es **2,7× más lento en prefill y 2,2× en generación**, ocupa lo mismo, exige un build propio
+fuera de upstream y falla en el idioma de trabajo. Queda como curiosidad: es la primera vez que este
+laboratorio corre una arquitectura con hiperconexiones mHC, y el build parcheado se conserva en
+`/models/llama.cpp-glm5` por si la rama entra algún día en upstream.
