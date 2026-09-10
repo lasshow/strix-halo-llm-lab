@@ -327,3 +327,32 @@ a contextos extremos los dispatches cortos también rinden más.
 **Curva completa del 80B (7 puntos, 8/8 agujas):** generación 45→21 t/s de 4k a
 168k; a 168k tokens este MoE de 80B sigue generando un 60% más rápido que el
 Flash-Next a 98k (13,0 t/s).
+
+## H-015 — Actualizar llama.cpp casi duplica la generación del 80B (2026-09-10)
+
+Build `9113cc1` (8-sep) → `72797e8` (10-sep, 22 commits). Dos cambios relevantes
+para este hardware: shader mat-vec **dedicado a IQ4_XS** en Vulkan (`df750f7`) y
+lazy-loading desactivado por defecto en iGPUs (`f3f1a8f`, #28326).
+
+`llama-bench` pp512/tg128, mismos parámetros que la build vieja:
+
+| Modelo | pp512 (vieja→nueva) | tg128 (vieja→nueva) |
+|---|---|---|
+| Qwen3-Next-80B IQ4_XS | 738 ≈ 780 | **33,5 → 62,6 (+87%)** |
+| Flash-Next UD-IQ4_XS | **225 → 416 (+85%)** | 25,4 → 27,3 (+8%) |
+| Qwen3-8B Q4_K_M (control) | 1287 → 1273 | 45,4 → 43,7 |
+
+- El control Q4_K_M no se mueve → la mejora es del shader IQ4_XS, no genérica.
+- El +85% de prefill del Flash-Next confirma H-011/#28326: nuestra build de
+  producción cargaba con lazy-loading activo.
+- El 80B ahora genera **62,6 t/s** en corto: 2,3x el Flash-Next nuevo y más que
+  el 8B denso de la build vieja. Un MoE de 80B generando más rápido que un denso
+  de 8B de hace dos días.
+
+**Lección operativa:** en este ecosistema, *no actualizar* llama.cpp durante una
+semana puede costar 2x de rendimiento. Re-medir tras cada actualización pasa a
+ser parte del protocolo (columna `commit` del CSV ya lo soporta).
+
+**Pendiente derivado:** re-barrer contexto largo del 80B con la build nueva
+(los 226 pp / 25 tg a 131k de H-014 son de la build vieja) y re-decidir la
+promoción con la batería de calidad A8.

@@ -34,3 +34,6 @@ fecha,modelo,params_totales,params_activos,arquitectura,cuantizacion,tamano_gb,b
 2026-09-10,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,2048,262144,131122,226.3,25.02,9113cc1,off,np=1 slot completo; aguja OK; con np=2 el slot se queda en 131k y da 400
 2026-09-10,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,2048,262144,168562,,,9113cc1,off,CRASH GPU con ub=2048: ring comp_1.2.0 timeout + vk::ErrorDeviceLost; kernel reseteo el ring solo
 2026-09-10,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,512,262144,168562,314.9,20.94,9113cc1,off,ub=512 evita el watchdog; aguja OK; 0 timeouts nuevos
+2026-09-10,Qwen3-8B,8B,8B,denso,Q4_K_M,4.68,Vulkan RADV,512,512,4096,512,1273.2,43.74,72797e8,off,llama-bench pp512/tg128 build nueva
+2026-09-10,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,512,512,4096,512,738.4,62.58,72797e8,off,llama-bench; shader IQ4_XS df750f7: tg +87% vs 9113cc1
+2026-09-10,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87.2,Vulkan RADV,512,512,4096,512,416.2,27.33,72797e8,off,llama-bench; pp +85% (lazy fix) tg +8%
