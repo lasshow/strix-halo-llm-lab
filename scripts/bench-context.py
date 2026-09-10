@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from validacion import (ErrorInfraestructura, FalloContrato,  # noqa: E402
-                        cuerpo_json, generacion_medida)
+                        cuerpo_json, generacion_medida, recuperacion_aguja)
 
 # Medido en este tokenizador con este texto castellano, no estimado.
 # Verifica siempre prompt_n en la salida y recalibra si se desvia >10%.
@@ -71,7 +71,7 @@ def make_needle_prompt(n_tokens, clave):
 
 
 def measure(url, key, prompt, model, max_tokens=64, pregunta=None, jsonl=None,
-            objetivo=None, warmup=False):
+            objetivo=None, warmup=False, fase=None, clave=None):
     """Una medida validada.
 
     H-024: antes se hacia `r.get("timings") or ...` con defaults, asi que una
@@ -80,28 +80,61 @@ def measure(url, key, prompt, model, max_tokens=64, pregunta=None, jsonl=None,
     validacion.generacion_medida, que distingue infraestructura de contrato.
     Se manda enable_thinking:false porque en Flash-Next el razonamiento se come
     el presupuesto y devuelve content vacio (H-019).
+
+    `fase` etiqueta el registro ("calentamiento", "medida", "needle") para que
+    al recalcular desde el JSONL una peticion de recuperacion no se cuele entre
+    las muestras de rendimiento: antes compartian warmup=false y eran
+    indistinguibles. Con `clave`, el contrato aplicado es el de recuperacion
+    (respuesta comprobable), no el de generacion medida.
+
+    TODO intento se registra, incluidos los fallidos: el registro del intento
+    de aguja se perdia cuando reventaba, y el JSONL quedaba con solo las dos
+    peticiones anteriores, correctas.
     """
     msgs = [{"role": "user", "content": prompt}]
     msgs.append({"role": "user",
                  "content": pregunta or "Responde solo con la palabra: OK"})
-    t0 = time.time()
-    try:
-        bruto = http_post(f"{url}/v1/chat/completions", key, {
-            "model": model, "messages": msgs,
-            "max_tokens": max_tokens, "temperature": 0, "cache_prompt": False,
-            "chat_template_kwargs": {"enable_thinking": False},
-        })
-    except urllib.error.HTTPError as e:
-        raise ErrorInfraestructura(f"HTTP {e.code}: {e.read()[:200]!r}") from e
-    except urllib.error.URLError as e:
-        raise ErrorInfraestructura(f"sin respuesta: {e.reason}") from e
-    m = generacion_medida(cuerpo_json(bruto), max_tokens)
-    m["wall"] = time.time() - t0
-    if jsonl is not None:
-        jsonl.write(json.dumps(dict(m, objetivo=objetivo, warmup=warmup,
+    if fase is None:
+        fase = "calentamiento" if warmup else "medida"
+
+    def anota(extra):
+        if jsonl is None:
+            return
+        jsonl.write(json.dumps(dict(extra, objetivo=objetivo, warmup=warmup,
+                                    fase=fase, clave_esperada=clave,
                                     ts=datetime.now(timezone.utc).isoformat()),
                                ensure_ascii=False) + "\n")
         jsonl.flush()
+
+    t0 = time.time()
+    try:
+        try:
+            bruto = http_post(f"{url}/v1/chat/completions", key, {
+                "model": model, "messages": msgs,
+                "max_tokens": max_tokens, "temperature": 0, "cache_prompt": False,
+                "chat_template_kwargs": {"enable_thinking": False},
+            })
+        except urllib.error.HTTPError as e:
+            raise ErrorInfraestructura(f"HTTP {e.code}: {e.read()[:200]!r}") from e
+        except urllib.error.URLError as e:
+            raise ErrorInfraestructura(f"sin respuesta: {e.reason}") from e
+        d = cuerpo_json(bruto)
+        if clave is not None:
+            m = dict(recuperacion_aguja(d, clave))
+            m["veredicto"] = "OK"
+            try:
+                m.update({k: v for k, v in generacion_medida(d, max_tokens).items()
+                          if k not in m})
+            except (ErrorInfraestructura, FalloContrato):
+                pass  # la aguja se juzga por la respuesta, no por sus timings
+        else:
+            m = generacion_medida(d, max_tokens)
+    except (ErrorInfraestructura, FalloContrato) as e:
+        anota({"fallo": f"{type(e).__name__}: {e}", "wall": time.time() - t0,
+               "veredicto": "FALLA" if isinstance(e, FalloContrato) else "NO EVALUABLE"})
+        raise
+    m["wall"] = time.time() - t0
+    anota(dict(m, fallo=None))
     return m
 
 
@@ -163,37 +196,43 @@ def main():
                     pps.append(m["pp"]); tgs.append(m["tg"]); walls.append(m["wall"])
 
             aguja = ""
+            aguja_fallo = None   # None = no se pidio; str = fallo o imposible
             if a.needle and not fallo:
                 clave = f"K{n // 1000}X7"
                 try:
+                    # La aguja NO pasa por el contrato de generacion medida: es
+                    # una tarea de resultado comprobable. Con el contrato de
+                    # microbenchmark, una respuesta truncada por presupuesto
+                    # pasaba por buena, que es justo el caso en que el modelo no
+                    # ha llegado a decir la clave.
                     mm = measure(a.url, key, make_needle_prompt(n, clave), a.model,
                                  max_tokens=512, jsonl=jsonl, objetivo=n,
+                                 fase="needle", clave=clave,
                                  pregunta=("Dime unicamente el codigo de autorizacion "
                                            "del reactor mencionado en el texto."))
-                    if not mm["texto"]:
-                        # respuesta vacia no es "no encontro la aguja": es que
-                        # no respondio. Se distingue a proposito.
-                        aguja = "SIN RESPUESTA"
-                    elif clave in mm["texto"].upper().replace(" ", ""):
-                        aguja = "OK"
-                    else:
-                        aguja = f"FALLA (dijo: {mm['texto'][:40]!r})"
-                except (ErrorInfraestructura, FalloContrato) as e:
+                    aguja = "OK"
+                except FalloContrato as e:
+                    aguja = f"FALLA ({str(e)[:60]})"
+                    aguja_fallo = f"aguja: {e}"
+                except ErrorInfraestructura as e:
                     aguja = f"ERROR {type(e).__name__}"
-                    infra += isinstance(e, ErrorInfraestructura)
+                    aguja_fallo = f"aguja no evaluable: {e}"
+                    infra += 1
                 print(f"    aguja {clave}: {aguja}", flush=True)
 
             if fallo or not pps:
-                rows.append((n, None, None, None, None, fallo or "sin medidas", aguja))
+                rows.append((n, None, None, None, None, fallo or "sin medidas",
+                             aguja, aguja_fallo))
             else:
                 # la latencia tambien se agrega: antes se guardaba la wall de la
                 # ULTIMA pasada junto a medianas de pp/tg, mezclando estadisticos
                 rows.append((n, real, statistics.median(pps),
-                             statistics.median(tgs), statistics.median(walls), "", aguja))
+                             statistics.median(tgs), statistics.median(walls), "",
+                             aguja, aguja_fallo))
 
     print("\n| objetivo | prompt_n | pp t/s | tg t/s | latencia (mediana) | aguja |")
     print("|---|---|---|---|---|---|")
-    for n, real, pp, tg, wall, fallo, aguja in rows:
+    for n, real, pp, tg, wall, fallo, aguja, _af in rows:
         if fallo:
             print(f"| {n} | - | FALLO | - | - | {fallo[:40]} |")
         else:
@@ -207,10 +246,23 @@ def main():
               f"({(u[3]/p[3]-1)*100:+.0f}%)")
     print(f"\nRegistro crudo: {os.path.abspath(ruta_jsonl)}")
 
+    # El veredicto de la aguja SI decide el codigo de salida. Antes se guardaba
+    # en una columna decorativa: con clave incorrecta o con 500 solo en la
+    # aguja, el script imprimia FALLA/ERROR y salia 0, asi que --needle no
+    # servia como prueba de que el contexto util este validado.
+    agujas_mal = [(r[0], r[7]) for r in rows if r[7]]
+    if agujas_mal:
+        print(f"[!] recuperacion de aguja no superada en {len(agujas_mal)} punto(s):",
+              file=sys.stderr)
+        for n, det in agujas_mal:
+            print(f"    {n}: {det}", file=sys.stderr)
+
     fallidos = len(rows) - len(ok)
     if fallidos:
         print(f"[!] {fallidos}/{len(rows)} puntos sin medida "
               f"({infra} por infraestructura)", file=sys.stderr)
+        return 2
+    if agujas_mal:
         return 2
     return 0
 

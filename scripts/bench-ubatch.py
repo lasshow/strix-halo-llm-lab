@@ -101,26 +101,36 @@ def espera_salud(unidad, puerto, limite=600):
     Recibe las dos cosas a proposito: consultar una unidad distinta de la que
     escucha en el puerto fue el fallo de encaminamiento que corrige H-024.
     Corta antes de tiempo si la unidad entra en 'failed' o si desaparece.
+
+    Exige AMBAS condiciones a la vez, y ese orden importa: comprobar el HTTP
+    primero y devolver True con un 200 permitia que "algo responde en este
+    puerto" se confundiera con "he restaurado esta unidad" -- la unidad podia
+    estar 'failed' y la funcion no consultaba systemd ni una vez. Primero la
+    unidad activa, y solo entonces /health.
     """
     t0 = time.time()
+    visto_activo = False
     while time.time() - t0 < limite:
-        try:
-            with urllib.request.urlopen(f"http://127.0.0.1:{puerto}/health", timeout=5) as r:
-                if r.status == 200:
-                    return True
-        except Exception:
-            pass
         estado = sh(f"systemctl is-active {unidad}", check=False)
-        if estado in ("failed", "inactive"):
-            # 'inactive' tambien corta: si nadie la esta arrancando, esperar
-            # los 600 s completos solo retrasa el diagnostico.
+        if estado == "active":
+            visto_activo = True
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{puerto}/health", timeout=5) as r:
+                    if r.status == 200:
+                        return True
+            except Exception:
+                pass
+        elif estado in ("failed", "inactive"):
             arrancando = sh(f"systemctl show -p ActiveState --value {unidad}",
                             check=False) == "activating"
             if not arrancando:
                 print(f"    [!] {unidad} en estado {estado!r}, dejo de esperar")
                 return False
         time.sleep(5)
-    print(f"    [!] {unidad} no respondio en {limite} s")
+    if visto_activo:
+        print(f"    [!] {unidad} activa pero /health no respondio 200 en {limite} s")
+    else:
+        print(f"    [!] {unidad} no llego a 'active' en {limite} s")
     return False
 
 
@@ -151,29 +161,52 @@ def una_peticion(puerto, prompt, max_tokens, timeout=1200):
     return m
 
 
-def mide(puerto, palabras, pasadas, ubatch, batch, jsonl, max_tokens=160):
+def mide(puerto, palabras, pasadas, ubatch, batch, jsonl, max_tokens=160,
+         reintentos_calentamiento=1):
     """Calentamiento + N pasadas medidas. Devuelve solo las medidas.
 
     El calentamiento se registra en el JSONL con warmup=true para que quede
     rastro, pero NO entra en ninguna mediana: la primera pasada paga la carga
     en frio de pesos y la reserva del KV cache.
+
+    Un calentamiento que falla ABORTA el punto (con una recuperacion limitada
+    y explicita, `reintentos_calentamiento`). Antes solo se propagaba el fallo
+    de las pasadas medidas, asi que si reventaba el calentamiento y respondian
+    las dos siguientes, el punto se publicaba como 'ok' con salida 0: la
+    primera medida contabilizada estaba pagando el trabajo en frio que el
+    protocolo dice excluir. El fallo quedaba en el JSONL, pero no en el
+    resumen, que es lo que se lee.
     """
     prompt = (("El sistema de control industrial registra temperaturas del horno. "
                * palabras)[:200000] + "\n\nResume en una frase.")
     medidas = []
-    for i in range(pasadas + 1):
-        es_warmup = (i == 0)
-        etiqueta = "calentamiento" if es_warmup else f"pasada {i}/{pasadas}"
+    calentado = False
+    intentos_w = 0
+    i = 0
+    while i < pasadas + 1:
+        es_warmup = not calentado
+        if es_warmup:
+            intentos_w += 1
+            etiqueta = ("calentamiento" if intentos_w == 1
+                        else f"calentamiento (reintento {intentos_w - 1})")
+        else:
+            etiqueta = f"pasada {len(medidas) + 1}/{pasadas}"
         try:
             m = una_peticion(puerto, prompt, max_tokens)
             registro = dict(m, ubatch=ubatch, batch=batch, warmup=es_warmup,
+                            fase="calentamiento" if es_warmup else "medida",
+                            intento=intentos_w if es_warmup else None,
                             ts=datetime.now(timezone.utc).isoformat(), fallo=None)
             print(f"      {etiqueta}: prompt_n={m['prompt_n']} pp={m['pp']:.1f} "
                   f"tg={m['tg']:.2f} gen={m['predicted_n']} fin={m['finish_reason']}")
-            if not es_warmup:
+            if es_warmup:
+                calentado = True
+            else:
                 medidas.append(m)
         except (ErrorInfraestructura, FalloContrato) as e:
             registro = {"ubatch": ubatch, "batch": batch, "warmup": es_warmup,
+                        "fase": "calentamiento" if es_warmup else "medida",
+                        "intento": intentos_w if es_warmup else None,
                         "ts": datetime.now(timezone.utc).isoformat(),
                         "fallo": f"{type(e).__name__}: {e}"}
             print(f"      {etiqueta}: FALLO {type(e).__name__}: {str(e)[:120]}")
@@ -181,10 +214,21 @@ def mide(puerto, palabras, pasadas, ubatch, batch, jsonl, max_tokens=160):
         jsonl.flush()
         # Las peticiones fallidas se CONSERVAN en el registro y cuentan en la
         # tasa de fallos: no se repite hasta juntar N buenas (eso sesga).
-        if registro["fallo"] and not es_warmup:
-            raise RuntimeError(registro["fallo"])
-    if not medidas:
-        raise RuntimeError("ninguna pasada medida")
+        if registro["fallo"]:
+            if not es_warmup:
+                raise RuntimeError(registro["fallo"])
+            if intentos_w > reintentos_calentamiento:
+                raise RuntimeError(
+                    f"calentamiento fallido tras {intentos_w} intento(s), "
+                    f"abandono el punto ubatch={ubatch}: sin calentamiento "
+                    f"completado las medidas no son comparables "
+                    f"({registro['fallo']})")
+            continue  # reintento acotado del calentamiento, sin contar medida
+        i += 1
+    if not calentado:
+        raise RuntimeError("no hubo calentamiento completado")
+    if len(medidas) != pasadas:
+        raise RuntimeError(f"esperaba {pasadas} medidas y hay {len(medidas)}")
     return medidas
 
 

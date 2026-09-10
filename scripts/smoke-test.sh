@@ -86,21 +86,27 @@ fin     = ch.get("finish_reason") or ""
 if not content:
     estado = "VACIA_CON_RAZON" if razon else "VACIA"
     print(estado + "|razonamiento=" + str(len(razon)) + " chars"); raise SystemExit
-if fin and fin != "stop":
+if not fin:
+    # un finish_reason ausente NO es una finalizacion normal: es una respuesta
+    # que no acredita como termino. Antes se rellenaba el hueco con "stop".
+    print("SIN_FINISH|content=" + content[:80].replace("\n", " ")); raise SystemExit
+if fin != "stop":
     print("TRUNCADA|finish_reason=" + fin + " content=" + content[:80].replace("\n", " "))
     raise SystemExit
-# Contrato ESTRICTO: el contenido entero, normalizado, tiene que ser 391.
-# Se permite solo colapsar espacios y un punto final. Deliberadamente NO se
-# extraen digitos del texto: "-391", "391%", "391 unidades" y "No es 391"
-# tienen que fallar, y con findall(r"\\d+") pasaban.
-norm = " ".join(content.split()).rstrip(".")
-print(("CORRECTO" if norm == "391" else "INCORRECTO") + "|" + content[:120].replace("\n", " "))
+# Contrato ESTRICTO, el mismo que promete docs/metodologia.md:
+# content.strip() == "391" y finish_reason == "stop". Sin normalizacion.
+# Deliberadamente NO se extraen digitos del texto ("-391", "391%",
+# "391 unidades", "No es 391" pasaban con findall) y tampoco se hace
+# rstrip("."): "391." y "391..." no son "391", y aceptarlos era prometer un
+# contrato exacto e implementar otro permisivo.
+print(("CORRECTO" if content == "391" else "INCORRECTO") + "|" + content[:120].replace("\n", " "))
 ')
 ESTADO="${VEREDICTO%%|*}"; DETALLE="${VEREDICTO#*|}"
 echo "  respuesta: $DETALLE"
 case "$ESTADO" in
   CORRECTO)        ok "content es exactamente 391 con finalizacion normal" ;;
   INCORRECTO)      fallo "content no es exactamente 391 - revisa cuantizacion o backend (un backend roto responde, pero mal)" ;;
+  SIN_FINISH)      fallo "respuesta sin finish_reason: no acredita finalizacion normal" ;;
   TRUNCADA)        fallo "respuesta cortada antes de terminar: $DETALLE" ;;
   VACIA_CON_RAZON) fallo "content VACIO, solo razonamiento - bucle de razonamiento (H-019): sube max_tokens o enable_thinking:false" ;;
   VACIA)           fallo "content VACIO y sin razonamiento" ;;
