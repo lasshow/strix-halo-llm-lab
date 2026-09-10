@@ -230,8 +230,6 @@ class CargadorDeBateriaSinDatosPrivados(unittest.TestCase):
         self.assertIn("--bateria", p.stdout)
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class FlujoCompletoDesdeCopiaLimpia(unittest.TestCase):
@@ -403,7 +401,6 @@ class CadaLenguajePublicoPuedeAprobarYSuspender(unittest.TestCase):
         res = datos[caso] if caso in datos else datos
         return res.get("veredicto"), p.returncode
 
-    @unittest.skipUnless(TIENE_NODE, "falta node")
     def test_python_bueno_aprueba_y_malo_suspende(self):
         estado, rc = self._ejecuta("P-COD-PY", SOL_PY_BUENA, "python")
         self.assertEqual(estado, "PASA LAS PRUEBAS",
@@ -429,3 +426,7 @@ class CadaLenguajePublicoPuedeAprobarYSuspender(unittest.TestCase):
         self.assertEqual(rc, 0)
         estado, _ = self._ejecuta("P-COD-SQL", SOL_SQL_MALA, "sql")
         self.assertEqual(estado, "COMPILA PERO FALLA")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

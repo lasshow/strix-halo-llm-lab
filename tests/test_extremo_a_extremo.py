@@ -251,8 +251,6 @@ class BenchContext(Base):
             self.assertTrue(any(not x.get("warmup") for x in lineas))
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
 
 
 class AgujaDeterminaElCodigoDeSalida(Base):
@@ -430,10 +428,57 @@ class UnaPeticionUnRegistro(Base):
         finally:
             bc.urllib.request.urlopen = original
 
+    def test_cada_peticion_correcta_deja_una_sola_fila(self):
+        """La evidencia de fondo frente a B1, y la que cubre el hueco de la
+        comprobacion textual: un unico punto de escritura puede invocarse dos
+        veces por peticion. Aqui se cuentan filas contra peticiones reales."""
+        d = tempfile.mkdtemp()
+        jl = os.path.join(d, "ok.jsonl")
+        p = self.corre(jl, "--passes", "3")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        filas = self.filas(jl)
+        cal = [f for f in filas if f.get("fase") == "calentamiento"]
+        med = [f for f in filas if f.get("fase") == "medida"]
+        self.assertEqual(len(cal), 1, f"calentamiento duplicado: {cal}")
+        self.assertEqual(len(med), 3,
+                         f"3 pasadas deben dar 3 medidas, hay {len(med)}")
+        claves = [(f.get("fase"), f.get("pasada")) for f in filas]
+        self.assertEqual(len(claves), len(set(claves)),
+                         f"hay filas repetidas para la misma peticion: {claves}")
+
     def test_solo_existe_un_punto_de_escritura_en_el_jsonl(self):
-        """Invariante estructural: si reaparece un segundo jsonl.write, la
-        duplicacion puede volver por un camino que ninguna prueba cubra."""
+        """Restriccion estructural COMPLEMENTARIA, no una garantia: que
+        jsonl.write aparezca una vez no impide que se invoque dos veces por
+        peticion. La garantia la da test_cada_peticion_correcta_deja_una_sola_fila;
+        esta solo evita que reaparezca un segundo camino de escritura."""
         with open(os.path.join(SCRIPTS, "bench-context.py"), encoding="utf-8") as fh:
             src = fh.read()
         self.assertEqual(src.count("jsonl.write"), 1,
                          "la escritura del JSONL debe estar en un solo nivel (anota)")
+
+
+class LaSuiteNoPuedeOcultarPruebas(unittest.TestCase):
+    """Defecto propio detectado al revisar: el bloque if __name__ == '__main__'
+    habia quedado a MITAD del fichero al ir aniadiendo clases al final, asi que
+    ejecutar el fichero directamente corria 14 de 25 pruebas y salia OK. Un
+    falso verde del mismo tipo que los que perseguimos."""
+
+    def test_el_bloque_main_va_al_final_y_solo_una_vez(self):
+        import glob
+        for ruta in sorted(glob.glob(os.path.join(RAIZ, "tests", "test_*.py"))):
+            with open(ruta, encoding="utf-8") as fh:
+                lineas = fh.read().splitlines()
+            idx = [i for i, l in enumerate(lineas)
+                   if l.startswith("if __name__")]
+            nombre = os.path.basename(ruta)
+            self.assertEqual(len(idx), 1,
+                             f"{nombre}: {len(idx)} bloques __main__")
+            resto = [l for l in lineas[idx[0] + 1:]
+                     if l.strip() and not l.startswith((" ", "\t"))]
+            self.assertEqual(resto, [],
+                             f"{nombre}: hay codigo despues del bloque __main__, "
+                             f"esas pruebas no corren en ejecucion directa: {resto}")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
