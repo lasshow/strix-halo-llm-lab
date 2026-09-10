@@ -26,7 +26,8 @@ sys.path.insert(0, SCRIPTS)
 
 from validacion import (ErrorInfraestructura, FalloContrato, cuerpo_json,  # noqa: E402
                         generacion_medida, llamada_herramienta,
-                        respuesta_exacta, respuesta_final, timings)
+                        recuperacion_aguja, respuesta_exacta,
+                        respuesta_final, timings)
 
 
 def carga(nombre, ruta):
@@ -107,7 +108,23 @@ class ContratoExacto391(unittest.TestCase):
     def test_acepta_solo_el_valor_exacto(self):
         self.assertEqual(respuesta_exacta(respuesta("391"), "391"), "391")
         self.assertEqual(respuesta_exacta(respuesta(" 391 \n"), "391"), "391")
-        self.assertEqual(respuesta_exacta(respuesta("391."), "391"), "391")
+
+    def test_el_contrato_exacto_no_normaliza_la_puntuacion(self):
+        """H-025: rstrip('.') no era exacto y aceptaba '391.' y '391...'.
+
+        La metodologia promete content.strip() == esperado. Se elige contrato
+        estricto en lugar de normalizacion permisiva: si un modelo escribe el
+        punto final, incumple una instruccion explicita del enunciado.
+        """
+        for malo in ("391.", "391...", "391,"):
+            with self.subTest(respuesta=malo):
+                with self.assertRaises(FalloContrato):
+                    respuesta_exacta(respuesta(malo), "391")
+
+    def test_exige_finish_reason(self):
+        """H-025: `if fin and fin != 'stop'` dejaba pasar su ausencia."""
+        with self.assertRaises(FalloContrato):
+            respuesta_exacta(respuesta("391", fin=None), "391")
 
     def test_rechaza_los_falsos_positivos_de_la_auditoria(self):
         for malo in ("-391", "No es 391", "391%", "391 unidades",
@@ -422,3 +439,218 @@ class UnidadDePruebasDerivada(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# ============================================================================
+# H-025: regresiones de la segunda auditoria (corte 0c06767)
+# ============================================================================
+
+class SaludExigeUnidadYEndpoint(unittest.TestCase):
+    """Hallazgo 2: HTTP 200 se daba por bueno sin consultar nunca la unidad."""
+
+    def setUp(self):
+        self.consultadas = []
+        self.original = bench.sh
+        self.estado = "active"
+        bench.sh = self._sh_falso
+        self.original_url = bench.urllib.request.urlopen
+        bench.urllib.request.urlopen = self._urlopen_falso
+
+    def tearDown(self):
+        bench.sh = self.original
+        bench.urllib.request.urlopen = self.original_url
+
+    def _sh_falso(self, cmd, check=True):
+        if "is-active" in cmd:
+            self.consultadas.append(cmd.split()[-1])
+            return self.estado
+        return self.estado
+
+    def _urlopen_falso(self, *a, **k):
+        class R:
+            status = 200
+            def __enter__(self_): return self_
+            def __exit__(self_, *e): return False
+        return R()
+
+    def test_http_200_no_basta_si_la_unidad_esta_fallida(self):
+        """Antes: devolvia True sin consultar systemd ni una vez."""
+        self.estado = "failed"
+        self.assertFalse(bench.espera_salud("llama-flashnext", 8080, limite=2))
+        self.assertIn("llama-flashnext", self.consultadas,
+                      "debe consultar la unidad, no solo el endpoint")
+
+    def test_consulta_la_unidad_incluso_cuando_el_endpoint_responde(self):
+        self.estado = "active"
+        self.assertTrue(bench.espera_salud("llama-flashnext", 8080, limite=2))
+        self.assertIn("llama-flashnext", self.consultadas)
+
+
+class CalentamientoFallidoNoSeOculta(unittest.TestCase):
+    """Hallazgo 1: warmup fallido + medidas buenas daba punto 'ok' y salida 0."""
+
+    def setUp(self):
+        self.llamadas = []
+
+    def _pide_falso(self, guion):
+        it = iter(guion)
+        def pide(puerto, prompt, max_tokens=160, timeout=1200):
+            self.llamadas.append(1)
+            v = next(it)
+            if isinstance(v, Exception):
+                raise v
+            return v
+        return pide
+
+    def test_el_fallo_de_calentamiento_aborta_el_punto(self):
+        original = bench.una_peticion
+        buena = {"pp": 100.0, "tg": 20.0, "prompt_n": 100,
+                 "predicted_n": 10, "finish_reason": "stop", "wall": 1.0}
+        bench.una_peticion = self._pide_falso([
+            ErrorInfraestructura("timeout"),   # calentamiento
+            ErrorInfraestructura("timeout"),   # reintento del calentamiento
+            buena, buena,                      # las medidas SI responderian
+        ])
+        try:
+            import tempfile
+            with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as j:
+                with self.assertRaises((RuntimeError, ErrorInfraestructura,
+                                        FalloContrato)) as ctx:
+                    bench.mide(8080, 100, 2, 1024, 4096, j,
+                               reintentos_calentamiento=1)
+        finally:
+            bench.una_peticion = original
+        self.assertIn("calentamiento", str(ctx.exception).lower())
+
+    def test_el_calentamiento_no_cuenta_como_medida(self):
+        original = bench.una_peticion
+        m = [{"pp": float(i), "tg": 20.0, "prompt_n": 100,
+              "predicted_n": 10, "finish_reason": "stop", "wall": 1.0}
+             for i in range(1, 5)]
+        bench.una_peticion = self._pide_falso(m)
+        try:
+            import tempfile
+            with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as j:
+                medidas = bench.mide(8080, 100, 2, 1024, 4096, j)
+        finally:
+            bench.una_peticion = original
+        self.assertEqual(len(medidas), 2, "solo las pasadas medidas")
+        self.assertNotIn(1.0, [x["pp"] for x in medidas],
+                         "la pp del calentamiento no puede colarse")
+
+
+class MetricasImposiblesSeRechazan(unittest.TestCase):
+    """Hallazgo 3: se aceptaban inf, negativos y recuentos no enteros."""
+
+    def _con(self, **tm):
+        base = dict(TIMINGS_OK)
+        base.update(tm)
+        return respuesta("ok", tm=base)
+
+    def test_rechaza_infinito_y_nan(self):
+        for valor in (float("inf"), float("-inf"), float("nan")):
+            with self.subTest(valor=valor):
+                with self.assertRaises((FalloContrato, ErrorInfraestructura)):
+                    generacion_medida(self._con(predicted_per_second=valor), 160)
+
+    def test_rechaza_velocidades_negativas_o_cero(self):
+        for valor in (-1.0, 0.0):
+            with self.subTest(valor=valor):
+                with self.assertRaises((FalloContrato, ErrorInfraestructura)):
+                    generacion_medida(self._con(predicted_per_second=valor), 160)
+
+    def test_rechaza_velocidades_absurdas(self):
+        with self.assertRaises((FalloContrato, ErrorInfraestructura)):
+            generacion_medida(self._con(predicted_per_second=9e9), 160)
+
+    def test_rechaza_recuentos_no_enteros_o_negativos(self):
+        for campo, valor in (("predicted_n", 10.5), ("predicted_n", -3),
+                             ("prompt_n", 0.5), ("prompt_n", -1)):
+            with self.subTest(campo=campo, valor=valor):
+                with self.assertRaises((FalloContrato, ErrorInfraestructura)):
+                    generacion_medida(self._con(**{campo: valor}), 160)
+
+    def test_rechaza_campos_obligatorios_ausentes(self):
+        for campo in ("predicted_per_second", "prompt_per_second",
+                      "predicted_n", "prompt_n"):
+            with self.subTest(campo=campo):
+                tm = {k: v for k, v in TIMINGS_OK.items() if k != campo}
+                with self.assertRaises((FalloContrato, ErrorInfraestructura)):
+                    generacion_medida(respuesta("ok", tm=tm), 160)
+
+    def test_acepta_una_medida_plausible(self):
+        m = generacion_medida(respuesta("ok"), 160)
+        self.assertGreater(m["tg"], 0)
+
+
+class ContratoDeRecuperacionDeAguja(unittest.TestCase):
+    """Hallazgo 4: la aguja pasaba por el contrato de generacion medida."""
+
+    def test_exige_la_clave_en_la_respuesta(self):
+        with self.assertRaises(FalloContrato):
+            recuperacion_aguja(respuesta("no la encuentro"), "K64X7")
+
+    def test_acepta_la_clave_como_respuesta_con_puntuacion(self):
+        m = recuperacion_aguja(respuesta("K64X7."), "K64X7")
+        self.assertEqual(m["clave"], "K64X7")
+        m = recuperacion_aguja(respuesta(' "K64X7" \n'), "K64X7")
+        self.assertEqual(m["clave"], "K64X7")
+
+    def test_distingue_fallo_de_formato_de_fallo_de_recuperacion(self):
+        """Citarla en prosa no es lo mismo que no haberla leido."""
+        with self.assertRaises(FalloContrato) as c1:
+            recuperacion_aguja(respuesta("La clave es K64X7."), "K64X7")
+        self.assertEqual(getattr(c1.exception, "motivo", None), "formato")
+        self.assertTrue(getattr(c1.exception, "clave_presente", False))
+        with self.assertRaises(FalloContrato) as c2:
+            recuperacion_aguja(respuesta("no la encuentro"), "K64X7")
+        self.assertEqual(getattr(c2.exception, "motivo", None), "no_recupera")
+
+    def test_rechaza_truncada_por_presupuesto(self):
+        with self.assertRaises(FalloContrato):
+            recuperacion_aguja(respuesta("K64X7", fin="length"), "K64X7")
+
+    def test_rechaza_contenido_vacio(self):
+        with self.assertRaises(FalloContrato):
+            recuperacion_aguja(respuesta("", razon="pensando"), "K64X7")
+
+
+class BateriaPublicaEsCoherente(unittest.TestCase):
+    """Hallazgo 5: el esperado de P-COD-SQL contradecia su propio enunciado."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(RAIZ, "benchmarks", "bateria-publica.json")) as f:
+            d = json.load(f)
+        cls.casos = d["prompts"] if isinstance(d, dict) else d
+
+    def test_los_esperados_sql_salen_de_ejecutar_la_consulta(self):
+        import sqlite3
+        vistos = 0
+        for c in self.casos:
+            if not c.get("esquema") or c.get("esperado_filas") is None:
+                continue
+            vistos += 1
+            con = sqlite3.connect(":memory:")
+            con.executescript(c["esquema"])
+            # La consulta de referencia se deriva del enunciado del caso.
+            ref = c.get("_consulta_referencia")
+            if not ref:
+                continue
+            filas = [list(r) for r in con.execute(ref)]
+            self.assertEqual(filas, [list(r) for r in c["esperado_filas"]],
+                             f"{c['id']}: el esperado no coincide con ejecutar la consulta")
+        self.assertGreater(vistos, 0, "no hay casos SQL con esquema y esperado")
+
+    def test_todo_caso_declara_contrato(self):
+        for c in self.casos:
+            with self.subTest(caso=c.get("id")):
+                self.assertIn(c.get("contrato"),
+                              ("exacto", "contiene", "codigo", "libre", "json", "idioma"),
+                              f"{c.get('id')} sin contrato reconocible")
+
+    def test_los_casos_exactos_traen_esperado(self):
+        for c in self.casos:
+            if c.get("contrato") == "exacto":
+                with self.subTest(caso=c["id"]):
+                    self.assertTrue(str(c.get("esperado", "")).strip())

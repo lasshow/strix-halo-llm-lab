@@ -1,0 +1,292 @@
+"""Pruebas del verificador de codigo: los falsos positivos de la 2a auditoria.
+
+Las 52 pruebas anteriores no ejercitaban `verifica-codigo.py`, y por eso podian
+estar todas verdes conviviendo con dos aprobados falsos:
+
+  - TypeScript: `tsc` salia con codigo 2 por un error de tipos, pero como
+    emite el .js igualmente (noEmitOnError esta desactivado por defecto), el
+    verificador ejecutaba ese .js, las aserciones pasaban y el veredicto era
+    PASA LAS PRUEBAS con un error real del compilador.
+  - SQL: se comprobaba que la salida CONTUVIERA ciertos numeros, asi que
+    `SELECT '2024 2025 2026 84000' AS basura` aprobaba.
+
+Estas pruebas usan tsc/node/sqlite3 reales del entorno (no simulan el
+compilador) y se saltan solas si falta la herramienta: un compilador ausente
+tiene que ser inconcluso, nunca un veredicto.
+"""
+import importlib.util
+import os
+import shutil
+import sys
+import unittest
+
+RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCRIPTS = os.path.join(RAIZ, "scripts")
+sys.path.insert(0, SCRIPTS)
+
+
+def carga(nombre, ruta):
+    spec = importlib.util.spec_from_file_location(nombre, ruta)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+V = carga("verifica_codigo", os.path.join(SCRIPTS, "verifica-codigo.py"))
+
+TIENE_TSC = shutil.which("tsc") is not None
+TIENE_NODE = shutil.which("node") is not None
+TIENE_SQLITE = shutil.which("sqlite3") is not None
+
+
+class TypeScriptRespetaElCompilador(unittest.TestCase):
+    """El aprobado falso mas claro de la auditoria."""
+
+    @unittest.skipUnless(TIENE_TSC and TIENE_NODE, "faltan tsc/node")
+    def test_un_error_de_tipos_no_puede_pasar_las_pruebas(self):
+        # Error real (TS2322) pero las aserciones en tiempo de ejecucion pasan:
+        # ese es exactamente el caso que antes daba PASA LAS PRUEBAS.
+        code = (
+            "export function suma(a: number, b: number): number { return a + b; }\n"
+            "const x: number = 'texto';\n"
+        )
+        pruebas = (
+            "if (suma(2, 2) !== 4) { throw new Error('mal'); }\n"
+            "console.log('PRUEBAS-OK');\n"
+        )
+        with V.Caja(sandbox=False) as c:
+            estado, log = V.v_node(code, c, pruebas)
+        self.assertEqual(estado, "NO COMPILA",
+                         f"tsc rechaza esto; el veredicto fue {estado}: {log[:200]}")
+
+    @unittest.skipUnless(TIENE_TSC and TIENE_NODE, "faltan tsc/node")
+    def test_codigo_correcto_sigue_aprobando(self):
+        code = "export function suma(a: number, b: number): number { return a + b; }\n"
+        pruebas = ("if (suma(2, 2) !== 4) { throw new Error('mal'); }\n"
+                   "console.log('PRUEBAS-OK');\n")
+        with V.Caja(sandbox=False) as c:
+            estado, log = V.v_node(code, c, pruebas)
+        self.assertEqual(estado, "PASA LAS PRUEBAS", log[:300])
+
+    @unittest.skipUnless(TIENE_TSC and TIENE_NODE, "faltan tsc/node")
+    def test_compila_pero_falla_si_la_asercion_revienta(self):
+        code = "export function suma(a: number, b: number): number { return a - b; }\n"
+        pruebas = ("if (suma(2, 2) !== 4) { throw new Error('mal'); }\n"
+                   "console.log('PRUEBAS-OK');\n")
+        with V.Caja(sandbox=False) as c:
+            estado, _ = V.v_node(code, c, pruebas)
+        self.assertEqual(estado, "COMPILA PERO FALLA")
+
+
+class SqlCompararFilasNoSubcadenas(unittest.TestCase):
+    """El segundo aprobado falso: buscar numeros en la salida."""
+
+    @unittest.skipUnless(TIENE_SQLITE, "falta sqlite3")
+    def test_una_consulta_basura_con_los_numeros_no_aprueba(self):
+        basura = "SELECT '2024 2025 2026 84000' AS basura;"
+        with V.Caja(sandbox=False) as c:
+            estado, log = V.v_sqlite(basura, c, None)
+        self.assertNotEqual(estado, "PASA LAS PRUEBAS",
+                            f"esta consulta no responde nada: {log[:200]}")
+
+    @unittest.skipUnless(TIENE_SQLITE, "falta sqlite3")
+    def test_la_consulta_de_referencia_aprueba(self):
+        with V.Caja(sandbox=False) as c:
+            estado, log = V.v_sqlite(V.C6_CONSULTA, c, None)
+        self.assertEqual(estado, "PASA LAS PRUEBAS", log[:400])
+
+    @unittest.skipUnless(TIENE_SQLITE, "falta sqlite3")
+    def test_valores_mal_redondeados_no_aprueban(self):
+        # Agregado equivocado (media en vez de suma): la forma de la salida es
+        # la misma y los anios siguen apareciendo, que es lo que antes bastaba.
+        mal = V.C6_CONSULTA.replace("SUM(bruto) AS bruto", "AVG(bruto) AS bruto")
+        with V.Caja(sandbox=False) as c:
+            estado, log = V.v_sqlite(mal, c, None)
+        self.assertNotEqual(estado, "PASA LAS PRUEBAS", log[:300])
+
+    @unittest.skipUnless(TIENE_SQLITE, "falta sqlite3")
+    def test_compara_contra_el_esperado_del_caso_publico(self):
+        """El esperado_filas de la bateria se compara ejecutando de verdad."""
+        import json
+        with open(os.path.join(RAIZ, "benchmarks", "bateria-publica.json")) as f:
+            d = json.load(f)
+        casos = d["prompts"] if isinstance(d, dict) else d
+        caso = next(c for c in casos if c["id"] == "P-COD-SQL")
+        with V.Caja(sandbox=False) as c:
+            estado, log = V.v_sqlite(caso["_consulta_referencia"], c, None,
+                                     esperado_filas=caso["esperado_filas"],
+                                     esquema=caso["esquema"])
+        self.assertEqual(estado, "PASA LAS PRUEBAS", log[:400])
+        # Y una consulta que devuelve H2 ademas de H1 tiene que fallar:
+        laxa = caso["_consulta_referencia"].replace("COUNT(*) > 2", "COUNT(*) > 1")
+        with V.Caja(sandbox=False) as c:
+            estado, _ = V.v_sqlite(laxa, c, None,
+                                   esperado_filas=caso["esperado_filas"],
+                                   esquema=caso["esquema"])
+        self.assertEqual(estado, "COMPILA PERO FALLA")
+
+
+class FalloDelBancoNoEsVeredicto(unittest.TestCase):
+    """Hallazgo 6: un 203/EXEC se contaba como NO COMPILA."""
+
+    def test_el_fallo_del_lanzador_levanta_ErrorBanco(self):
+        """203/EXEC = systemd no llego a ejecutar el binario."""
+        with V.Caja(sandbox=False) as c:
+            original = V.subprocess.run
+
+            class P:
+                returncode = 203
+                stdout = ""
+                stderr = "Failed to execute /usr/bin/rustc: Permission denied"
+
+            V.subprocess.run = lambda *a, **k: P()
+            try:
+                with self.assertRaises(V.ErrorBanco):
+                    c.run(["rustc", "--version"])
+            finally:
+                V.subprocess.run = original
+
+    def test_no_confunde_un_error_de_compilacion_con_fallo_del_banco(self):
+        """Un compilador que dice 'error: ...' y sale 1 SI es veredicto."""
+        with V.Caja(sandbox=False) as c:
+            original = V.subprocess.run
+
+            class P:
+                returncode = 1
+                stdout = ""
+                stderr = "error[E0308]: mismatched types"
+
+            V.subprocess.run = lambda *a, **k: P()
+            try:
+                rc, salida = c.run(["rustc", "a.rs"])
+            finally:
+                V.subprocess.run = original
+        self.assertEqual(rc, 1)
+        self.assertIn("E0308", salida)
+
+
+class SandboxInconclusoNoCertifica(unittest.TestCase):
+    """Hallazgo 6.2: si las comprobaciones no arrancan, no es 'aisla'."""
+
+    def test_devuelve_None_si_las_comprobaciones_no_pudieron_correr(self):
+        original = V.Caja.run
+
+        def run_falso(self, cmd, segundos=60, stdin=None):
+            if "/bin/echo" in cmd[0] or (len(cmd) > 1 and "vale" in str(cmd)):
+                return 0, "vale"
+            raise V.ErrorBanco("systemd-run no arranca")
+
+        V.Caja.run = run_falso
+        try:
+            veredicto, motivo = V.comprueba_sandbox()
+        finally:
+            V.Caja.run = original
+        self.assertIsNone(veredicto,
+                          f"tenia que ser inconcluso y dijo {veredicto}: {motivo}")
+
+    def test_un_sandbox_permisivo_se_detecta_como_no_aisla(self):
+        original = V.Caja.run
+
+        def run_falso(self, cmd, segundos=60, stdin=None):
+            # Todo funciona, incluido el acceso a red: eso es NO aislar.
+            return 0, "vale"
+
+        V.Caja.run = run_falso
+        try:
+            veredicto, motivo = V.comprueba_sandbox()
+        finally:
+            V.Caja.run = original
+        self.assertFalse(veredicto, motivo)
+
+
+class CargadorDeBateriaSinDatosPrivados(unittest.TestCase):
+    """Hallazgo 4: el modulo leia private/prompts.json al importarse."""
+
+    def test_carga_la_bateria_publica_si_no_hay_privada(self):
+        casos = V.carga_bateria(os.path.join(RAIZ, "benchmarks",
+                                             "bateria-publica.json"))
+        self.assertTrue(casos)
+        self.assertIn("P-COD-SQL", casos)
+        self.assertIn("p", casos["P-COD-SQL"])
+
+    def test_falta_de_fichero_es_ErrorBanco_no_FileNotFoundError(self):
+        with self.assertRaises(V.ErrorBanco):
+            V.carga_bateria("/no/existe/bateria.json")
+
+    def test_el_help_funciona_sin_datos_privados(self):
+        """Un `--help` no puede depender de private/prompts.json."""
+        import subprocess
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            copia = os.path.join(d, "repo")
+            shutil.copytree(RAIZ, copia,
+                            ignore=shutil.ignore_patterns(".git", "private",
+                                                          "__pycache__"))
+            p = subprocess.run(
+                [sys.executable, os.path.join(copia, "scripts", "verifica-codigo.py"),
+                 "--help"], capture_output=True, text=True, timeout=60)
+        self.assertEqual(p.returncode, 0, p.stderr[:400])
+        self.assertIn("--bateria", p.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class FlujoCompletoDesdeCopiaLimpia(unittest.TestCase):
+    """Hallazgo 4: 'enunciados publicos si, flujo reproducible todavia no'.
+
+    Ejecuta el verificador de punta a punta en una copia del repo SIN
+    `private/`, alimentandolo con la bateria publica y respuestas sinteticas.
+    Es la prueba de que un tercero puede reproducir el flujo.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import subprocess
+        import tempfile
+        cls.tmp = tempfile.mkdtemp()
+        cls.repo = os.path.join(cls.tmp, "repo")
+        shutil.copytree(RAIZ, cls.repo,
+                        ignore=shutil.ignore_patterns(".git", "private",
+                                                      "__pycache__", "*.pyc"))
+        cls.subprocess = subprocess
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _corre(self, respuestas):
+        import json
+        bat = os.path.join(self.repo, "benchmarks", "bateria-publica.json")
+        rp = os.path.join(self.tmp, "resp.json")
+        with open(rp, "w") as f:
+            json.dump(respuestas, f)
+        p = self.subprocess.run(
+            [sys.executable, os.path.join(self.repo, "scripts", "verifica-codigo.py"),
+             "--etiqueta", "prueba", "--bateria", bat, "--respuestas", rp,
+             "--sin-sandbox", "--solo", ",".join(respuestas),
+             "--salida", os.path.join(self.tmp, "out.json")],
+            capture_output=True, text=True, timeout=300)
+        return p
+
+    @unittest.skipUnless(TIENE_SQLITE, "falta sqlite3")
+    def test_la_consulta_correcta_aprueba_sin_datos_privados(self):
+        import json
+        with open(os.path.join(self.repo, "benchmarks", "bateria-publica.json")) as f:
+            d = json.load(f)
+        casos = d["prompts"] if isinstance(d, dict) else d
+        caso = next(c for c in casos if c["id"] == "P-COD-SQL")
+        resp = {"P-COD-SQL": {"texto": "```sql\n" + caso["_consulta_referencia"] + "\n```"}}
+        p = self._corre(resp)
+        self.assertIn("PASA LAS PRUEBAS", p.stdout + p.stderr,
+                      f"stdout={p.stdout[-600:]}\nstderr={p.stderr[-600:]}")
+        self.assertEqual(p.returncode, 0, p.stderr[-400:])
+
+    @unittest.skipUnless(TIENE_SQLITE, "falta sqlite3")
+    def test_la_consulta_basura_no_aprueba_y_el_codigo_de_salida_lo_dice(self):
+        resp = {"P-COD-SQL": {"texto": "```sql\nSELECT '2024 2025 2026 84000';\n```"}}
+        p = self._corre(resp)
+        self.assertNotIn("[OK]", p.stdout)
+        self.assertEqual(p.returncode, 2,
+                         f"fallo del MODELO = 2, no 0: {p.stdout[-500:]}")
