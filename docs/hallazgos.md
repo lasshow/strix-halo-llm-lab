@@ -1024,3 +1024,50 @@ Verificado dos veces: (1) produccion en el M5 seguia `active` con
 ejecutadas bajo un `PATH` **sin** `systemctl`, no aparece ningun
 `systemctl: not found`, luego ninguna prueba invoca al systemd real.
 Aun asi, ese texto en un registro es una trampa de lectura para quien audite.
+
+### H-027 — Piloto supervisado de ubatch: el procedimiento funciona; dos defectos propios
+
+**Fecha:** 2026-09-10 · Autorizado por el propietario. Un punto, ubatch 1024,
+calentamiento separado y dos medidas. Evidencias en `evidencias/piloto-ubatch/`.
+
+**Resultado del procedimiento (que es lo que se validaba):** correcto de punta a
+punta. Secuencia observada desde fuera, por sondeo cada 20 s: produccion
+`inactive` + banco `active` durante la medida; a las 21:38:37 CEST produccion
+`active` y banco `inactive`; unidad del banco eliminada de
+`/etc/systemd/system`; sin residuos. Duracion real ~8 min (4 min 42 s de banco,
+48,1 GB de pico segun systemd).
+
+Cuatro comprobaciones de restauracion, mas dos añadidas:
+
+| Comprobacion | Resultado |
+|---|---|
+| Unidad activa | `active` + `enabled` |
+| Endpoint sano | `/health` 200 |
+| Modelo esperado | `qwen3.8-flash-next` |
+| Smoke autenticado | responde `OK` |
+| Sin clave (control negativo) | 401, como debe |
+| Unidad productiva intacta | `mtime` 16:29:37, cinco horas ANTES del piloto |
+
+**Defecto 1 — el piloto no midio el batch de referencia.** Se lanzo con
+`--batch 2048`, pero produccion corre `--batch-size 4096 --ubatch-size 2048`.
+Se pidio expresamente "conservar el batch de referencia" y no se hizo: el valor
+se escribio a mano en vez de leerlo de la unidad. Consecuencia: **las cifras de
+este piloto no son comparables con la linea base de produccion** y no deben
+entrar en ninguna tabla de rendimiento. No invalida la validacion del
+procedimiento, que era el objetivo. Correccion pendiente: que el script LEA
+`--batch-size` de la unidad productiva y falle si no se le pasa un valor
+coherente, en lugar de aceptar cualquier numero.
+
+**Defecto 2 — `pasada` no llego a `bench-ubatch.py`.** H-026b añadio el indice
+de pasada al JSONL de `bench-context.py`; `bench-ubatch.py` distingue las filas
+por `fase` y `ts` pero **no** por indice. Con dos medidas aun se distinguen; con
+cinco por punto en la campaña, no. Hay que portar el campo antes del barrido.
+
+**Cifras obtenidas** (validas solo como prueba de que el banco mide algo
+estable, NO como comparacion): prompt_n 30.018, pp 348,8 y 347,8 t/s (media
+348,3; dispersion 0,30 %), tg 22,10 y 22,10 t/s. Sin conclusion de rendimiento:
+un solo punto y con el batch equivocado.
+
+**Nota de metodo:** `pgrep -f "bench-ubatch.py"` lanzado por SSH se encuentra a
+si mismo en su propia linea de comando y devuelve "corre" indefinidamente. Se
+uso `pgrep -af "[b]ench-ubatch"`. Vigilar procesos remotos asi da falsos vivos.

@@ -1,0 +1,60 @@
+fb0822b3d35ebebe168e5be70f9618e40ec27e83f705951d312d5dd345840ee5  /etc/systemd/system/llama-flashnext.service
+# /etc/systemd/system/llama-flashnext.service
+[Unit]
+Description=llama.cpp server - Qwen3.8-Flash-Next (Vulkan/Strix Halo)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lasso
+Group=lasso
+SupplementaryGroups=video render
+Environment=GGML_VK_VISIBLE_DEVICES=0
+WorkingDirectory=/models
+ExecStart=/models/llama.cpp/build/bin/llama-server \
+  --model /models/gguf/qwen38-flash-next/UD-IQ4_XS/Qwen3.8-Flash-Next-UD-IQ4_XS-00001-of-00003.gguf \
+  --mmproj /models/gguf/qwen38-flash-next/mmproj-F16.gguf \
+  --alias qwen3.8-flash-next \
+  -ngl 99 \
+  -c 262144 \
+  -np 2 \
+  -fa on \
+  --cache-reuse 256 \
+  --cache-ram 4096 \
+  -kvu \
+  --batch-size 4096 \
+  --ubatch-size 2048 \
+  --no-context-shift \
+  --lazy-mode off \
+  --threads 16 \
+  --host 0.0.0.0 --port 8080 \
+  --api-key-file /etc/llama-server/api-keys.txt \
+  --metrics
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=900
+LimitMEMLOCK=infinity
+TimeoutStopSec=90
+TimeoutStopFailureMode=kill
+LimitCORE=0
+OOMScoreAdjust=500
+
+[Install]
+WantedBy=multi-user.target
+
+# /usr/lib/systemd/system/service.d/10-timeout-abort.conf
+# This file is part of the systemd package.
+# See https://fedoraproject.org/wiki/Changes/Shorter_Shutdown_Timer.
+#
+# To facilitate debugging when a service fails to stop cleanly,
+# TimeoutStopFailureMode=abort is set to "crash" services that fail to stop in
+# the time allotted. This will cause the service to be terminated with SIGABRT
+# and a coredump to be generated.
+#
+# To undo this configuration change, create a mask file:
+#   sudo mkdir -p /etc/systemd/system/service.d
+#   sudo ln -sv /dev/null /etc/systemd/system/service.d/10-timeout-abort.conf
+
+[Service]
+TimeoutStopFailureMode=abort
