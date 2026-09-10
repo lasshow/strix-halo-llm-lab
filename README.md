@@ -76,9 +76,13 @@ El barrido de `ubatch` hecho con un modelo pequeño daba una curva **descendente
 es **ascendente**. Son conclusiones opuestas.
 
 **Corrección posterior, ya cerrada con medidas:** publiqué `ub 4096` como recomendación y
-era un error doble. Rehecho el barrido con `--lazy-mode off`, el óptimo es **2048** (345,0
-t/s) y **`ubatch 4096` ni siquiera arranca**: muere por OOM al cargar el modelo y systemd
-entra en bucle de reintentos. El salto de 1024 a 2048 son solo **+2,8%**.
+era un error doble. Rehecho el barrido con `--lazy-mode off`, el mejor punto medido es
+**2048** (345,0 t/s) y **`ubatch 4096` ni siquiera arranca**: muere por OOM al cargar el
+modelo y systemd entra en bucle de reintentos. El salto de 1024 a 2048 son solo **+2,8%**,
+un margen medido con **2 pasadas por punto**: suficiente para descartar 4096 (no arranca),
+pero **no** para dar 2048 como óptimo firme frente a 1024. Pendiente de rehacer con
+calentamiento separado, 5 pasadas y orden equilibrado; hasta entonces la diferencia
+1024↔2048 queda como *no concluyente*.
 👉 [`docs/hallazgos.md`](docs/hallazgos.md) H-011
 👉 [`docs/metodologia.md`](docs/metodologia.md) — cómo medir sin engañarse.
 
@@ -115,7 +119,7 @@ reservada, no validada de punta a punta. Es viable porque de sus 48 capas solo 1
 | | |
 |---|---|
 | **SO** | Fedora Server 44 |
-| **Kernel** | 7.1.13 |
+| **Kernel** | 7.2.4-200.fc44 |
 | **Driver gráfico** | Mesa 26.1.8 · RADV · Vulkan 1.4.354 |
 | **Runtime** | `llama.cpp` compilado con `-DGGML_VULKAN=ON` |
 | **Arranque** | `amd_iommu=off` · `amdgpu.gttsize=126976` · `ttm.pages_limit=32505856` |

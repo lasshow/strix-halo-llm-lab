@@ -10,7 +10,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=llama
+# El usuario del servicio debe ser el DUEÑO del fichero de la clave y tener
+# acceso al directorio (ver "Secreto de API"). En este laboratorio es `lasso`;
+# si se usa un usuario dedicado, hay que cambiar el chown de esa sección.
+User=lasso
 ExecStart=/opt/llama.cpp/build/bin/llama-server \
   --model /models/gguf/<modelo>/<modelo>-00001-of-0000N.gguf \
   --mmproj /models/gguf/<modelo>/mmproj-F16.gguf \
@@ -90,13 +93,35 @@ Historia completa en [`carga-diferida-y-oom.md`](carga-diferida-y-oom.md).
 
 ## Secreto de API
 
+La unidad usa **un solo mecanismo**: `--api-key-file` apuntando a un fichero con
+la clave *en crudo* (una por línea). No hay `EnvironmentFile` ni variable
+`LLAMA_API_KEY` en el servicio.
+
+Esto es una corrección: versiones anteriores de esta guía creaban un
+`server.env` con `LLAMA_API_KEY=...` y a la vez documentaban `--api-key-file`.
+Eran dos mecanismos mezclados y el fichero de entorno no lo leía nadie. Formato
+distinto además: `--api-key-file` espera la clave sola, **sin** el prefijo
+`LLAMA_API_KEY=`.
+
 ```bash
-sudo install -d -m 750 /etc/llama-server
-printf 'LLAMA_API_KEY=%s\n' "$(openssl rand -base64 32)" | sudo tee /etc/llama-server/server.env >/dev/null
-sudo chmod 600 /etc/llama-server/server.env
+# el directorio debe ser accesible por el usuario del servicio (aquí, lasso)
+sudo install -d -m 750 -o root -g lasso /etc/llama-server
+openssl rand -base64 32 | sudo tee /etc/llama-server/api-keys.txt >/dev/null
+sudo chown lasso:lasso /etc/llama-server/api-keys.txt
+sudo chmod 600 /etc/llama-server/api-keys.txt
 ```
 
-Nunca poner la clave en la unidad systemd: `systemctl show` la expondría a cualquier usuario.
+Comprobación de que quedó como debe:
+
+```bash
+sudo ls -l /etc/llama-server/     # api-keys.txt -> -rw------- lasso lasso
+```
+
+Nunca poner la clave en la unidad systemd (`systemctl show` la expondría) ni en
+`argv` (visible en `/proc/<pid>/cmdline` para cualquier usuario local, H-021).
+
+`LLAMA_API_KEY` sí existe, pero **solo del lado del cliente**: es la variable
+que leen `smoke-test.sh` y los scripts de medición para autenticarse.
 
 ## Cortafuegos
 
