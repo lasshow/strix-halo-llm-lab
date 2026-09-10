@@ -840,3 +840,56 @@ el instrumento antes de volver a medir con el.
 512/1024/2048 con 5 pasadas. El orden acordado es instrumento primero; mezclar los arreglos
 con cambios de kernel, modelo, compilacion o parametros de produccion invalidaria la
 comparacion.
+
+---
+
+## H-025 — Segunda auditoria: los contratos no cerraban los caminos que anunciaban
+
+**Fecha:** 2026-09-10 · **Corte auditado:** `0c06767` · **Estado:** corregido, 95 pruebas
+automaticas (37 de ellas fallan contra `0c06767` y pasan aqui)
+
+La correccion de H-024 fue real pero incompleta: las 52 pruebas cubrian las regresiones
+conocidas y no tocaban el verificador de codigo ni los errores de la aguja, asi que podian
+estar **todas verdes conviviendo con aprobados falsos**. Una segunda revision externa
+encontro 19 observaciones. Se reprodujeron todas antes de tocar nada. Lo que fallaba:
+
+| Hallazgo | Que pasaba |
+|---|---|
+| Calentamiento fallido oculto | En `bench-ubatch.py` la excepcion solo se propagaba si la peticion fallida **no** era el calentamiento. Calentamiento roto + medidas buenas = punto `ok` y salida `0`, con el error visible solo en el JSONL. Nunca se pudo garantizar que las medidas fueran calientes. |
+| Salud a medias | `espera_salud()` devolvia `True` en cuanto obtenia HTTP 200 y solo consultaba systemd si la peticion **fallaba**. Un endpoint sano daba `True` sin consultar ni una vez la unidad, que podia estar `failed`: confundia "algo responde en el puerto" con "he restaurado este servicio". |
+| Contrato "exacto" no exacto | `if fin and fin != "stop"` deja pasar la **ausencia** de `finish_reason`, y `rstrip(".")` aceptaba `391.` y `391...` mientras la metodologia prometia `content.strip()` identico. Una prueba propia incluso codificaba el comportamiento permisivo. |
+| Metricas imposibles | Se comprobaba el tipo numerico pero no finitud ni coherencia: pasaban `inf`, `NaN`, velocidades negativas o de cero, y recuentos no enteros o negativos. |
+| `--needle` aprobaba prueba fallida | El resultado de la aguja no influia en el codigo de salida, que dependia solo de las medidas de rendimiento; y la aguja pasaba por el contrato de *generacion medida*, que admite `length` — justo el caso en que el modelo **no** ha llegado a decir la clave. La peticion fallida de aguja tampoco quedaba en el JSONL. |
+| TypeScript con error de tipos aprobado | `tsc` salia con codigo 2 por un `TS2322` real, pero como `noEmitOnError` esta **desactivado por defecto**, emitia el `.js`; el verificador comprobaba que el `.js` existiera, lo ejecutaba, las aserciones pasaban y el veredicto era `PASA LAS PRUEBAS`. |
+| SQL validado por subcadena | Se buscaba que la salida *contuviera* ciertos numeros, asi que `SELECT '2024 2025 2026 84000' AS basura;` aprobaba sin consultar una tabla. |
+| Esperado incorrecto en la bateria | En `P-COD-SQL` el enunciado pide hornos con **mas de 2** lecturas (solo H1), el comentario `_por_que` lo explicaba bien, y `esperado_filas` incluia H2. Un esperado mal habria penalizado al modelo que respondiera bien. |
+| Bateria publicada pero no conectada | `bench-calidad.py` y `verifica-codigo.py` seguian leyendo `private/prompts.json`, y este ultimo **al importar el modulo**: en una copia limpia del repo, `--help` reventaba con `FileNotFoundError`. Enunciados publicos si; flujo reproducible, no. |
+| Fallo del banco como veredicto | Un `203/EXEC` (systemd no llego a ejecutar el binario) se contaba como `NO COMPILA`, sin haber compilado nada. |
+| Aislamiento "verificado" sin verificar | En la autocomprobacion del sandbox, si los comandos de diagnostico **no arrancaban**, sus codigos distintos de cero se leian como "sin red", "secreto inaccesible" y "escritura protegida": una comprobacion que no pudo ejecutarse certificaba seguridad. |
+| Campana de calidad siempre verde | `bench-calidad.py` salia `0` aunque las N peticiones fallaran con HTTP 500. |
+
+**Arreglos.** El calentamiento tiene que completarse antes de contabilizar medidas
+(reintento limitado, explicito y registrado; si no, se aborta el punto con salida propia).
+`espera_salud()` exige **unidad activa Y endpoint sano**, las dos condiciones que anuncia.
+`validacion.py` gana un contrato de **recuperacion** para la aguja, separado del de
+generacion medida, que distingue "cito la clave en prosa" (fallo de formato) de "no la
+recupero" (no leyo la ventana); y valida finitud, plausibilidad y recuentos enteros. Las
+fases van marcadas en el JSONL (`calentamiento` / `medida` / `needle`) para que al recalcular
+una peticion de recuperacion no se mezcle con el rendimiento. `tsc` se invoca con
+`--noEmitOnError` y se respeta su codigo de salida. SQL compara **filas y valores**, nunca
+subcadenas, con el esquema viajando en el caso. `carga_bateria()` es un cargador comun con
+`--bateria`, la bateria publica es origen de primera clase y `--help` funciona sin
+`private/`. Un fallo del lanzador levanta `ErrorBanco` en las dos ramas (con y sin sandbox),
+y una herramienta ausente tambien: no son veredictos. La autocomprobacion del sandbox
+devuelve **tres estados** y el inconcluso aborta en vez de aprobar.
+
+**Que NO se ha hecho.** No se ha lanzado la campana de rendimiento, ni se han tocado
+kernel, modelos, compilacion ni parametros de produccion. El servicio `llama-flashnext`
+del M5 no se ha reiniciado. El orden sigue siendo el acordado: primero el instrumento.
+
+**Limites de esta ronda, dichos claros.** Las operaciones de systemd de las pruebas estan
+**simuladas**: no se ha certificado el aislamiento real en el M5, solo que la comprobacion
+ya no aprueba lo que no pudo comprobar. TypeScript, Node y SQLite se ejercitan con las
+herramientas reales del equipo de trabajo, no con las del M5. Que 37 pruebas nuevas fallen
+contra `0c06767` demuestra que detectan estos fallos concretos; no demuestra que no queden
+otros.
