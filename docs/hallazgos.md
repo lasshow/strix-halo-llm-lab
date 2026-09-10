@@ -951,3 +951,39 @@ Las operaciones de systemd de las pruebas siguen **simuladas**: el aislamiento
 real y el ciclo parada/arranque/restauracion del M5 solo se pueden certificar
 ejecutando el piloto. No hay CI en GitHub Actions para estos commits, asi que los
 resultados son locales y reproducibles, pero no visibles como ejecucion publica.
+
+### H-026b — Tres ajustes tras el informe de cierre de `12c93ba`
+
+**Fecha:** 2026-09-10 · **Estado:** corregido · Ninguno bloquea el piloto.
+
+1. **Dependencia falsa de Node.** `test_python_bueno_aprueba_y_malo_suspende`
+   llevaba `@unittest.skipUnless(TIENE_NODE)`. En un equipo con Python y sin Node
+   la prueba se omitia sin motivo. Decorador retirado.
+
+2. **La comprobacion textual no es garantia.** Contar que `jsonl.write` aparece
+   una vez no impide que esa funcion se invoque dos veces por peticion. Se aniade
+   `test_cada_peticion_correcta_deja_una_sola_fila`, que cuenta filas contra
+   peticiones reales (1 calentamiento + 3 pasadas) y exige que no haya dos filas
+   con la misma `(fase, pasada)`. La textual se conserva **degradada a
+   complementaria**, con el limite escrito en su docstring.
+   Para poder distinguir filas hizo falta registrar el indice de pasada: el JSONL
+   ahora lleva `pasada`, que ademas es necesario para el barrido.
+
+3. **Defecto propio: la suite ocultaba pruebas.** Al ir aniadiendo clases al
+   final de los ficheros con `>>`, el bloque `if __name__ == "__main__"` quedo a
+   MITAD de `tests/test_extremo_a_extremo.py` y de `tests/test_verificador.py`.
+   Ejecutar el fichero directamente corria **14 de 25** pruebas y salia `OK`: un
+   falso verde del mismo tipo que los que persigue este banco. Solo se detecto
+   porque `discover` y la ejecucion directa daban numeros distintos. Bloques
+   unificados al final y `LaSuiteNoPuedeOcultarPruebas` comprueba que en cada
+   fichero hay exactamente un bloque `__main__` y que no queda codigo despues.
+
+107 pruebas. Las dos nuevas fallan contra `12c93ba` y pasan con el arreglo.
+
+**Sobre el alcance de las puntuaciones**, se adopta la redaccion del auditor por
+ser mas precisa que la propia: *las puntuaciones obtenidas mediante las rutas
+heredadas correctas no estan afectadas por este desajuste de marcadores de la
+bateria publica*. No se ha reevaluado el historico, asi que no se certifica que
+esten libres de cualquier otro problema. Matiz correcto del auditor: **C6 no usa
+el marcador** `PRUEBAS-OK`, se valida comparando los resultados de la consulta
+SQL; los que si lo usan son C1, C4 y C5.
