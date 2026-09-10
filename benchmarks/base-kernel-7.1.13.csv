@@ -1,0 +1,6 @@
+# Base pre-kernel 7.2.4 — kernel 7.1.13-200.fc44, llama.cpp 311d421, Flash-Next UD-IQ4_XS
+# 3 pasadas por punto, cache_prompt=False, servicio sin reiniciar
+objetivo,prompt_n,pp_p0,pp_p1,pp_p2,pp_mediana,tg_p0,tg_p1,tg_p2,tg_mediana,wall_s
+4000,3065,313.7,308.7,308.2,308.7,26.01,25.94,26.08,26.01,11.1
+32000,24041,346.7,345.8,345.0,345.8,22.34,22.05,22.27,22.27,71.6
+100000,74993,237.8,238.8,238.5,238.5,14.54,14.49,14.47,14.49,316.5

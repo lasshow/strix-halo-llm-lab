@@ -592,3 +592,36 @@ largo no está aportando calidad, está aportando riesgo de respuesta vacía.
 **Veredicto.** Flash-Next se confirma como modelo productivo: idioma, instrucciones y JSON sin fallos, y
 código que compila. El único defecto real de esta tanda es el bucle de razonamiento, y tiene arreglo por
 parámetro, no por prompt.
+
+
+## H-020 — Kernel 7.1.13 -> 7.2.4: la generacion sube ~3%, pero la comparativa no esta bien controlada (2026-09-10)
+
+Actualizacion de Fedora 44 de `kernel 7.1.13-200.fc44` a `7.2.4-200.fc44` (39 paquetes, reboot).
+Sin ROCm ni DKMS: `amdgpu` va en el kernel, asi que no habia modulos fuera de arbol que recompilar.
+Los argumentos `amd_iommu=off ttm.pages_limit=32505856` se heredan de `/etc/default/grub` y siguen
+en `/proc/cmdline` tras arrancar. El 7.1.13 queda como entrada de arranque de reserva.
+
+Misma orden exacta antes y despues: `bench-context.py --tokens 4000 32000 100000 --passes 3`,
+`cache_prompt=False`, Flash-Next UD-IQ4_XS, llama.cpp `311d421`, servicio sin reiniciar entre pasadas.
+
+| tokens de prompt | pp 7.1.13 | pp 7.2.4 | tg 7.1.13 | tg 7.2.4 |
+|---|---|---|---|---|
+| 3.065 | 308,7 | 309,1 (+0,1%) | 26,01 | 26,45 (+1,7%) |
+| 24.041 | 345,8 | 345,5 (-0,1%) | 22,27 | 22,93 (+3,0%) |
+| 74.993 | 238,5 | 236,1 (-1,0%) | 14,49 | 14,93 (+3,0%) |
+
+Prefill plano: las tres diferencias caben en el ruido. Generacion arriba entre +1,7% y +3,0%, en la
+misma direccion en los tres puntos, con dispersion intra-punto por debajo del 0,5%.
+
+**Limitacion que invalida atribuir la mejora al kernel.** Todo el bloque 7.1.13 se midio antes del
+reboot y todo el 7.2.4 despues: el orden A/B no se alterno. Un +3% consistente es igual de compatible
+con un estado distinto de la maquina tras arrancar limpia (fragmentacion de memoria, termica, cache de
+pagina) que con el kernel nuevo. Para atribuirlo habria que alternar arranques 7.1.13 / 7.2.4 desde la
+entrada de GRUB de reserva y repetir la tanda en cada uno.
+
+**Conclusion util.** El kernel nuevo no rompe nada: servicios `llama-flashnext` y `brush-server` suben
+solos, GTT sigue en 126976M y VRAM en 1024M, y el rendimiento no ha bajado. Eso es lo que la medida
+demuestra. La cifra de +3% queda registrada como observada, no como ganancia demostrada del kernel.
+
+La forma de la curva no cambia: de 3.065 a 74.993 tokens el prefill cae un 24% y la generacion un 44%,
+igual que antes de la actualizacion.
