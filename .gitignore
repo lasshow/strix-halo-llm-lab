@@ -6,3 +6,7 @@ __pycache__/
 *.key
 .secrets/
 private/
+
+# registros crudos de sesiones de medicion (se conservan localmente,
+# no se versionan salvo que respalden un hallazgo publicado)
+benchmarks/crudo-*.jsonl

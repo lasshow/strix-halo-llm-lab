@@ -1,0 +1,114 @@
+{
+  "_nota": "Bateria PUBLICA y reproducible. Sustituye a private/prompts.json, que esta en .gitignore y hacia imposible repetir las pruebas desde fuera (senalado por la auditoria externa, H-024). Todos los enunciados y datos son sinteticos: no hay claves, ni datos personales, ni informacion interna. Cada entrada declara el contrato con el que debe evaluarse; ver scripts/validacion.py.",
+  "contratos": {
+    "exacto": "el contenido normalizado debe ser identico a 'esperado'",
+    "contiene": "el contenido debe contener todas las cadenas de 'esperado' (comparacion sin mayusculas)",
+    "json": "el contenido debe ser JSON valido y cumplir 'esquema_min' (claves y tipos)",
+    "codigo": "se extrae el bloque de codigo, se compila y se ejecuta contra 'pruebas' en el sandbox; veredicto NO COMPILA / COMPILA PERO FALLA / PASA LAS PRUEBAS",
+    "idioma": "la respuesta debe estar en el idioma 'lang'; revision manual, no automatizable de forma fiable"
+  },
+  "prompts": [
+    {
+      "id": "P-ARIT-1",
+      "cat": "aritmetica",
+      "lang": "es",
+      "contrato": "exacto",
+      "p": "Cuanto es 17*23? Responde solo el numero, sin texto ni simbolos.",
+      "esperado": "391",
+      "_por_que": "Es el caso del smoke test. Con el veredicto antiguo (extraer digitos) pasaban '-391', '391%', '391 unidades' y 'No es 391'."
+    },
+    {
+      "id": "P-ARIT-2",
+      "cat": "aritmetica",
+      "lang": "es",
+      "contrato": "exacto",
+      "p": "Una bomba mueve 12,5 litros por minuto. Cuantos litros mueve en 8 minutos? Responde solo el numero en litros, con coma decimal si hace falta.",
+      "esperado": "100"
+    },
+    {
+      "id": "P-RAZ-1",
+      "cat": "razonamiento",
+      "lang": "es",
+      "contrato": "contiene",
+      "p": "Tengo 3 cajas: A pesa el doble que B, y B pesa 4 kg menos que C. Si las tres juntas pesan 44 kg, cuanto pesa cada una? Da el resultado final en una linea con el formato 'A=.. B=.. C=..'.",
+      "esperado": ["A=20", "B=10", "C=14"],
+      "_solucion": "A=2B y C=B+4 -> 2B+B+B+4=44 -> 4B=40 -> B=10, A=20, C=14 (suma 44)."
+    },
+    {
+      "id": "P-JSON-1",
+      "cat": "json",
+      "lang": "es",
+      "contrato": "json",
+      "p": "Devuelve UNICAMENTE un objeto JSON, sin texto alrededor ni bloque de codigo, con estas claves: 'horno' (cadena, valor 'H-204'), 'temperatura_c' (numero entero 1150) y 'alarmas' (lista vacia).",
+      "esquema_min": {"horno": "str", "temperatura_c": "int", "alarmas": "list"},
+      "esperado": {"horno": "H-204", "temperatura_c": 1150, "alarmas": []}
+    },
+    {
+      "id": "P-INS-1",
+      "cat": "instrucciones",
+      "lang": "es",
+      "contrato": "exacto",
+      "p": "Escribe la palabra ROJO en mayusculas y nada mas. No expliques nada.",
+      "esperado": "ROJO",
+      "_por_que": "Detecta modelos que anteponen 'Claro:' o cierran con una coletilla."
+    },
+    {
+      "id": "P-INS-2",
+      "cat": "instrucciones",
+      "lang": "es",
+      "contrato": "contiene",
+      "p": "Enumera exactamente tres colores primarios, uno por linea, sin numeracion, sin guiones y sin ninguna frase adicional.",
+      "esperado": ["rojo", "azul", "amarillo"]
+    },
+    {
+      "id": "P-COD-PY",
+      "cat": "codigo",
+      "lang": "python",
+      "contrato": "codigo",
+      "p": "Escribe una funcion Python `media_movil(valores, ventana)` que devuelva la lista de medias moviles simples. Si la ventana es mayor que la lista o menor que 1, devuelve lista vacia. Solo el bloque de codigo.",
+      "pruebas": "assert media_movil([1,2,3,4], 2) == [1.5, 2.5, 3.5]\nassert media_movil([1,2], 5) == []\nassert media_movil([1,2], 0) == []\nassert media_movil([], 1) == []\nprint('ok')"
+    },
+    {
+      "id": "P-COD-SQL",
+      "cat": "codigo",
+      "lang": "sql",
+      "contrato": "codigo",
+      "p": "Dada la tabla lecturas(horno TEXT, dia TEXT, grados REAL), escribe una consulta SQLite que devuelva, por horno, la media de grados redondeada a un decimal, solo para hornos con mas de 2 lecturas, ordenado de mayor a menor media. Columnas: horno, media. Solo el bloque SQL.",
+      "esquema": "CREATE TABLE lecturas(horno TEXT, dia TEXT, grados REAL);\nINSERT INTO lecturas VALUES ('H1','2026-01-01',1000),('H1','2026-01-02',1100),('H1','2026-01-03',1200),('H2','2026-01-01',900),('H2','2026-01-02',950),('H3','2026-01-01',1500);",
+      "esperado_filas": [["H1", 1100.0], ["H2", 925.0]],
+      "_por_que": "H3 tiene una sola lectura y H2 dos: solo H1 supera 2. Ojo, el enunciado dice 'mas de 2', asi que la respuesta correcta es unicamente H1."
+    },
+    {
+      "id": "P-COD-TS",
+      "cat": "codigo",
+      "lang": "typescript",
+      "contrato": "codigo",
+      "p": "Escribe una funcion TypeScript `agrupaPor<T, K extends string>(items: T[], clave: (x: T) => K): Record<K, T[]>` que agrupe elementos. Tipada, sin `any`. Solo el bloque de codigo.",
+      "pruebas": "const r = agrupaPor([{a:1},{a:2},{a:1}], x => String(x.a) as '1'|'2');\nif (r['1'].length !== 2 || r['2'].length !== 1) throw new Error('mal');\nconsole.log('ok');"
+    },
+    {
+      "id": "P-IDI-EU",
+      "cat": "idioma",
+      "lang": "eu",
+      "contrato": "idioma",
+      "p": "Idatzi bi esaldi euskaraz labe industrial baten mantentze-lanei buruz.",
+      "_por_que": "Discriminante fuerte entre modelos: varios inventan euskera plausible pero incorrecto. Correccion MANUAL, no automatica."
+    },
+    {
+      "id": "P-IDI-ES",
+      "cat": "idioma",
+      "lang": "es",
+      "contrato": "idioma",
+      "p": "Explica en dos frases, en castellano llano y sin anglicismos, que es la memoria unificada en un sistema con GPU integrada."
+    },
+    {
+      "id": "P-VACIO-1",
+      "cat": "control",
+      "lang": "es",
+      "contrato": "exacto",
+      "p": "Responde solo con la palabra OK.",
+      "esperado": "OK",
+      "_por_que": "Caso de control barato: si este falla, el servidor o la plantilla de chat estan rotos y el resto de la bateria no significa nada."
+    }
+  ]
+}
