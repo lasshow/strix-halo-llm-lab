@@ -893,3 +893,61 @@ ya no aprueba lo que no pudo comprobar. TypeScript, Node y SQLite se ejercitan c
 herramientas reales del equipo de trabajo, no con las del M5. Que 37 pruebas nuevas fallen
 contra `0c06767` demuestra que detectan estos fallos concretos; no demuestra que no queden
 otros.
+
+## H-026 — El banco suspendia codigo correcto y contaba mal los fallos
+
+**Fecha:** 2026-09-10 · **Corte auditado:** `2919da9` · **Estado:** corregido
+
+Tercera revision externa. Los tres bloqueos del barrido de ubatch (calentamiento
+obligatorio, salud conjunta, validacion de metricas) quedaron confirmados como
+corregidos y el piloto supervisado autorizado. Quedaban cuatro defectos en dos
+zonas distintas, ninguna de ellas en el camino del barrido.
+
+### A. La bateria publica y el verificador no hablaban el mismo protocolo
+
+Las pruebas de `P-COD-PY` y `P-COD-TS` terminaban con `print('ok')` /
+`console.log('ok')`, pero `v_python()` y `v_node()` exigen `PRUEBAS-OK` en la
+salida para aprobar. Consecuencia: **una solucion correcta se puntuaba como
+COMPILA PERO FALLA**. Reproducido ejecutando implementaciones correctas de
+`media_movil` y `agrupaPor`: ambas terminan sus aserciones y aun asi suspenden.
+
+El fallo es de coherencia interna, no de criterio: el marcador se unifico en
+`PRUEBAS-OK` en la bateria publica. **No se elimino la comprobacion del
+marcador**: salir con codigo 0 no acredita que las aserciones se ejecutaran (un
+fichero de pruebas vacio tambien sale 0).
+
+Alcance real: la tabla `PRUEBAS` que usan los casos privados (C1, C4, C5, C6) ya
+emitia el marcador correcto, asi que **las puntuaciones de modelos ya publicadas
+no estan contaminadas**; el desajuste estaba solo en la copia publica.
+
+Por que se colo: la prueba desde copia limpia solo cubria SQL. Una prueba por
+lenguaje que ademas comprueba las dos mitades (la solucion buena aprueba **y** la
+mala suspende) lo habria detectado. Ahora existe.
+
+### B. El JSONL del barrido de contexto no era uno a uno con las peticiones
+
+**B1 — doble escritura.** `measure()` anotaba el fallo y lo propagaba; el
+`except` del bucle escribia otra fila con el mismo error, ademas sin `fase`. Una
+peticion producia dos registros: calcular la tasa de fallos contando filas la
+inflaba al doble. Corregido dejando la escritura en un solo nivel (`anota`). Se
+aniade una prueba estructural: `jsonl.write` debe aparecer **una sola vez** en el
+fichero, para que la duplicacion no vuelva por otro camino.
+
+**B2 — timeout sin registrar.** `measure()` tipaba `HTTPError` y `URLError`, pero
+un `TimeoutError` directo (lo lanza el socket, no urllib) escapaba del `except`
+que registra: la peticion fallida desaparecia del JSONL. Ahora se convierte en
+`ErrorInfraestructura` y se registra por el mismo camino, conservando duracion,
+fase e identificador. Un timeout es fallo de infraestructura, nunca del modelo.
+
+### Verificacion
+
+10 pruebas nuevas (105 en total). Contrastadas contra `2919da9`: **8 fallan con
+el codigo viejo** y pasan con los arreglos. Las de codigo se ejecutan con `tsc`,
+`node` y `sqlite3` reales.
+
+### Limitaciones que siguen en pie
+
+Las operaciones de systemd de las pruebas siguen **simuladas**: el aislamiento
+real y el ciclo parada/arranque/restauracion del M5 solo se pueden certificar
+ejecutando el piloto. No hay CI en GitHub Actions para estos commits, asi que los
+resultados son locales y reproducibles, pero no visibles como ejecucion publica.
