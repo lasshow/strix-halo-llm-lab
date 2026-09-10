@@ -796,3 +796,47 @@ los dos casos de `content` vacio de [H-019](#h-019). Coherente con lo ya sabido.
 verdad" queda **degradada a "compilan"**, que es lo unico que aquella medicion demostraba. Lo
 que ahora se puede afirmar sobre ejecucion real es solo lo de la tabla de arriba.
 
+## H-024 — El banco de pruebas daba por buenas respuestas invalidas y salia 0 siempre (2026-09-10)
+
+**Estado:** corregido y verificado con 52 pruebas automaticas · origen: auditoria externa
+del corte `35a2f26`, reproducida punto por punto en la maquina.
+
+El instrumental tenia cinco defectos que hacian que **un fallo se registrase como exito**.
+Ninguno era teorico: todos se reprodujeron antes de arreglarlos.
+
+| Defecto | Sintoma reproducido |
+|---|---|
+| `espera_salud(puerto)` ignoraba el servicio consultado | Consultaba siempre `is-active llama-flashnext-bench`, incluso al restaurar produccion en el 8080. La restauracion podia darse por buena sin comprobar nada. |
+| `mide()` no validaba la respuesta | Un cuerpo `{}` devolvia `(0, 0, 0)` sin excepcion y el llamador lo etiquetaba `ok`: una medida de **0 t/s** entraba en la tabla como valida. |
+| Smoke test extraia digitos | `-391`, `No es 391`, `391%` y `391 unidades` **pasaban** como CORRECTO. Solo acertaba rechazando `1391`. |
+| `AUTH` con el literal `***` | La cabecera enviaba `Bearer ***` en vez de la clave: contra un servidor con autenticacion, el smoke test fallaba siempre por un motivo falso. |
+| Codigos de salida | Los tres scripts salian `0` con los fallos meramente impresos. `verifica-codigo.py` hacia `sys.exit(main())` con `main()` devolviendo `None`. Cualquier automatizacion los daba por verdes. |
+
+**Arreglos.** `scripts/validacion.py` centraliza los contratos, y son **distintos por tipo
+de prueba** — esto es un matiz de la auditoria que merece constancia: exigir
+`finish_reason: "stop"` universalmente seria otro error, porque en una medicion con
+`max_tokens` fijado la finalizacion por limite es el comportamiento correcto. La tabla de
+contratos esta en [`metodologia.md`](metodologia.md). Ademas se separa **fallo del modelo**
+de **error del banco**: un timeout, un sandbox que no arranca o un compilador ausente ya no
+se cuentan como "NO COMPILA" (salida `3`, distinta del `2` de fallo del modelo).
+
+**Reproducibilidad.** Se anaden calentamiento explicito registrado y descartado, JSONL
+crudo por peticion (`warmup: true/false`), resumenes recalculables desde ese registro, y
+[`../benchmarks/bateria-publica.json`](../benchmarks/bateria-publica.json), que sustituye a
+la bateria que vivia en `private/` (en `.gitignore`) y hacia las pruebas irrepetibles desde
+fuera. Datos sinteticos, sin claves ni informacion interna.
+
+**Como se demuestra.** `tests/` levanta un servidor HTTP falso que imita a `llama-server` y
+ejecuta los scripts **como procesos**, comprobando el codigo de salida ante `{}`, cuerpo sin
+`timings`, contenido vacio con razonamiento, `-391`, `No es 391`, finalizacion por limite,
+cuerpo no-JSON, error 500, salud mala y servidor sin autenticacion. 52 pruebas, todas en
+verde. Los errores de la auditoria ahora **fallan como deben**.
+
+Dos fallos los encontro la propia bateria mientras se escribia: el literal `Bearer ***` y
+un `esperado` mal calculado en un prompt de razonamiento. Es el argumento a favor de probar
+el instrumento antes de volver a medir con el.
+
+**Pendiente, deliberadamente sin hacer:** no se ha lanzado la campana de `ubatch`
+512/1024/2048 con 5 pasadas. El orden acordado es instrumento primero; mezclar los arreglos
+con cambios de kernel, modelo, compilacion o parametros de produccion invalidaria la
+comparacion.
