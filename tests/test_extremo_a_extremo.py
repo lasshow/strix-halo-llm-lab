@@ -14,6 +14,7 @@ import re
 import os
 import subprocess
 import sys
+import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -359,3 +360,80 @@ class CalidadNoSaleCeroSiTodoFalla(Base):
         with tempfile.TemporaryDirectory() as d:
             p, _ = self.corre(d)
             self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+
+
+class UnaPeticionUnRegistro(Base):
+    """H-026 B: el JSONL de contexto tiene que ser uno a uno con las peticiones.
+
+    B1: measure() anotaba el fallo y lo propagaba, y el except del bucle escribia
+    OTRA fila con el mismo error (sin fase). Contar filas para sacar la tasa de
+    fallos la inflaba al doble.
+    B2: un TimeoutError directo no se convertia en ErrorInfraestructura, escapaba
+    del except que registra y se perdia: cero filas para una peticion que fallo.
+    """
+
+    def corre(self, jl, *extra):
+        entorno = dict(os.environ, LLAMA_API_KEY=CLAVE)
+        return subprocess.run(
+            [sys.executable, os.path.join(SCRIPTS, "bench-context.py"),
+             "--url", self.url, "--tokens", "200", "--passes", "1",
+             "--jsonl", jl, *extra],
+            capture_output=True, text=True, timeout=180, env=entorno)
+
+    def filas(self, jl):
+        with open(jl, encoding="utf-8") as fh:
+            return [json.loads(l) for l in fh if l.strip()]
+
+    def test_una_peticion_fallida_deja_exactamente_un_registro_con_fase(self):
+        MODO["v"] = "error-500"
+        d = tempfile.mkdtemp()
+        jl = os.path.join(d, "b1.jsonl")
+        p = self.corre(jl)
+        f = self.filas(jl)
+        self.assertEqual(len(f), 1,
+                         f"una peticion debe dejar UN registro, hay {len(f)}: {f}")
+        self.assertEqual(f[0].get("fase"), "calentamiento")
+        self.assertIn("fallo", f[0])
+        self.assertNotEqual(p.returncode, 0)
+
+    def test_ningun_registro_se_queda_sin_fase(self):
+        MODO["v"] = "error-500"
+        d = tempfile.mkdtemp()
+        jl = os.path.join(d, "b1b.jsonl")
+        self.corre(jl)
+        for f in self.filas(jl):
+            self.assertIsNotNone(f.get("fase"), f"registro sin fase: {f}")
+
+    def test_el_timeout_queda_tipado_y_registrado_una_sola_vez(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "bc_to", os.path.join(SCRIPTS, "bench-context.py"))
+        bc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(bc)
+
+        def boom(*a, **k):
+            raise TimeoutError("read timed out")
+
+        original = bc.urllib.request.urlopen
+        bc.urllib.request.urlopen = boom
+        try:
+            d = tempfile.mkdtemp()
+            ruta = os.path.join(d, "to.jsonl")
+            with open(ruta, "w", encoding="utf-8") as jl:
+                with self.assertRaises(bc.ErrorInfraestructura):
+                    bc.measure("http://127.0.0.1:1", "k", "hola", "m", jsonl=jl,
+                               objetivo=64, warmup=False, fase="pasada 1")
+            f = self.filas(ruta)
+            self.assertEqual(len(f), 1, "el timeout tiene que dejar registro")
+            self.assertIn("timeout", f[0]["fallo"].lower())
+            self.assertEqual(f[0].get("fase"), "pasada 1")
+        finally:
+            bc.urllib.request.urlopen = original
+
+    def test_solo_existe_un_punto_de_escritura_en_el_jsonl(self):
+        """Invariante estructural: si reaparece un segundo jsonl.write, la
+        duplicacion puede volver por un camino que ninguna prueba cubra."""
+        with open(os.path.join(SCRIPTS, "bench-context.py"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertEqual(src.count("jsonl.write"), 1,
+                         "la escritura del JSONL debe estar en un solo nivel (anota)")

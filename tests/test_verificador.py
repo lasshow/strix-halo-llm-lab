@@ -15,6 +15,7 @@ compilador) y se saltan solas si falta la herramienta: un compilador ausente
 tiene que ser inconcluso, nunca un veredicto.
 """
 import importlib.util
+import json
 import os
 import shutil
 import sys
@@ -290,3 +291,141 @@ class FlujoCompletoDesdeCopiaLimpia(unittest.TestCase):
         self.assertNotIn("[OK]", p.stdout)
         self.assertEqual(p.returncode, 2,
                          f"fallo del MODELO = 2, no 0: {p.stdout[-500:]}")
+
+
+class MarcadorDelProtocoloCoherente(unittest.TestCase):
+    """H-026: la bateria publica terminaba sus pruebas con print('ok') mientras
+    v_python/v_node exigian PRUEBAS-OK -> una solucion CORRECTA se puntuaba
+    'COMPILA PERO FALLA'. Penalizar codigo bueno por un desajuste del propio
+    protocolo falsea cualquier comparacion entre modelos.
+
+    No se elimina la exigencia del marcador: un exit 0 no demuestra por si solo
+    que las aserciones llegaran a ejecutarse (un `return` temprano, un bloque
+    saltado o un proceso que muere limpio tambien salen 0).
+    """
+
+    def _casos(self, ruta):
+        with open(ruta, encoding="utf-8") as fh:
+            d = json.load(fh)
+        ps = d["prompts"] if isinstance(d, dict) else d
+        return [p for p in ps if isinstance(p, dict) and (p.get("pruebas") or "")]
+
+    def test_toda_prueba_de_la_bateria_publica_emite_el_marcador(self):
+        casos = self._casos(os.path.join(RAIZ, "benchmarks", "bateria-publica.json"))
+        self.assertTrue(casos, "la bateria publica deberia traer casos con pruebas")
+        for p in casos:
+            with self.subTest(id=p.get("id")):
+                self.assertIn("PRUEBAS-OK", p["pruebas"],
+                              "las pruebas deben emitir el marcador que exige el verificador")
+
+    def test_la_tabla_de_pruebas_heredada_tambien_lo_emite(self):
+        mod = V
+        for pid, (lang, pruebas) in mod.PRUEBAS.items():
+            with self.subTest(id=pid):
+                self.assertIn("PRUEBAS-OK", pruebas)
+
+    def test_el_marcador_sigue_siendo_obligatorio(self):
+        """Control negativo: exit 0 sin marcador NO es un pase."""
+        with V.Caja(sandbox=False) as caja:
+            estado, _ = V.v_python("def f():\n    return 1\n", caja,
+                                   "assert f() == 1\nprint('ok')")
+        self.assertNotEqual(estado, "PASA LAS PRUEBAS",
+                            "sin el marcador no se puede acreditar que las aserciones corrieran")
+
+
+SOL_PY_BUENA = '''def media_movil(datos, k):
+    if k <= 0 or k > len(datos):
+        return []
+    out = []
+    s = sum(datos[:k])
+    out.append(s / k)
+    for i in range(k, len(datos)):
+        s += datos[i] - datos[i - k]
+        out.append(s / k)
+    return out
+'''
+
+SOL_PY_MALA = '''def media_movil(datos, k):
+    return [sum(datos[i:i + k]) / k for i in range(len(datos))]
+'''
+
+SOL_TS_BUENA = '''export function agrupaPor<T, K extends string>(xs: T[], f: (x: T) => K): Record<K, T[]> {
+  const out = {} as Record<K, T[]>;
+  for (const x of xs) {
+    const k = f(x);
+    if (!out[k]) out[k] = [];
+    out[k].push(x);
+  }
+  return out;
+}
+'''
+
+SOL_TS_MALA = '''export function agrupaPor<T, K extends string>(xs: T[], f: (x: T) => K): Record<K, T[]> {
+  const out = {} as Record<K, T[]>;
+  for (const x of xs) out[f(x)] = [x];
+  return out;
+}
+'''
+
+SOL_SQL_BUENA = ("SELECT horno, ROUND(AVG(grados),1) AS media FROM lecturas "
+                 "GROUP BY horno HAVING COUNT(*) > 2 ORDER BY media DESC;")
+# El fallo tipico: >= 2 en vez de > 2, que cuela H2.
+SOL_SQL_MALA = ("SELECT horno, ROUND(AVG(grados),1) AS media FROM lecturas "
+                "GROUP BY horno HAVING COUNT(*) >= 2 ORDER BY media DESC;")
+
+
+class CadaLenguajePublicoPuedeAprobarYSuspender(unittest.TestCase):
+    """H-026: la prueba que faltaba. La copia limpia solo cubria SQL, asi que el
+    falso negativo de Python y TypeScript pasaba desapercibido. Un banco sirve
+    solo si la solucion buena aprueba Y la mala suspende: comprobar una sola de
+    las dos mitades deja pasar tanto los falsos negativos como los aprobados
+    falsos.
+    """
+
+    RUTA = os.path.join(RAIZ, "benchmarks", "bateria-publica.json")
+
+    def _ejecuta(self, caso, codigo, lenguaje):
+        import subprocess
+        import tempfile
+        d = tempfile.mkdtemp()
+        resp = os.path.join(d, "r.json")
+        with open(resp, "w", encoding="utf-8") as fh:
+            json.dump({caso: {"texto": "```%s\n%s```" % (lenguaje, codigo)}}, fh)
+        salida = os.path.join(d, "s.json")
+        p = subprocess.run(
+            [sys.executable, os.path.join(SCRIPTS, "verifica-codigo.py"),
+             "--etiqueta", "prueba", "--bateria", self.RUTA,
+             "--respuestas", resp, "--salida", salida,
+             "--solo", caso, "--sin-sandbox"],
+            capture_output=True, text=True, timeout=300)
+        with open(salida, encoding="utf-8") as fh:
+            datos = json.load(fh)
+        res = datos[caso] if caso in datos else datos
+        return res.get("veredicto"), p.returncode
+
+    @unittest.skipUnless(TIENE_NODE, "falta node")
+    def test_python_bueno_aprueba_y_malo_suspende(self):
+        estado, rc = self._ejecuta("P-COD-PY", SOL_PY_BUENA, "python")
+        self.assertEqual(estado, "PASA LAS PRUEBAS",
+                         "una solucion correcta NO puede puntuarse como fallo")
+        self.assertEqual(rc, 0)
+        estado, rc = self._ejecuta("P-COD-PY", SOL_PY_MALA, "python")
+        self.assertEqual(estado, "COMPILA PERO FALLA")
+        self.assertNotEqual(rc, 0)
+
+    @unittest.skipUnless(TIENE_TSC and TIENE_NODE, "faltan tsc/node")
+    def test_typescript_bueno_aprueba_y_malo_suspende(self):
+        estado, rc = self._ejecuta("P-COD-TS", SOL_TS_BUENA, "typescript")
+        self.assertEqual(estado, "PASA LAS PRUEBAS",
+                         "una solucion correcta NO puede puntuarse como fallo")
+        self.assertEqual(rc, 0)
+        estado, _ = self._ejecuta("P-COD-TS", SOL_TS_MALA, "typescript")
+        self.assertEqual(estado, "COMPILA PERO FALLA")
+
+    @unittest.skipUnless(TIENE_SQLITE, "falta sqlite3")
+    def test_sql_bueno_aprueba_y_malo_suspende(self):
+        estado, rc = self._ejecuta("P-COD-SQL", SOL_SQL_BUENA, "sql")
+        self.assertEqual(estado, "PASA LAS PRUEBAS")
+        self.assertEqual(rc, 0)
+        estado, _ = self._ejecuta("P-COD-SQL", SOL_SQL_MALA, "sql")
+        self.assertEqual(estado, "COMPILA PERO FALLA")
