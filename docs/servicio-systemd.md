@@ -48,7 +48,7 @@ WantedBy=multi-user.target
 | `-np 2` | Dos slots concurrentes. |
 | `-kvu` | KV unificada: los slots comparten el pool en vez de partirlo. |
 | `-fa on` | Flash attention. |
-| `--batch 4096 / --ubatch 2048` | **Medido**, no copiado. Ver [`metodologia.md`](metodologia.md). Con `--lazy-mode off`, `--ubatch 4096` **no arranca**: OOM al cargar y bucle de reintentos de systemd. El optimo es 2048 (345,0 t/s); 1024 cuesta solo un 2,8% si necesitas margen. |
+| `--batch 4096 / --ubatch 2048` | **Medido**, no copiado. Ver [`metodologia.md`](metodologia.md). Con `--lazy-mode off`, `--ubatch 4096` **no arranca**: OOM al cargar y bucle de reintentos de systemd. Entre 1024 y 2048 **no hay diferencia medible** con `batch` fijo a 4096 (H-022); se usa 2048 por continuidad, y bajar a 1024 no cuesta rendimiento si necesitas margen de memoria. El `+2,8%` que se publicó a favor de 2048 era un artefacto del barrido viejo. |
 | `--lazy-mode off` | **+16% de prefill** contra el servidor real (el banco `llama-bench` dice +92%, exagera). Contrapartida: los pesos dejan de ser reclamables, lo que hace inviable `--ubatch 4096`. Ver [`carga-diferida-y-oom.md`](carga-diferida-y-oom.md). |
 | `OOMScoreAdjust=500` | Que muera el modelo, nunca la maquina. Ver abajo. |
 | `--api-key-file` | La clave vive en `/etc/llama-server/api-keys.txt` (`600 lasso:lasso`, dentro de un directorio `750 root:lasso`). **No se pasa por `argv`**: ahí sería legible por cualquier usuario local vía `/proc/<pid>/cmdline` (H-021). El directorio debe ser accesible por el usuario del servicio, no solo el fichero. |
