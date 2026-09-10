@@ -39,6 +39,7 @@ Uso: sudo -v primero.
 """
 import argparse
 import json
+from collections import Counter
 import os
 import re
 import statistics
@@ -107,6 +108,41 @@ def construye_unidad(texto, ubatch, batch):
     # sin reinicio automatico: si un ubatch no arranca, quiero verlo, no un bucle
     t = re.sub(r"Restart=on-failure", "Restart=no", t)
     return t
+
+
+def batch_efectivo(unidad, desde, esperado):
+    """Verifica el batch que el servidor APLICO, leyendolo del journal.
+
+    H-028: el barrido solo comprobaba que el TEXTO de la unidad contuviera el
+    valor pedido, no que el servidor lo usara. Con eso, un punto medido con un
+    batch que nunca se aplico habria pasado por bueno.
+
+    llama-server no expone n_batch en /props (solo n_ctx), asi que la fuente
+    fiable es el paso entre trozos de 'prompt processing': con --batch-size N
+    el progreso avanza de N en N. Se comprueba el paso MINIMO entre trozos
+    consecutivos, porque el ultimo trozo suele ser mas corto (el resto).
+
+    Devuelve (efectivo, coincide). efectivo es None si no hay bastantes trozos
+    para deducirlo (prompt corto): en ese caso no se afirma nada.
+    """
+    salida = sh(
+        f'journalctl -u {unidad} --since "{desde}" --no-pager -o cat',
+        check=False,
+    )
+    trozos = [int(m) for m in re.findall(r"prompt processing, n_tokens = +(\d+)", salida)]
+    if len(trozos) < 2:
+        return None, None
+    pasos = [b - a for a, b in zip(trozos, trozos[1:]) if b > a]
+    if not pasos:
+        return None, None
+    # El paso MAS FRECUENTE, no el minimo: el ultimo trozo es el resto del
+    # prompt (30018 con batch 4096 deja 1346) y tomarlo por el batch fue un
+    # defecto real que cazaron las pruebas de esta misma tanda.
+    conteo = Counter(pasos)
+    efectivo, veces = conteo.most_common(1)[0]
+    if veces == 1 and len(conteo) > 1:
+        return None, None  # sin paso dominante no se afirma nada
+    return efectivo, efectivo == esperado
 
 
 def espera_salud(unidad, puerto, limite=600):
@@ -302,6 +338,7 @@ def main():
     print(f"[i] registro crudo: {os.path.abspath(ruta_jsonl)}\n")
 
     filas = []
+    incidencias = []
     restauracion_ok = True
     with open(ruta_jsonl, "a", encoding="utf-8") as jsonl:
         try:
@@ -311,6 +348,7 @@ def main():
 
             for ub in a.ubatch:
                 print(f"[*] ubatch={ub} (batch={a.batch})")
+                t_arranque = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 sh(f"sudo -n tee {RUTA_BENCH} >/dev/null <<'EOF'\n"
                    f"{construye_unidad(prod, ub, a.batch)}\nEOF")
                 sh("sudo -n systemctl daemon-reload")
@@ -329,6 +367,16 @@ def main():
                 except Exception as e:
                     print(f"    [X] fallo midiendo: {str(e)[:150]}")
                     filas.append((ub, None, None, None, f"error: {str(e)[:60]}"))
+                efec, coincide = batch_efectivo(UNIT_BENCH, t_arranque, a.batch)
+                if efec is None:
+                    print("    [i] batch efectivo: no deducible (prompt corto)")
+                elif coincide:
+                    print(f"    [i] batch efectivo verificado en el journal: {efec}")
+                else:
+                    print(f"    [!] BATCH NO APLICADO: pedido {a.batch}, "
+                          f"efectivo {efec} -- el punto NO es comparable")
+                    incidencias.append(
+                        f"ubatch={ub}: batch pedido {a.batch} != efectivo {efec}")
                 sh(f"sudo -n systemctl stop {UNIT_BENCH}", check=False)
         finally:
             print("\n[i] limpiando y restaurando")
@@ -361,9 +409,17 @@ def main():
             print(f"| {ub} | {a.batch} | {pn} | {pp:.1f} | {tg:.2f} | {est} |")
     print(f"\nRegistro crudo por peticion: {os.path.abspath(ruta_jsonl)}")
 
+    if incidencias:
+        print("\n[!] INCIDENCIAS DE VALIDEZ (los puntos afectados no son "
+              "comparables):", file=sys.stderr)
+        for i in incidencias:
+            print(f"    - {i}", file=sys.stderr)
+
     fallidos = [f for f in filas if f[4] != "ok"]
     if not restauracion_ok:
         return SALIDA_RESTAURACION
+    if incidencias:
+        return SALIDA_MEDIDA
     if fallidos or not filas:
         print(f"[!] {len(fallidos)}/{len(filas)} puntos fallaron", file=sys.stderr)
         return SALIDA_MEDIDA
