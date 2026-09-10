@@ -54,6 +54,12 @@ con la carga diferida activa y el óptimo podía haberse movido. Se movió.
 
 **Prompt real de 24.782 tokens, servicio reiniciado entre puntos:**
 
+> ⚠️ **TABLA CONTAMINADA — corregida por [H-022](#h-022--con-batch-fijo-la-ventaja-de-ubatch-2048-sobre-1024-desaparece-h-011-estaba-contaminado-2026-09-10).**
+> El script usado movía `--batch-size` **junto con** `--ubatch-size`, así que cada fila es
+> una configuración distinta (batch 512+ubatch 512, batch 1024+ubatch 1024…) y las filas
+> **no son comparables entre sí**. El `+12,0%` no es el efecto de `ubatch`. Con `batch`
+> fijo a 4096, 1024 y 2048 rinden igual dentro del ruido. Se conserva por método.
+
 | ubatch | pp (t/s) | tg (t/s) | vs 512 |
 |---:|---:|---:|---:|
 | 512 | 307,9 | 22,16 | — |
@@ -687,3 +693,46 @@ linea de comandos, y la autenticacion sigue devolviendo 401 sin clave y con clav
 Leccion: al mover un secreto a un fichero, comprobar los permisos **del directorio**
 que lo contiene con el usuario del servicio (`sudo -u <usuario> cat ...`), no solo los
 del fichero.
+
+## H-022 — Con `batch` fijo, la ventaja de `ubatch 2048` sobre 1024 desaparece: H-011 estaba contaminado (2026-09-10)
+
+**Estado:** confirmado · primer barrido hecho con el instrumental corregido de H-021
+(unidad de pruebas aparte, `--batch-size` fijo, produccion solo leida).
+
+H-011 publicó que `ubatch 2048` era el óptimo, un **+2,8%** sobre 1024. Ese barrido usaba
+el `bench-ubatch.py` viejo, que aplicaba **el mismo valor a `--batch-size` y a
+`--ubatch-size`**. Es decir: el punto "1024" era en realidad *batch 1024 + ubatch 1024*, y
+el punto "2048" era *batch 2048 + ubatch 2048*. No comparaba ubatch, comparaba dos
+configuraciones enteras.
+
+Repetido con `--batch-size 4096` fijo en los dos puntos, prompt real de 30.018 tokens,
+2 pasadas, servicio reiniciado entre puntos:
+
+| ubatch | batch | pp (t/s) | tg (t/s) |
+|---:|---:|---:|---:|
+| **1.024** | 4.096 | **350,5** | 22,20 |
+| 2.048 | 4.096 | 346,5 | 22,08 |
+
+El orden **se invierte**: 1024 sale 1,15% por encima de 2048, cuando lo publicado decía
+que 2048 ganaba por 2,8%.
+
+**Interpretación honesta, que es la que toca:** la separación (1,15%) es apenas el doble
+de la dispersión entre pasadas del mismo punto (0,57%), con solo 2 pasadas. Eso **no
+alcanza** para proclamar que 1024 sea mejor. La conclusión defendible es que **a `batch`
+igual, 1024 y 2048 rinden lo mismo dentro del ruido**, y que el `+2,8%` de H-011 era un
+artefacto de mover `batch` a la vez — atribuible al `batch`, no al `ubatch`.
+
+Consecuencias:
+
+- Se corrige la recomendación de `docs/servicio-systemd.md`: `ubatch 2048` se mantiene en
+  producción **por continuidad y porque está medido en ese estado**, no porque sea mejor
+  que 1024. Quien necesite margen de memoria puede bajar a 1024 sin coste medible.
+- La tabla de H-011 queda **marcada como contaminada**, no borrada (metodología del
+  laboratorio). Sus tres puntos no son comparables entre sí.
+- Sigue en pie de H-011 lo único que no depende de la comparación: `ubatch 4096` **no
+  arranca** con `lazy off` (OOM en carga).
+- Pendiente: rehacer el punto 512 con `batch` fijo para completar la curva limpia.
+
+**Lo que este hallazgo demuestra de fondo:** el defecto del instrumental no era teórico.
+Invalidó una recomendación publicada de configuración. La auditoría externa acertó al
+señalarlo, y acertó en el orden: primero el instrumental, después las optimizaciones.
