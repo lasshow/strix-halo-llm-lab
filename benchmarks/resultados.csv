@@ -31,3 +31,6 @@ fecha,modelo,params_totales,params_activos,arquitectura,cuantizacion,tamano_gb,b
 2026-09-09,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,2048,262144,60892,487.3,28.67,9113cc1,off,barrido contexto servidor :8081
 2026-09-09,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,2048,262144,93682,321.8,25.81,9113cc1,off,barrido contexto servidor :8081
 2026-09-09,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,2048,262144,122692,239.7,24.57,9113cc1,off,barrido contexto servidor :8081; aguja OK en los 6 puntos
+2026-09-10,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,2048,262144,131122,226.3,25.02,9113cc1,off,np=1 slot completo; aguja OK; con np=2 el slot se queda en 131k y da 400
+2026-09-10,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,2048,262144,168562,,,9113cc1,off,CRASH GPU con ub=2048: ring comp_1.2.0 timeout + vk::ErrorDeviceLost; kernel reseteo el ring solo
+2026-09-10,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,2048,512,262144,168562,314.9,20.94,9113cc1,off,ub=512 evita el watchdog; aguja OK; 0 timeouts nuevos

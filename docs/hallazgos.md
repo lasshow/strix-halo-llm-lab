@@ -294,3 +294,36 @@ promocionarlo: velocidad no es inteligencia.
 **Método:** los objetivos pedidos (4k…131k) produjeron `prompt_n` reales un 6-8%
 menores; confirmado el sesgo del estimador de H-012. Los 131k reales del límite
 publicitado siguen sin tocarse: harían falta ~140k pedidos.
+
+## H-014 — Primer crash de GPU del laboratorio: watchdog del kernel vs prefill largo (2026-09-10)
+
+Al pedir ~180k tokens al 80B con `-ub 2048`, el prefill murió a ~168k con
+`vk::Queue::submit: ErrorDeviceLost`. En `dmesg`:
+
+```
+amdgpu: ring comp_1.2.0 timeout, signaled seq=1379627, emitted seq=1379629
+amdgpu: Process llama-server pid 9675
+amdgpu: Ring comp_1.2.0 reset succeeded
+amdgpu: [drm] device wedged, but no recovery needed
+```
+
+**Diagnóstico:** a esa profundidad de contexto, un dispatch de `ub=2048` tarda más
+que el watchdog de amdgpu; el kernel declara la cola colgada y resetea el ring
+(el sistema se recupera solo, sin reinicio — bien por Fedora 44 + kernel 7.1).
+
+**Solución verificada:** relanzar con `-ub 512` → dispatches ~4x más cortos.
+Resultado a 168.562 tokens reales: **314,9 pp / 20,9 tg, aguja OK, 0 timeouts nuevos**.
+Curiosamente el prefill medio con ub=512 (314,9) supera al de ub=2048 a 122k (239,7):
+a contextos extremos los dispatches cortos también rinden más.
+
+**Reglas operativas nuevas:**
+1. `-np` divide el contexto entre slots: con `-np 2` y `-c 262144` cada petición
+   tope es ~131k y el servidor devuelve **HTTP 400** al pasarse. Para contexto
+   máximo en una petición: `-np 1`.
+2. Por encima de ~131k de prompt, usar `-ub 512` (o menor). El crash es
+   reproducible con ub=2048.
+3. El punto de 131.122 tokens (np=1, ub=2048): 226,3 pp / 25,0 tg, aguja OK.
+
+**Curva completa del 80B (7 puntos, 8/8 agujas):** generación 45→21 t/s de 4k a
+168k; a 168k tokens este MoE de 80B sigue generando un 60% más rápido que el
+Flash-Next a 98k (13,0 t/s).
