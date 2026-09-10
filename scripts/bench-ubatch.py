@@ -74,6 +74,20 @@ def unidad_productiva():
     return sh(f"sudo -n cat /etc/systemd/system/{UNIT_PROD}.service")
 
 
+def batch_de_referencia(texto):
+    """Lee --batch-size de la unidad PRODUCTIVA.
+
+    H-027: el piloto se lanzo con --batch 2048 mientras produccion corria con
+    4096, asi que las cifras no eran comparables con la linea base. El valor
+    se habia escrito a mano. Ahora la referencia se LEE de la unidad y quien
+    quiera apartarse de ella tiene que decirlo en voz alta (--batch).
+    """
+    m = re.search(r"--batch-size\s+(\d+)", texto)
+    if not m:
+        raise RuntimeError("no encontre --batch-size en la unidad productiva")
+    return int(m.group(1))
+
+
 def construye_unidad(texto, ubatch, batch):
     """Deriva la unidad de pruebas. ubatch y batch se fijan por separado."""
     t = texto
@@ -162,7 +176,7 @@ def una_peticion(puerto, prompt, max_tokens, timeout=1200):
 
 
 def mide(puerto, palabras, pasadas, ubatch, batch, jsonl, max_tokens=160,
-         reintentos_calentamiento=1):
+         reintentos_calentamiento=1, batch_ref=None):
     """Calentamiento + N pasadas medidas. Devuelve solo las medidas.
 
     El calentamiento se registra en el JSONL con warmup=true para que quede
@@ -195,6 +209,10 @@ def mide(puerto, palabras, pasadas, ubatch, batch, jsonl, max_tokens=160,
             m = una_peticion(puerto, prompt, max_tokens)
             registro = dict(m, ubatch=ubatch, batch=batch, warmup=es_warmup,
                             fase="calentamiento" if es_warmup else "medida",
+                            pasada=None if es_warmup else len(medidas) + 1,
+                            batch_ref=batch_ref,
+                            comparable_con_produccion=(batch_ref is None
+                                                       or batch == batch_ref),
                             intento=intentos_w if es_warmup else None,
                             ts=datetime.now(timezone.utc).isoformat(), fallo=None)
             print(f"      {etiqueta}: prompt_n={m['prompt_n']} pp={m['pp']:.1f} "
@@ -206,6 +224,10 @@ def mide(puerto, palabras, pasadas, ubatch, batch, jsonl, max_tokens=160,
         except (ErrorInfraestructura, FalloContrato) as e:
             registro = {"ubatch": ubatch, "batch": batch, "warmup": es_warmup,
                         "fase": "calentamiento" if es_warmup else "medida",
+                        "pasada": None if es_warmup else len(medidas) + 1,
+                        "batch_ref": batch_ref,
+                        "comparable_con_produccion": (batch_ref is None
+                                                      or batch == batch_ref),
                         "intento": intentos_w if es_warmup else None,
                         "ts": datetime.now(timezone.utc).isoformat(),
                         "fallo": f"{type(e).__name__}: {e}"}
@@ -235,7 +257,10 @@ def mide(puerto, palabras, pasadas, ubatch, batch, jsonl, max_tokens=160,
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ubatch", type=int, nargs="+", default=[512, 1024, 2048])
-    ap.add_argument("--batch", type=int, default=4096, help="fijo en todo el barrido")
+    ap.add_argument("--batch", type=int, default=None,
+                    help="fijo en todo el barrido; por defecto se LEE de la "
+                         "unidad productiva para que las cifras sean "
+                         "comparables con la linea base (H-027)")
     ap.add_argument("--palabras", type=int, default=3000)
     ap.add_argument("--passes", type=int, default=5,
                     help="pasadas MEDIDAS; ademas se hace una de calentamiento")
@@ -255,6 +280,16 @@ def main():
         print(f"No puedo leer la unidad productiva: {e}", file=sys.stderr)
         return SALIDA_ENTORNO
 
+    ref = batch_de_referencia(prod)
+    if a.batch is None:
+        a.batch = ref
+        aviso_batch = f"[i] batch FIJO en {a.batch} (leido de la unidad productiva)"
+    elif a.batch != ref:
+        aviso_batch = (f"[!] batch {a.batch} DISTINTO del productivo ({ref}): "
+                       f"las cifras NO son comparables con la linea base")
+    else:
+        aviso_batch = f"[i] batch FIJO en {a.batch} (coincide con produccion)"
+
     ruta_jsonl = a.jsonl or os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "..", "benchmarks",
         f"crudo-ubatch-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.jsonl")
@@ -262,7 +297,7 @@ def main():
 
     prod_estaba_activa = sh(f"systemctl is-active {UNIT_PROD}", check=False) == "active"
     print(f"[i] productiva activa al empezar: {prod_estaba_activa}")
-    print(f"[i] batch FIJO en {a.batch}; solo se mueve ubatch")
+    print(aviso_batch)
     print(f"[i] {a.passes} pasadas medidas + 1 de calentamiento descartada")
     print(f"[i] registro crudo: {os.path.abspath(ruta_jsonl)}\n")
 
@@ -286,7 +321,8 @@ def main():
                     sh(f"sudo -n systemctl stop {UNIT_BENCH}", check=False)
                     continue
                 try:
-                    ms = mide(PUERTO_BENCH, a.palabras, a.passes, ub, a.batch, jsonl)
+                    ms = mide(PUERTO_BENCH, a.palabras, a.passes, ub, a.batch,
+                                  jsonl, batch_ref=ref)
                     filas.append((ub, ms[0]["prompt_n"],
                                   statistics.median(m["pp"] for m in ms),
                                   statistics.median(m["tg"] for m in ms), "ok"))
