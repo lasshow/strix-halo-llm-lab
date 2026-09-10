@@ -11,7 +11,6 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=llama
-EnvironmentFile=/etc/llama-server/server.env
 ExecStart=/opt/llama.cpp/build/bin/llama-server \
   --model /models/gguf/<modelo>/<modelo>-00001-of-0000N.gguf \
   --mmproj /models/gguf/<modelo>/mmproj-F16.gguf \
@@ -29,7 +28,7 @@ ExecStart=/opt/llama.cpp/build/bin/llama-server \
   --lazy-mode off \
   --threads 16 \
   --host 0.0.0.0 --port 8080 \
-  --api-key ${LLAMA_API_KEY} \
+  --api-key-file /etc/llama-server/api-keys.txt \
   --metrics
 Restart=on-failure
 RestartSec=10
@@ -52,7 +51,7 @@ WantedBy=multi-user.target
 | `--batch 4096 / --ubatch 2048` | **Medido**, no copiado. Ver [`metodologia.md`](metodologia.md). Con `--lazy-mode off`, `--ubatch 4096` **no arranca**: OOM al cargar y bucle de reintentos de systemd. El optimo es 2048 (345,0 t/s); 1024 cuesta solo un 2,8% si necesitas margen. |
 | `--lazy-mode off` | **+16% de prefill** contra el servidor real (el banco `llama-bench` dice +92%, exagera). Contrapartida: los pesos dejan de ser reclamables, lo que hace inviable `--ubatch 4096`. Ver [`carga-diferida-y-oom.md`](carga-diferida-y-oom.md). |
 | `OOMScoreAdjust=500` | Que muera el modelo, nunca la maquina. Ver abajo. |
-| `--api-key` | Vía `EnvironmentFile`, nunca escrita en la unidad. |
+| `--api-key-file` | La clave vive en `/etc/llama-server/api-keys.txt` (`600 lasso:lasso`, dentro de un directorio `750 root:lasso`). **No se pasa por `argv`**: ahí sería legible por cualquier usuario local vía `/proc/<pid>/cmdline` (H-021). El directorio debe ser accesible por el usuario del servicio, no solo el fichero. |
 | `--metrics` | Expone `/metrics` para Prometheus. |
 
 ## ⚠️ La trampa de SELinux

@@ -625,3 +625,65 @@ demuestra. La cifra de +3% queda registrada como observada, no como ganancia dem
 
 La forma de la curva no cambia: de 3.065 a 74.993 tokens el prefill cae un 24% y la generacion un 44%,
 igual que antes de la actualizacion.
+
+## H-021 — El instrumental daba falsos verdes: smoke-test que no fallaba y barrido de ubatch que movia dos variables (2026-09-10)
+
+Origen: auditoria externa del repositorio fijada en el commit `23cb014`. Tres de sus
+objeciones sobre los scripts se comprobaron **ciertas leyendo el codigo y el proceso
+en ejecucion**, no de oido. Se corrigen aqui.
+
+### 1. `smoke-test.sh` aprobaba servidores rotos
+
+La version anterior, ante un fallo, imprimia el error y **terminaba con codigo 0**.
+Ademas comprobaba el resultado con `== *"391"*`, asi que `1391` pasaba, y si `content`
+venia vacio caia a `reasoning_content`, de modo que el bucle de razonamiento de H-019
+—donde la aplicacion cliente recibe **respuesta vacia**— contaba como aprobado.
+
+Consecuencia real: el "smoke-test 391 correcto" que se anoto tras actualizar el kernel
+**no demostraba** que el servidor respondiera bien.
+
+Corregido: contrato explicito de salida (0 solo si todo pasa), comparacion de digitos
+exacta (`digitos == ["391"]`), y `content` vacio es fallo con mensaje distinto segun
+haya o no razonamiento. Verificado con cinco escenarios:
+
+| escenario | exit esperado | exit obtenido |
+|---|---|---|
+| M5 sano | 0 | 0 |
+| servidor inexistente | 1 | 1 |
+| clave invalida | 1 | 1 |
+| servidor que devuelve `1391` | 1 | 1 |
+| `content` vacio + razonamiento (caso H-019) | 1 | 1 |
+
+Los dos ultimos con un servidor HTTP de mentira, para provocar el fallo a voluntad.
+
+### 2. `bench-ubatch.py` no aislaba ubatch, y podia dejar la produccion tocada
+
+Dos defectos independientes:
+
+- `set_ubatch()` aplicaba **el mismo valor** a `--batch-size` y `--ubatch-size` con dos
+  `re.sub`. El barrido movia las dos variables a la vez: sus resultados no pueden
+  atribuirse a ubatch.
+- Editaba **la unidad productiva en sitio**, sin copia previa ni bloque de restauracion.
+  Si moria a mitad, el servicio se quedaba con la configuracion del ultimo punto.
+
+Reescrito: genera una unidad de pruebas aparte (`llama-flashnext-bench`, puerto 8081,
+`Restart=no`), la productiva se **lee pero nunca se escribe**, `--batch-size` se fija
+con `--batch` y solo se mueve `--ubatch-size`, y la limpieza y el rearranque de la
+productiva van en un `finally`. Verificado en seco que para ubatch 512/1024/2048 el
+`--batch-size` permanece en 4096.
+
+### 3. La clave de la API estaba en la linea de comandos
+
+`--api-key <clave>` se veia en `/proc/<pid>/cmdline`, legible por cualquier usuario
+local. Migrado a `--api-key-file /etc/llama-server/api-keys.txt`.
+
+Tropiezo durante el cambio, que se documenta porque es la trampa util: el fichero se
+creo con el directorio `/etc/llama-server` en `700 root:root`, y el servicio corre como
+`lasso` -> `failed to open file`, servicio en bucle de reinicio ~2 minutos. Arreglo:
+`root:lasso` y `750` en el directorio, `600 lasso:lasso` en el fichero. Comprobado
+despues: `argv` ya solo contiene `--api-key-file`, cero procesos con la clave en la
+linea de comandos, y la autenticacion sigue devolviendo 401 sin clave y con clave falsa.
+
+Leccion: al mover un secreto a un fichero, comprobar los permisos **del directorio**
+que lo contiene con el usuario del servicio (`sudo -u <usuario> cat ...`), no solo los
+del fichero.
