@@ -156,7 +156,8 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
 └── scripts/
     ├── bench-ubatch.py          Mide pp/tg contra llama-server con prompt real
     ├── bench-context.py         Barrido de longitud de contexto + prueba de aguja
-    └── smoke-test.sh            Comprobación rápida de carga y coherencia
+    ├── smoke-test.sh            Comprobación rápida de carga y coherencia
+    └── restauracion.sh          ¿Quedó producción como estaba tras un barrido?
 ```
 
 ---
