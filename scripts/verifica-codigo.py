@@ -358,13 +358,20 @@ def main():
             continue
         code = bloque(r["texto"], langs)
         pruebas = PRUEBAS.get(pid, (None, None))[1]
-        with Caja(sandbox=usa_sandbox) as caja:
-            estado, log = fn(code, caja, pruebas)
+        # H-024: un reventon del propio banco (sandbox que no arranca, disco
+        # lleno, systemd-run que falla) NO es "NO COMPILA". Se separa el fallo
+        # del modelo del fallo del instrumento.
+        try:
+            with Caja(sandbox=usa_sandbox) as caja:
+                estado, log = fn(code, caja, pruebas)
+        except Exception as e:
+            estado, log = "ERROR DEL BANCO", f"{type(e).__name__}: {e}"
         cuenta[estado] = cuenta.get(estado, 0) + 1
         out[pid] = {"veredicto": estado, "con_pruebas": bool(pruebas),
                     "log": log[:1500], "lineas_codigo": code.count("\n") + 1}
-        marca = {"PASA LAS PRUEBAS": "✅", "COMPILA (sin pruebas)": "🟡",
-                 "COMPILA PERO FALLA": "❌", "NO COMPILA": "❌"}.get(estado, "?")
+        marca = {"PASA LAS PRUEBAS": "[OK]", "COMPILA (sin pruebas)": "[~]",
+                 "COMPILA PERO FALLA": "[X]", "NO COMPILA": "[X]",
+                 "ERROR DEL BANCO": "[!]"}.get(estado, "?")
         print(f"{pid:3} [{meta['verif']:6}] {marca} {estado}"
               + ("" if estado.startswith(("PASA", "COMPILA (")) or not log
                  else f"\n      {log.splitlines()[0][:150]}"))
@@ -376,7 +383,25 @@ def main():
     print(f"  COMPILA (sin pruebas) {cuenta['COMPILA (sin pruebas)']}   (no hay banco de pruebas para este)")
     print(f"  COMPILA PERO FALLA    {cuenta['COMPILA PERO FALLA']}   (el compilador lo acepta, el resultado es malo)")
     print(f"  NO COMPILA            {cuenta['NO COMPILA']}")
+    # Estos tres NO son culpa del modelo: son del banco de pruebas.
+    infra = (cuenta["SIN RESPUESTA"] + cuenta["HERRAMIENTA AUSENTE"]
+             + cuenta.get("ERROR DEL BANCO", 0))
+    if infra:
+        print(f"  --- no evaluados por el banco: {infra} "
+              f"(sin respuesta {cuenta['SIN RESPUESTA']}, "
+              f"herramienta ausente {cuenta['HERRAMIENTA AUSENTE']}, "
+              f"error del banco {cuenta.get('ERROR DEL BANCO', 0)})")
     print(f"{'-'*54}\n-> {dst}")
+
+    # Codigo de salida (H-024: antes salia 0 pasara lo que pasara).
+    #   0 todo evaluado y sin fallos del modelo
+    #   2 el modelo fallo en algun caso
+    #   3 el banco no pudo evaluar algun caso (mas grave: no hay veredicto)
+    if infra:
+        return 3
+    if cuenta["NO COMPILA"] or cuenta["COMPILA PERO FALLA"]:
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
