@@ -578,6 +578,7 @@ largo no está aportando calidad, está aportando riesgo de respuesta vacía.
   no se inventó una API que no existe, dijo para qué versión escribía.
 
 8 de 9 bloques de código pasan el compilador; el noveno falla por versión y viene etiquetado como tal.
+> ⚠️ **Matizado por [H-023](#h-023--el-verificador-ejecutaba-codigo-del-llm-sin-aislar-y-compila-no-era-funciona-2026-09-10):** "pasan el compilador" es *todo* lo que aquella medición demostraba — rustc compilaba como librería sin ejecutar nada, así que una función con la lógica invertida aprobaba igual. Con banco de pruebas y ejecución real, lo verificado es 3 PASA LAS PRUEBAS / 1 compila sin pruebas / 0 fallos.
 
 ### Idiomas e instrucciones
 
@@ -736,3 +737,62 @@ Consecuencias:
 **Lo que este hallazgo demuestra de fondo:** el defecto del instrumental no era teórico.
 Invalidó una recomendación publicada de configuración. La auditoría externa acertó al
 señalarlo, y acertó en el orden: primero el instrumental, después las optimizaciones.
+
+## H-023 — El verificador ejecutaba codigo del LLM sin aislar, y "compila" no era "funciona" (2026-09-10)
+
+**Que estaba mal.** Dos cosas, y la primera es de seguridad:
+
+1. `verifica-codigo.py` cogia el bloque de codigo que devolvia el modelo y lo ejecutaba **con
+   mi usuario, mi red, mi HOME y mis claves**. Un `rm -rf ~`, un `curl` a un servidor ajeno o
+   una lectura de `~/.secrets/` habrian corrido sin obstaculo. No paso nada, pero eso es
+   suerte, no diseno.
+2. El veredicto era binario y enganaba: rustc compilaba con `--crate-type lib`, asi que una
+   funcion con la logica invertida **aprobaba igual**. "8 de 9 compilan" no significaba que
+   8 de 9 funcionaran.
+
+**Que se ha hecho.** Cada verificacion corre ahora bajo `systemd-run` con usuario efimero
+(`DynamicUser=yes`), sin red (`PrivateNetwork=yes`), sin HOME (`ProtectHome=yes`), sistema en
+solo lectura (`ProtectSystem=strict`), `MemoryMax=2G`, `TasksMax=256` y `RuntimeMaxSec`. Y el
+veredicto pasa a tener tres estados: **NO COMPILA / COMPILA PERO FALLA / PASA LAS PRUEBAS**,
+con aserciones derivadas del enunciado de cada prompt.
+
+**El sandbox se comprueba antes de usarlo.** El script no se fia de su propia configuracion:
+al arrancar intenta salir a la red, leer `~/.secrets/m5-llama-api.key` y escribir en `/usr`.
+Si alguna de las tres cosas **funciona**, aborta y se niega a ejecutar codigo del modelo.
+
+| comprobacion | resultado |
+|---|---|
+| `getent hosts github.com` | falla (sin red) |
+| `cat ~/.secrets/m5-llama-api.key` | Permission denied |
+| `touch /usr/PWNED` | Read-only file system |
+| usuario efectivo | `run-u402` (efimero, no `lasso`) |
+
+**Validado con sabotaje deliberado.** Para comprobar que el banco de pruebas detecta logica
+mala (y no solo errores de sintaxis), altere tres respuestas buenas: el Rust devolviendo
+`Some(42)` fijo, el Python ordenando **ascendente** en vez de descendente, y el SQL cambiado
+por `SELECT 1`. Las tres compilan sin una queja. Resultado: **las tres cayeron en COMPILA PERO
+FALLA**, y las respuestas reales sin tocar dan PASA LAS PRUEBAS. Con el verificador viejo las
+tres habrian aprobado.
+
+**Trampas encontradas por el camino** (las tres costaron tiempo, van aqui para no repetirlas):
+
+- `DynamicUser=yes` **implica `PrivateTmp`**, asi que un directorio de trabajo en `/tmp` no
+  existe dentro del sandbox: todo fallaba con `226/NAMESPACE`. El area de trabajo va en
+  `/var/lib/verif-sandbox`.
+- `ProtectHome=yes` vacia `/home`, y eso **anula cualquier `BindReadOnlyPaths` cuyo origen
+  este en `/home`** (`rc=203`, ejecutable no encontrado). Las toolchains viven en el HOME
+  (`~/.cargo`, `~/.nvm`, `node_modules`), asi que se montan ro **en el host** hacia `/opt/tc`,
+  fuera de `/home`. Evita copiar 3 GB.
+- El `python3` del venv de Hermes enlaza a librerias del HOME: dentro del sandbox se usa
+  `/usr/bin/python3`. `bwrap` no era opcion en este equipo: AppArmor tiene
+  `apparmor_restrict_unprivileged_userns=1` y los namespaces sin privilegio estan cerrados
+  (`setting up uid map: Permission denied`).
+
+**Resultado sobre las respuestas reales de Flash-Next (bateria v2):** 3 PASA LAS PRUEBAS,
+1 COMPILA (sin banco de pruebas), 0 fallos, y C1/C3 salen SIN RESPUESTA — que son exactamente
+los dos casos de `content` vacio de [H-019](#h-019). Coherente con lo ya sabido.
+
+**Consecuencia para las cifras publicadas:** la frase "8 de 9 bloques de codigo compilan de
+verdad" queda **degradada a "compilan"**, que es lo unico que aquella medicion demostraba. Lo
+que ahora se puede afirmar sobre ejecucion real es solo lo de la tabla de arriba.
+
