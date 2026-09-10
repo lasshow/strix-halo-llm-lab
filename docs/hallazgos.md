@@ -1164,3 +1164,27 @@ respectivamente, ambos coincidentes.
 
 7 pruebas nuevas en `tests/test_batch_efectivo.py`, las 7 fallan contra
 `b9d7be4`. Suite: **121 OK**.
+
+### H-030 — La comprobacion de restauracion, como script versionado
+
+**Fecha:** 2026-09-10 · `scripts/restauracion.sh`
+
+Durante los pilotos, la comprobacion de "¿quedo produccion como estaba?" se
+tecleaba a mano cada vez. Asi se colo un smoke que exigia la cadena literal
+`OK` con `max_tokens=8`: el modelo respondio "Tudo bem!..." y parecio un fallo
+del servicio cuando el servicio estaba sano.
+
+**El criterio corregido:** el smoke de restauracion exige **respuesta no vacia
+con finalizacion normal**, no una cadena concreta. Verificar la correccion del
+contenido es trabajo de `smoke-test.sh`, que da presupuesto de tokens
+suficiente; mezclar ambas cosas producia falsos rojos, y una comprobacion que
+da falsos rojos acaba ignorandose, que es peor que no tenerla.
+
+Ocho comprobaciones: unidad activa, unidad habilitada, unidad de banco
+eliminada, sin fichero de unidad residual, `/health` 200, modelo esperado,
+smoke autenticado, y como **control negativo** que sin clave devuelva 401.
+
+**Verificado contra el M5 real:** 8/8 y codigo 0 sobre produccion sana (el
+modelo respondio "Si", que con el criterio viejo habria sido rojo). Controles
+negativos: con una unidad inexistente da 2 fallos y codigo 1; con un puerto
+muerto, 4 fallos. Detecta lo que debe detectar.
