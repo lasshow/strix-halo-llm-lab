@@ -356,3 +356,49 @@ ser parte del protocolo (columna `commit` del CSV ya lo soporta).
 **Pendiente derivado:** re-barrer contexto largo del 80B con la build nueva
 (los 226 pp / 25 tg a 131k de H-014 son de la build vieja) y re-decidir la
 promoción con la batería de calidad A8.
+
+## H-016 — Batería de calidad A8: la velocidad no promociona sola (2026-09-10)
+
+20 prompts fijos, temperatura 0, mismos para ambos modelos (razonamiento, código
+Python/Kotlin/SQL/bash, JSON estricto, castellano/euskera, seguimiento de
+instrucciones, conocimiento industrial). Corrección manual + ejecución real del
+código generado. La batería contiene datos de contexto privado y no se publica;
+las categorías y la corrección sí.
+
+| Categoría (n) | Flash-Next 177B | Qwen3-Next-80B |
+|---|---|---|
+| Razonamiento/lógica (4) | 4 | 3,5 |
+| Código (4) | 3 | **4** |
+| JSON estricto (3) | 3 | 3 |
+| Castellano/euskera (4) | **4** | 2 |
+| Instrucciones exactas (3) | 2,5 | 1 |
+| Conocimiento industrial (2) | 2 | 2 |
+| **Total /20** | **18,5** | **15,5** |
+
+Detalle de las diferencias:
+
+- **Código:** el 80B escribió un `parse_iso_duration()` que pasa los 4 casos de
+  prueba ejecutados de verdad; el Flash-Next quemó **8.192 tokens de
+  razonamiento sin emitir respuesta** (0 directo). Con el presupuesto de
+  producción (2k) el Flash-Next dejó **3 de 20 prompts sin responder** por
+  gastarlo entero en pensar; hubo que repetirlos con 8k.
+- **Idioma:** el 80B falló la corrección ortográfica castellana («Habrá si
+  mañana…», dejó un «sino» sin corregir) y su euskera es inventado
+  («fornoa gauza egongo da maintenantsa»); el Flash-Next corrigió perfecto y
+  su batua es correcto.
+- **Instrucciones exactas:** el 80B afirma «(12 palabras)» en una frase de 16;
+  el Flash-Next cumplió el conteo exacto. Ninguno clavó el ejercicio de líneas
+  con n palabras (3/5 vs 2/5 líneas correctas).
+- **Velocidad total de la batería:** 80B **81 s** vs Flash-Next **613 s + reintentos**
+  (~7,5x más lento: piensa antes de cada respuesta).
+
+**Veredicto de promoción:** el Flash-Next **sigue en producción**. El 80B es
+2,3x más rápido generando (H-015) y mejor en código, pero pierde en idioma e
+instrucciones — y producción se usa en castellano/euskera a diario. Además el
+Flash-Next aporta visión (mmproj). Rol del 80B: **motor rápido secundario**
+para tareas de código/latencia baja, arrancable bajo demanda en :8081
+(`/root/start80b.sh`).
+
+**Matiz operativo importante:** con `max_tokens` 2k, un modelo razonador puede
+devolver la respuesta VACÍA (todo el presupuesto se va en `reasoning_content`).
+Para clientes del Flash-Next: presupuestar ≥4k o limitar el razonamiento.
