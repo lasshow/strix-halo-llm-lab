@@ -1125,3 +1125,42 @@ llego partida en dos lineas). La sonda fiable es
 `pgrep -af "[b]ench-ubatch\.py" | wc -l`. Lanzar con
 `nohup setsid ... < /dev/null &` si funciono: el ssh local volvio a cortarse a
 los 180 s y el piloto sobrevivio, con toda la salida en `piloto2.log`.
+
+### H-029 — La duda del batch, resuelta: los dos pilotos SI aplicaron su batch
+
+**Fecha:** 2026-09-10 · Instrumental: sobre `b9d7be4`
+
+H-028 dejo abierto si el `--batch-size` de la unidad de banco llegaba a
+aplicarse. Resuelto leyendo el journal de los dos pilotos: el progreso de
+`prompt processing` avanza **de 2048 en 2048** en el piloto 1 y **de 4096 en
+4096** en el piloto 2. Los dos batches se aplicaron de verdad.
+
+**Conclusion que ahora si se sostiene:** con ubatch fijo en 1024 y prompt de
+30.018 tokens, pasar `--batch-size` de 2048 a 4096 no mueve el rendimiento
+(348,3 vs 349,1 pp t/s, 0,23 %, por debajo de la dispersion entre pasadas).
+El troceado que importa lo gobierna el ubatch. Sigue siendo **un punto**, no
+una campaña: no se generaliza a otros ubatch ni a otras longitudes.
+
+**Por que no se saca de `/props`:** llama-server no expone `n_batch` ahi
+(verificado en el M5: solo `n_ctx`, `total_slots`, `model_*`). El journal es
+la fuente disponible.
+
+**Automatizado.** `batch_efectivo()` deduce el batch aplicado del paso entre
+trozos y el barrido lo verifica en cada punto. Si no coincide con el pedido,
+lo grita, lo acumula como incidencia de validez y **devuelve codigo 2**: un
+punto medido con un batch que no se aplico ya no puede pasar por bueno.
+Cuando el prompt es corto y no hay paso dominante devuelve `None` y no se
+afirma nada, que es preferible a inventar una conclusion.
+
+**Defecto propio cazado por las pruebas nuevas.** La primera version tomaba el
+paso MINIMO, y el ultimo trozo es el resto del prompt (30.018 con batch 4096
+deja 1346): habria marcado como "no comparable" un punto perfectamente valido.
+Corregido a paso mas frecuente. Es el segundo caso en este repo en que la
+prueba encuentra el fallo antes que la maquina, que es justo para lo que esta.
+
+**Verificacion sobre datos reales, no simulados:** la funcion se ejecuto
+contra los journals de las dos ventanas del M5 y devolvio 2048 y 4096
+respectivamente, ambos coincidentes.
+
+7 pruebas nuevas en `tests/test_batch_efectivo.py`, las 7 fallan contra
+`b9d7be4`. Suite: **121 OK**.
