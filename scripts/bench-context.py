@@ -71,7 +71,7 @@ def make_needle_prompt(n_tokens, clave):
 
 
 def measure(url, key, prompt, model, max_tokens=64, pregunta=None, jsonl=None,
-            objetivo=None, warmup=False, fase=None, clave=None):
+            objetivo=None, warmup=False, fase=None, clave=None, pasada=None):
     """Una medida validada.
 
     H-024: antes se hacia `r.get("timings") or ...` con defaults, asi que una
@@ -101,7 +101,7 @@ def measure(url, key, prompt, model, max_tokens=64, pregunta=None, jsonl=None,
         if jsonl is None:
             return
         jsonl.write(json.dumps(dict(extra, objetivo=objetivo, warmup=warmup,
-                                    fase=fase, clave_esperada=clave,
+                                    fase=fase, pasada=pasada, clave_esperada=clave,
                                     ts=datetime.now(timezone.utc).isoformat()),
                                ensure_ascii=False) + "\n")
         jsonl.flush()
@@ -183,7 +183,7 @@ def main():
                 etiqueta = "calentamiento" if es_warmup else f"pasada {i}"
                 try:
                     m = measure(a.url, key, prompt, a.model, jsonl=jsonl,
-                                objetivo=n, warmup=es_warmup)
+                                objetivo=n, warmup=es_warmup, pasada=i)
                 except (ErrorInfraestructura, FalloContrato) as e:
                     fallo = f"{type(e).__name__}: {e}"
                     if isinstance(e, ErrorInfraestructura):
