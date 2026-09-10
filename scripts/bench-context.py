@@ -22,7 +22,7 @@ Uso:
     ./bench-context.py --url http://localhost:8080 \
         --tokens 4000 16000 32000 65000 100000 131000 --passes 2
 """
-import argparse, json, os, statistics, sys, time, urllib.error, urllib.request
+import argparse, json, os, socket, statistics, sys, time, urllib.error, urllib.request
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -118,6 +118,11 @@ def measure(url, key, prompt, model, max_tokens=64, pregunta=None, jsonl=None,
             raise ErrorInfraestructura(f"HTTP {e.code}: {e.read()[:200]!r}") from e
         except urllib.error.URLError as e:
             raise ErrorInfraestructura(f"sin respuesta: {e.reason}") from e
+        except (TimeoutError, socket.timeout) as e:
+            # H-026 B2: un TimeoutError directo (lo lanza el socket, no urllib)
+            # escapaba del except de abajo y se perdia SIN registrar. Un timeout
+            # es un fallo de infraestructura, no una respuesta mala del modelo.
+            raise ErrorInfraestructura(f"timeout: {e}") from e
         d = cuerpo_json(bruto)
         if clave is not None:
             m = dict(recuperacion_aguja(d, clave))
@@ -184,10 +189,11 @@ def main():
                     if isinstance(e, ErrorInfraestructura):
                         infra += 1
                     print(f"    {etiqueta}: FALLO {fallo}", flush=True)
-                    jsonl.write(json.dumps(
-                        {"objetivo": n, "warmup": es_warmup, "fallo": fallo,
-                         "ts": datetime.now(timezone.utc).isoformat()}) + "\n")
-                    jsonl.flush()
+                    # H-026 B1: NO se vuelve a escribir el evento. measure() ya
+                    # anoto esta peticion con su fase, duracion y clave antes de
+                    # propagar; escribirla otra vez aqui duplicaba la fila (y la
+                    # copia salia sin fase), de modo que contar filas del JSONL
+                    # inflaba la tasa de fallos. Una peticion, un registro.
                     break
                 print(f"    {etiqueta}: prompt_n={m['prompt_n']} pp={m['pp']:.1f} "
                       f"tg={m['tg']:.2f} wall={m['wall']:.1f}s", flush=True)

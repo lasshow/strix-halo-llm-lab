@@ -82,7 +82,7 @@
       "lang": "python",
       "contrato": "codigo",
       "p": "Escribe una funcion Python `media_movil(valores, ventana)` que devuelva la lista de medias moviles simples. Si la ventana es mayor que la lista o menor que 1, devuelve lista vacia. Solo el bloque de codigo.",
-      "pruebas": "assert media_movil([1,2,3,4], 2) == [1.5, 2.5, 3.5]\nassert media_movil([1,2], 5) == []\nassert media_movil([1,2], 0) == []\nassert media_movil([], 1) == []\nprint('ok')"
+      "pruebas": "assert media_movil([1,2,3,4], 2) == [1.5, 2.5, 3.5]\nassert media_movil([1,2], 5) == []\nassert media_movil([1,2], 0) == []\nassert media_movil([], 1) == []\nprint(\"PRUEBAS-OK\")"
     },
     {
       "id": "P-COD-SQL",
@@ -106,7 +106,7 @@
       "lang": "typescript",
       "contrato": "codigo",
       "p": "Escribe una funcion TypeScript `agrupaPor<T, K extends string>(items: T[], clave: (x: T) => K): Record<K, T[]>` que agrupe elementos. Tipada, sin `any`. Solo el bloque de codigo.",
-      "pruebas": "const r = agrupaPor([{a:1},{a:2},{a:1}], x => String(x.a) as '1'|'2');\nif (r['1'].length !== 2 || r['2'].length !== 1) throw new Error('mal');\nconsole.log('ok');"
+      "pruebas": "const r = agrupaPor([{a:1},{a:2},{a:1}], x => String(x.a) as '1'|'2');\nif (r['1'].length !== 2 || r['2'].length !== 1) throw new Error('mal');\nconsole.log(\"PRUEBAS-OK\");"
     },
     {
       "id": "P-IDI-EU",
