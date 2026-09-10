@@ -1071,3 +1071,57 @@ un solo punto y con el batch equivocado.
 **Nota de metodo:** `pgrep -f "bench-ubatch.py"` lanzado por SSH se encuentra a
 si mismo en su propia linea de comando y devuelve "corre" indefinidamente. Se
 uso `pgrep -af "[b]ench-ubatch"`. Vigilar procesos remotos asi da falsos vivos.
+
+### H-028 — Repeticion del punto ubatch=1024 con el batch productivo
+
+**Fecha:** 2026-09-10 · Instrumental: `13114f7` · Autorizado por el propietario
+
+Repeticion del piloto de H-027 con el defecto ya corregido: `--batch` omitido,
+leido de la unidad productiva. El log lo confirma en la maquina real:
+`[i] batch FIJO en 4096 (leido de la unidad productiva)`.
+
+**Medidas** (ubatch=1024, batch=4096, prompt_n=30.018, 1 calentamiento descartado + 2 medidas):
+
+| pasada | pp t/s | tg t/s |
+|---|---|---|
+| 1 | 349,4 | 22,07 |
+| 2 | 348,8 | 22,07 |
+| media | **349,1** | **22,07** |
+
+Dispersion de pp: 0,18 %. Las tres filas traen `pasada`, `batch_ref=4096` y
+`comparable_con_produccion=true`.
+
+**Lo que NO se puede concluir.** El punto medido con el batch equivocado
+(2048) dio 348,3 pp; con el batch productivo (4096) da 349,1. La diferencia
+es 0,23 %, por debajo de la dispersion entre pasadas del mismo punto. Caben
+dos explicaciones y este dato no distingue entre ellas:
+
+1. con ubatch fijo, `--batch-size` apenas influye en este modelo y longitud de
+   prompt, porque el troceado real lo gobierna el ubatch;
+2. el `--batch-size` de la unidad de banco no llego a surtir efecto.
+
+La hipotesis 2 no queda descartada por la sustitucion en la unidad: el
+barrido verifica que el texto contiene el valor pedido, no que el servidor lo
+aplique. Pendiente de comprobar leyendo el parametro efectivo del propio
+servidor (log de arranque o `/props`) antes de cualquier campaña. Hasta
+entonces, **no se afirma nada sobre el efecto del batch**.
+
+Sigue en pie lo dicho en H-027: un punto no es una campaña y estas cifras no
+se comparan con las de `llama-bench` (pp512/tg128, contexto corto).
+
+**Restauracion: 7/7.** Unidad `active` y `enabled`; unidad de banco eliminada
+sin residuos; unidad productiva intacta (mtime 16:29, previo al piloto);
+`/health` 200; modelo `qwen3.8-flash-next`; smoke autenticado con respuesta;
+peticion sin clave rechazada con 401.
+
+**Anomalia menor anotada:** el smoke pidio "di OK" y el modelo respondio en
+portugues ("Tudo bem!...") con `max_tokens=8`. Servicio sano; es deriva del
+modelo con presupuesto de tokens minimo, no fallo de infraestructura. El smoke
+deberia comprobar que hay respuesta no vacia, no una cadena concreta.
+
+**Metodo, tercera vez que muerde:** `pgrep -c "[b]ench-ubatch"` volvio a dar un
+falso "terminado" (conto 0 con el proceso vivo, y en la misma pasada la salida
+llego partida en dos lineas). La sonda fiable es
+`pgrep -af "[b]ench-ubatch\.py" | wc -l`. Lanzar con
+`nohup setsid ... < /dev/null &` si funciono: el ssh local volvio a cortarse a
+los 180 s y el piloto sobrevivio, con toda la salida en `piloto2.log`.
