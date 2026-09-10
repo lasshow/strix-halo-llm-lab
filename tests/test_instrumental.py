@@ -437,8 +437,6 @@ class UnidadDePruebasDerivada(unittest.TestCase):
             bench.construye_unidad("[Service]\nExecStart=/bin/llama-server\n", 512, 4096)
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
 
 
 # ============================================================================
@@ -654,3 +652,7 @@ class BateriaPublicaEsCoherente(unittest.TestCase):
             if c.get("contrato") == "exacto":
                 with self.subTest(caso=c["id"]):
                     self.assertTrue(str(c.get("esperado", "")).strip())
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
