@@ -987,3 +987,40 @@ bateria publica*. No se ha reevaluado el historico, asi que no se certifica que
 esten libres de cualquier otro problema. Matiz correcto del auditor: **C6 no usa
 el marcador** `PRUEBAS-OK`, se valida comparando los resultados de la consulta
 SQL; los que si lo usan son C1, C4 y C5.
+
+### H-026c — Etiquetas de la ejecucion diferencial: la cifra "10" era imprecisa
+
+**Fecha:** 2026-09-10 · Sin cambio de codigo. Correccion de una afirmacion propia.
+
+El revisor objeta que *"diez pruebas no satisfactorias no equivalen a diez
+defectos independientes"* y que la cifra debe quedar respaldada por el registro
+de ejecucion. Tiene razon en lo primero y **la cifra que comunique era
+imprecisa**. Ejecucion diferencial completa, registro en
+`evidencias/diferencial-2919da9.txt`:
+
+| Magnitud | Valor |
+|---|---|
+| Pruebas ejecutadas | 107 |
+| Lineas `FAIL`/`ERROR` | 9 |
+| Metodos de prueba distintos | 8 |
+| `subTest` (un metodo, varios `id`) | 1 (`P-COD-PY`, `P-COD-TS`) |
+| Clases afectadas | 3 |
+| Defectos raiz | 6 (4 de H-026 + 2 de H-026b) |
+
+De donde salio el 10: aquella pasada era una **seleccion de clases**, no
+`discover`, y en ella tambien fallaba `test_el_bloque_main_va_al_final_y_solo_una_vez`.
+Falla contra los ficheros de prueba ANTIGUOS, pero en el diferencial se copian
+los ficheros de prueba NUEVOS al worktree, asi que sus bloques `main` ya estan
+al final y la guardia pasa. El defecto es real; no pertenece a esta comparacion.
+La magnitud correcta y comparable es **8 metodos distintos sobre 6 defectos
+raiz**, y ninguna de las tres cifras (4, 8, 10) mide lo mismo.
+
+**Comprobacion adicional a raiz del registro:** el volcado contiene lineas
+`llama-flashnext en estado 'failed'`, que asustan al leerlas. Son **valores
+inyectados** por los dobles de prueba: `test_instrumental` sustituye `bench.sh`
+en `setUp` y lo restaura en `tearDown`, para ejercitar la espera de salud.
+Verificado dos veces: (1) produccion en el M5 seguia `active` con
+`ActiveEnterTimestamp` anterior a la ejecucion; (2) con las 107 pruebas
+ejecutadas bajo un `PATH` **sin** `systemctl`, no aparece ningun
+`systemctl: not found`, luego ninguna prueba invoca al systemd real.
+Aun asi, ese texto en un registro es una trampa de lectura para quien audite.

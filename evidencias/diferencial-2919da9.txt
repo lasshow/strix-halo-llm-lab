@@ -1,0 +1,332 @@
+# Ejecucion diferencial: bateria de 8410cb9 contra las fuentes de 2919da9
+# fecha: 2026-09-10T20:10:25+02:00  python: Python 3.11.15
+# fuentes bajo prueba: worktree en 2919da9 (2919da9); solo tests/ traido de 8410cb9
+
+test_aguja_correcta_sale_cero (test_extremo_a_extremo.AgujaDeterminaElCodigoDeSalida.test_aguja_correcta_sale_cero) ... ok
+test_aguja_que_no_recupera_la_clave_no_puede_salir_cero (test_extremo_a_extremo.AgujaDeterminaElCodigoDeSalida.test_aguja_que_no_recupera_la_clave_no_puede_salir_cero) ... ok
+test_aguja_truncada_no_puede_salir_cero (test_extremo_a_extremo.AgujaDeterminaElCodigoDeSalida.test_aguja_truncada_no_puede_salir_cero) ... ok
+test_el_intento_fallido_de_aguja_queda_en_el_jsonl (test_extremo_a_extremo.AgujaDeterminaElCodigoDeSalida.test_el_intento_fallido_de_aguja_queda_en_el_jsonl)
+Antes se hacian 3 peticiones y solo quedaban las 2 buenas. ... ok
+test_las_fases_estan_marcadas_en_el_jsonl (test_extremo_a_extremo.AgujaDeterminaElCodigoDeSalida.test_las_fases_estan_marcadas_en_el_jsonl)
+Para recalcular sin mezclar recuperacion con rendimiento. ... ok
+test_cuerpo_no_json_es_fallo (test_extremo_a_extremo.BenchContext.test_cuerpo_no_json_es_fallo) ... ok
+test_escribe_jsonl_crudo (test_extremo_a_extremo.BenchContext.test_escribe_jsonl_crudo) ... ok
+test_json_vacio_no_se_cuenta_como_medida (test_extremo_a_extremo.BenchContext.test_json_vacio_no_se_cuenta_como_medida) ... ok
+test_normal_sale_cero (test_extremo_a_extremo.BenchContext.test_normal_sale_cero) ... ok
+test_sin_timings_es_fallo (test_extremo_a_extremo.BenchContext.test_sin_timings_es_fallo) ... ok
+test_normal_sale_cero (test_extremo_a_extremo.CalidadNoSaleCeroSiTodoFalla.test_normal_sale_cero) ... ok
+test_todo_a_500_no_sale_cero (test_extremo_a_extremo.CalidadNoSaleCeroSiTodoFalla.test_todo_a_500_no_sale_cero) ... ok
+test_el_bloque_main_va_al_final_y_solo_una_vez (test_extremo_a_extremo.LaSuiteNoPuedeOcultarPruebas.test_el_bloque_main_va_al_final_y_solo_una_vez) ... ok
+test_detecta_servidor_sin_autenticacion (test_extremo_a_extremo.SmokeTest.test_detecta_servidor_sin_autenticacion) ... ok
+test_normal_sale_cero (test_extremo_a_extremo.SmokeTest.test_normal_sale_cero) ... ok
+test_rechaza_contenido_vacio (test_extremo_a_extremo.SmokeTest.test_rechaza_contenido_vacio) ... ok
+test_rechaza_error_http (test_extremo_a_extremo.SmokeTest.test_rechaza_error_http) ... ok
+test_rechaza_finalizacion_por_limite (test_extremo_a_extremo.SmokeTest.test_rechaza_finalizacion_por_limite) ... ok
+test_rechaza_json_vacio (test_extremo_a_extremo.SmokeTest.test_rechaza_json_vacio) ... ok
+test_rechaza_negativo (test_extremo_a_extremo.SmokeTest.test_rechaza_negativo) ... ok
+test_rechaza_no_es_391 (test_extremo_a_extremo.SmokeTest.test_rechaza_no_es_391) ... ok
+test_rechaza_salud_mala (test_extremo_a_extremo.SmokeTest.test_rechaza_salud_mala) ... ok
+test_cada_peticion_correcta_deja_una_sola_fila (test_extremo_a_extremo.UnaPeticionUnRegistro.test_cada_peticion_correcta_deja_una_sola_fila)
+La evidencia de fondo frente a B1, y la que cubre el hueco de la ... FAIL
+test_el_timeout_queda_tipado_y_registrado_una_sola_vez (test_extremo_a_extremo.UnaPeticionUnRegistro.test_el_timeout_queda_tipado_y_registrado_una_sola_vez) ... ERROR
+test_ningun_registro_se_queda_sin_fase (test_extremo_a_extremo.UnaPeticionUnRegistro.test_ningun_registro_se_queda_sin_fase) ... FAIL
+test_solo_existe_un_punto_de_escritura_en_el_jsonl (test_extremo_a_extremo.UnaPeticionUnRegistro.test_solo_existe_un_punto_de_escritura_en_el_jsonl)
+Restriccion estructural COMPLEMENTARIA, no una garantia: que ... FAIL
+test_una_peticion_fallida_deja_exactamente_un_registro_con_fase (test_extremo_a_extremo.UnaPeticionUnRegistro.test_una_peticion_fallida_deja_exactamente_un_registro_con_fase) ... FAIL
+test_los_casos_exactos_traen_esperado (test_instrumental.BateriaPublicaEsCoherente.test_los_casos_exactos_traen_esperado) ... ok
+test_los_esperados_sql_salen_de_ejecutar_la_consulta (test_instrumental.BateriaPublicaEsCoherente.test_los_esperados_sql_salen_de_ejecutar_la_consulta) ... ok
+test_todo_caso_declara_contrato (test_instrumental.BateriaPublicaEsCoherente.test_todo_caso_declara_contrato) ... ok
+test_el_calentamiento_no_cuenta_como_medida (test_instrumental.CalentamientoFallidoNoSeOculta.test_el_calentamiento_no_cuenta_como_medida) ... ok
+test_el_fallo_de_calentamiento_aborta_el_punto (test_instrumental.CalentamientoFallidoNoSeOculta.test_el_fallo_de_calentamiento_aborta_el_punto) ... ok
+test_fallo_de_restauracion_sale_tres_y_manda_sobre_el_resto (test_instrumental.CodigosDeSalidaDelBarrido.test_fallo_de_restauracion_sale_tres_y_manda_sobre_el_resto) ... 
+==================================================================
+FALLO DE RESTAURACION: llama-flashnext estaba activa al empezar y ahora esta 'active' sin responder en 8080.
+Revisa: journalctl -u llama-flashnext -n 50
+==================================================================
+ok
+test_falta_la_clave_sale_uno (test_instrumental.CodigosDeSalidaDelBarrido.test_falta_la_clave_sale_uno) ... Falta LLAMA_API_KEY
+ok
+test_medida_fallida_sale_dos (test_instrumental.CodigosDeSalidaDelBarrido.test_medida_fallida_sale_dos) ... [!] 1/1 puntos fallaron
+ok
+test_todo_bien_sale_cero (test_instrumental.CodigosDeSalidaDelBarrido.test_todo_bien_sale_cero) ... ok
+test_acepta_la_clave_como_respuesta_con_puntuacion (test_instrumental.ContratoDeRecuperacionDeAguja.test_acepta_la_clave_como_respuesta_con_puntuacion) ... ok
+test_distingue_fallo_de_formato_de_fallo_de_recuperacion (test_instrumental.ContratoDeRecuperacionDeAguja.test_distingue_fallo_de_formato_de_fallo_de_recuperacion)
+Citarla en prosa no es lo mismo que no haberla leido. ... ok
+test_exige_la_clave_en_la_respuesta (test_instrumental.ContratoDeRecuperacionDeAguja.test_exige_la_clave_en_la_respuesta) ... ok
+test_rechaza_contenido_vacio (test_instrumental.ContratoDeRecuperacionDeAguja.test_rechaza_contenido_vacio) ... ok
+test_rechaza_truncada_por_presupuesto (test_instrumental.ContratoDeRecuperacionDeAguja.test_rechaza_truncada_por_presupuesto) ... ok
+test_acepta_solo_el_valor_exacto (test_instrumental.ContratoExacto391.test_acepta_solo_el_valor_exacto) ... ok
+test_el_contrato_exacto_no_normaliza_la_puntuacion (test_instrumental.ContratoExacto391.test_el_contrato_exacto_no_normaliza_la_puntuacion)
+H-025: rstrip('.') no era exacto y aceptaba '391.' y '391...'. ... ok
+test_exige_finish_reason (test_instrumental.ContratoExacto391.test_exige_finish_reason)
+H-025: `if fin and fin != 'stop'` dejaba pasar su ausencia. ... ok
+test_rechaza_los_falsos_positivos_de_la_auditoria (test_instrumental.ContratoExacto391.test_rechaza_los_falsos_positivos_de_la_auditoria) ... ok
+test_rechaza_truncada_aunque_el_texto_cuadre (test_instrumental.ContratoExacto391.test_rechaza_truncada_aunque_el_texto_cuadre) ... ok
+test_benchmark_admite_length_y_declara_los_tokens (test_instrumental.ContratosPorTipoDePrueba.test_benchmark_admite_length_y_declara_los_tokens) ... ok
+test_benchmark_exige_tokens_generados (test_instrumental.ContratosPorTipoDePrueba.test_benchmark_exige_tokens_generados) ... ok
+test_herramienta_equivocada_o_argumentos_rotos (test_instrumental.ContratosPorTipoDePrueba.test_herramienta_equivocada_o_argumentos_rotos) ... ok
+test_herramienta_valida_sin_texto (test_instrumental.ContratosPorTipoDePrueba.test_herramienta_valida_sin_texto) ... ok
+test_tarea_no_admite_length (test_instrumental.ContratosPorTipoDePrueba.test_tarea_no_admite_length) ... ok
+test_acepta_una_medida_plausible (test_instrumental.MetricasImposiblesSeRechazan.test_acepta_una_medida_plausible) ... ok
+test_rechaza_campos_obligatorios_ausentes (test_instrumental.MetricasImposiblesSeRechazan.test_rechaza_campos_obligatorios_ausentes) ... ok
+test_rechaza_infinito_y_nan (test_instrumental.MetricasImposiblesSeRechazan.test_rechaza_infinito_y_nan) ... ok
+test_rechaza_recuentos_no_enteros_o_negativos (test_instrumental.MetricasImposiblesSeRechazan.test_rechaza_recuentos_no_enteros_o_negativos) ... ok
+test_rechaza_velocidades_absurdas (test_instrumental.MetricasImposiblesSeRechazan.test_rechaza_velocidades_absurdas) ... ok
+test_rechaza_velocidades_negativas_o_cero (test_instrumental.MetricasImposiblesSeRechazan.test_rechaza_velocidades_negativas_o_cero) ... ok
+test_conexion_rechazada (test_instrumental.PeticionContraServidorReal.test_conexion_rechazada) ... ok
+test_cuerpo_vacio (test_instrumental.PeticionContraServidorReal.test_cuerpo_vacio) ... /home/lasso/.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/unittest/case.py:579: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 34995)>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_html_en_vez_de_json (test_instrumental.PeticionContraServidorReal.test_html_en_vez_de_json) ... /home/lasso/.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/unittest/case.py:579: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 45215)>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_http_500 (test_instrumental.PeticionContraServidorReal.test_http_500) ... /home/lasso/.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/unittest/case.py:579: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 35773)>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_respuesta_buena (test_instrumental.PeticionContraServidorReal.test_respuesta_buena) ... /home/lasso/.local/share/uv/python/cpython-3.11.15-linux-x86_64-gnu/lib/python3.11/unittest/case.py:579: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 42763)>
+  if method() is not None:
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_una_pasada_fallida_no_se_silencia (test_instrumental.RegistroCrudo.test_una_pasada_fallida_no_se_silencia) ... ok
+test_warmup_no_entra_en_la_mediana_pero_si_en_el_registro (test_instrumental.RegistroCrudo.test_warmup_no_entra_en_la_mediana_pero_si_en_el_registro) ... ok
+test_content_ausente_del_todo (test_instrumental.RespuestasQueAntesPasaban.test_content_ausente_del_todo) ... ok
+test_content_vacio_con_razonamiento_es_fallo (test_instrumental.RespuestasQueAntesPasaban.test_content_vacio_con_razonamiento_es_fallo) ... ok
+test_cuerpo_vacio_no_es_medida_de_cero (test_instrumental.RespuestasQueAntesPasaban.test_cuerpo_vacio_no_es_medida_de_cero) ... ok
+test_error_del_servidor_es_infraestructura (test_instrumental.RespuestasQueAntesPasaban.test_error_del_servidor_es_infraestructura) ... ok
+test_json_roto_es_infraestructura (test_instrumental.RespuestasQueAntesPasaban.test_json_roto_es_infraestructura) ... ok
+test_sin_choices_es_infraestructura (test_instrumental.RespuestasQueAntesPasaban.test_sin_choices_es_infraestructura) ... ok
+test_timings_ausentes_es_error_no_cero (test_instrumental.RespuestasQueAntesPasaban.test_timings_ausentes_es_error_no_cero) ... ok
+test_timings_incompletos (test_instrumental.RespuestasQueAntesPasaban.test_timings_incompletos) ... ok
+test_timings_no_plausibles (test_instrumental.RespuestasQueAntesPasaban.test_timings_no_plausibles) ... ok
+test_consulta_la_unidad_que_le_pasan (test_instrumental.SaludConsultaLaUnidadCorrecta.test_consulta_la_unidad_que_le_pasan) ... ok
+test_corta_pronto_si_la_unidad_esta_muerta (test_instrumental.SaludConsultaLaUnidadCorrecta.test_corta_pronto_si_la_unidad_esta_muerta) ... ok
+test_consulta_la_unidad_incluso_cuando_el_endpoint_responde (test_instrumental.SaludExigeUnidadYEndpoint.test_consulta_la_unidad_incluso_cuando_el_endpoint_responde) ... ok
+test_http_200_no_basta_si_la_unidad_esta_fallida (test_instrumental.SaludExigeUnidadYEndpoint.test_http_200_no_basta_si_la_unidad_esta_fallida)
+Antes: devolvia True sin consultar systemd ni una vez. ... ok
+test_content_vacio_con_razonamiento (test_instrumental.SmokeTestDevuelveCodigoCorrecto.test_content_vacio_con_razonamiento) ... /tmp/v5/tests/test_instrumental.py:302: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 44533)>
+  r = self._correr((200, respuesta("", razon="x" * 3000)))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_falsos_positivos_salen_uno (test_instrumental.SmokeTestDevuelveCodigoCorrecto.test_falsos_positivos_salen_uno) ... /tmp/v5/tests/test_instrumental.py:297: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 44285)>
+  r = self._correr((200, respuesta(malo)))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/tmp/v5/tests/test_instrumental.py:297: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 42993)>
+  r = self._correr((200, respuesta(malo)))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/tmp/v5/tests/test_instrumental.py:297: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 42227)>
+  r = self._correr((200, respuesta(malo)))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/tmp/v5/tests/test_instrumental.py:297: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 35093)>
+  r = self._correr((200, respuesta(malo)))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/tmp/v5/tests/test_instrumental.py:297: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 37815)>
+  r = self._correr((200, respuesta(malo)))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_la_clave_no_se_imprime_entera (test_instrumental.SmokeTestDevuelveCodigoCorrecto.test_la_clave_no_se_imprime_entera) ... /tmp/v5/tests/test_instrumental.py:316: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 34315)>
+  r = self._correr((200, respuesta("391")))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_respuesta_correcta_sale_cero (test_instrumental.SmokeTestDevuelveCodigoCorrecto.test_respuesta_correcta_sale_cero) ... /tmp/v5/tests/test_instrumental.py:291: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 39557)>
+  r = self._correr((200, respuesta("391")))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_sin_timings_es_fallo (test_instrumental.SmokeTestDevuelveCodigoCorrecto.test_sin_timings_es_fallo) ... /tmp/v5/tests/test_instrumental.py:312: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 38539)>
+  r = self._correr((200, respuesta("391", tm=None)))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_truncada_por_presupuesto (test_instrumental.SmokeTestDevuelveCodigoCorrecto.test_truncada_por_presupuesto) ... /tmp/v5/tests/test_instrumental.py:307: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=1, proto=0, laddr=('127.0.0.1', 33409)>
+  r = self._correr((200, respuesta("39", fin="length")))
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_falla_si_la_unidad_no_trae_los_parametros (test_instrumental.UnidadDePruebasDerivada.test_falla_si_la_unidad_no_trae_los_parametros) ... ok
+test_fija_batch_mueve_ubatch_y_desactiva_el_reinicio (test_instrumental.UnidadDePruebasDerivada.test_fija_batch_mueve_ubatch_y_desactiva_el_reinicio) ... ok
+test_python_bueno_aprueba_y_malo_suspende (test_verificador.CadaLenguajePublicoPuedeAprobarYSuspender.test_python_bueno_aprueba_y_malo_suspende) ... FAIL
+test_sql_bueno_aprueba_y_malo_suspende (test_verificador.CadaLenguajePublicoPuedeAprobarYSuspender.test_sql_bueno_aprueba_y_malo_suspende) ... ok
+test_typescript_bueno_aprueba_y_malo_suspende (test_verificador.CadaLenguajePublicoPuedeAprobarYSuspender.test_typescript_bueno_aprueba_y_malo_suspende) ... FAIL
+test_carga_la_bateria_publica_si_no_hay_privada (test_verificador.CargadorDeBateriaSinDatosPrivados.test_carga_la_bateria_publica_si_no_hay_privada) ... ok
+test_el_help_funciona_sin_datos_privados (test_verificador.CargadorDeBateriaSinDatosPrivados.test_el_help_funciona_sin_datos_privados)
+Un `--help` no puede depender de private/prompts.json. ... ok
+test_falta_de_fichero_es_ErrorBanco_no_FileNotFoundError (test_verificador.CargadorDeBateriaSinDatosPrivados.test_falta_de_fichero_es_ErrorBanco_no_FileNotFoundError) ... ok
+test_el_fallo_del_lanzador_levanta_ErrorBanco (test_verificador.FalloDelBancoNoEsVeredicto.test_el_fallo_del_lanzador_levanta_ErrorBanco)
+203/EXEC = systemd no llego a ejecutar el binario. ... ok
+test_no_confunde_un_error_de_compilacion_con_fallo_del_banco (test_verificador.FalloDelBancoNoEsVeredicto.test_no_confunde_un_error_de_compilacion_con_fallo_del_banco)
+Un compilador que dice 'error: ...' y sale 1 SI es veredicto. ... ok
+test_la_consulta_basura_no_aprueba_y_el_codigo_de_salida_lo_dice (test_verificador.FlujoCompletoDesdeCopiaLimpia.test_la_consulta_basura_no_aprueba_y_el_codigo_de_salida_lo_dice) ... ok
+test_la_consulta_correcta_aprueba_sin_datos_privados (test_verificador.FlujoCompletoDesdeCopiaLimpia.test_la_consulta_correcta_aprueba_sin_datos_privados) ... ok
+test_el_marcador_sigue_siendo_obligatorio (test_verificador.MarcadorDelProtocoloCoherente.test_el_marcador_sigue_siendo_obligatorio)
+Control negativo: exit 0 sin marcador NO es un pase. ... ok
+test_la_tabla_de_pruebas_heredada_tambien_lo_emite (test_verificador.MarcadorDelProtocoloCoherente.test_la_tabla_de_pruebas_heredada_tambien_lo_emite) ... ok
+test_toda_prueba_de_la_bateria_publica_emite_el_marcador (test_verificador.MarcadorDelProtocoloCoherente.test_toda_prueba_de_la_bateria_publica_emite_el_marcador) ... 
+  test_toda_prueba_de_la_bateria_publica_emite_el_marcador (test_verificador.MarcadorDelProtocoloCoherente.test_toda_prueba_de_la_bateria_publica_emite_el_marcador) (id='P-COD-PY') ... FAIL
+  test_toda_prueba_de_la_bateria_publica_emite_el_marcador (test_verificador.MarcadorDelProtocoloCoherente.test_toda_prueba_de_la_bateria_publica_emite_el_marcador) (id='P-COD-TS') ... FAIL
+test_devuelve_None_si_las_comprobaciones_no_pudieron_correr (test_verificador.SandboxInconclusoNoCertifica.test_devuelve_None_si_las_comprobaciones_no_pudieron_correr) ... ok
+test_un_sandbox_permisivo_se_detecta_como_no_aisla (test_verificador.SandboxInconclusoNoCertifica.test_un_sandbox_permisivo_se_detecta_como_no_aisla) ... ok
+test_compara_contra_el_esperado_del_caso_publico (test_verificador.SqlCompararFilasNoSubcadenas.test_compara_contra_el_esperado_del_caso_publico)
+El esperado_filas de la bateria se compara ejecutando de verdad. ... ok
+test_la_consulta_de_referencia_aprueba (test_verificador.SqlCompararFilasNoSubcadenas.test_la_consulta_de_referencia_aprueba) ... ok
+test_una_consulta_basura_con_los_numeros_no_aprueba (test_verificador.SqlCompararFilasNoSubcadenas.test_una_consulta_basura_con_los_numeros_no_aprueba) ... ok
+test_valores_mal_redondeados_no_aprueban (test_verificador.SqlCompararFilasNoSubcadenas.test_valores_mal_redondeados_no_aprueban) ... ok
+test_codigo_correcto_sigue_aprobando (test_verificador.TypeScriptRespetaElCompilador.test_codigo_correcto_sigue_aprobando) ... ok
+test_compila_pero_falla_si_la_asercion_revienta (test_verificador.TypeScriptRespetaElCompilador.test_compila_pero_falla_si_la_asercion_revienta) ... ok
+test_un_error_de_tipos_no_puede_pasar_las_pruebas (test_verificador.TypeScriptRespetaElCompilador.test_un_error_de_tipos_no_puede_pasar_las_pruebas) ... ok
+
+======================================================================
+ERROR: test_el_timeout_queda_tipado_y_registrado_una_sola_vez (test_extremo_a_extremo.UnaPeticionUnRegistro.test_el_timeout_queda_tipado_y_registrado_una_sola_vez)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/v5/tests/test_extremo_a_extremo.py", line 422, in test_el_timeout_queda_tipado_y_registrado_una_sola_vez
+    bc.measure("http://127.0.0.1:1", "k", "hola", "m", jsonl=jl,
+  File "/tmp/v5/scripts/bench-context.py", line 112, in measure
+    bruto = http_post(f"{url}/v1/chat/completions", key, {
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/v5/scripts/bench-context.py", line 47, in http_post
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/v5/tests/test_extremo_a_extremo.py", line 413, in boom
+    raise TimeoutError("read timed out")
+TimeoutError: read timed out
+
+======================================================================
+FAIL: test_cada_peticion_correcta_deja_una_sola_fila (test_extremo_a_extremo.UnaPeticionUnRegistro.test_cada_peticion_correcta_deja_una_sola_fila)
+La evidencia de fondo frente a B1, y la que cubre el hueco de la
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/v5/tests/test_extremo_a_extremo.py", line 446, in test_cada_peticion_correcta_deja_una_sola_fila
+    self.assertEqual(len(claves), len(set(claves)),
+AssertionError: 4 != 2 : hay filas repetidas para la misma peticion: [('calentamiento', None), ('medida', None), ('medida', None), ('medida', None)]
+
+======================================================================
+FAIL: test_ningun_registro_se_queda_sin_fase (test_extremo_a_extremo.UnaPeticionUnRegistro.test_ningun_registro_se_queda_sin_fase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/v5/tests/test_extremo_a_extremo.py", line 403, in test_ningun_registro_se_queda_sin_fase
+    self.assertIsNotNone(f.get("fase"), f"registro sin fase: {f}")
+AssertionError: unexpectedly None : registro sin fase: {'objetivo': 200, 'warmup': True, 'fallo': 'ErrorInfraestructura: HTTP 500: b\'{"error": {"message": "interno"}}\'', 'ts': '2026-09-10T18:10:28.933717+00:00'}
+
+======================================================================
+FAIL: test_solo_existe_un_punto_de_escritura_en_el_jsonl (test_extremo_a_extremo.UnaPeticionUnRegistro.test_solo_existe_un_punto_de_escritura_en_el_jsonl)
+Restriccion estructural COMPLEMENTARIA, no una garantia: que
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/v5/tests/test_extremo_a_extremo.py", line 456, in test_solo_existe_un_punto_de_escritura_en_el_jsonl
+    self.assertEqual(src.count("jsonl.write"), 1,
+AssertionError: 2 != 1 : la escritura del JSONL debe estar en un solo nivel (anota)
+
+======================================================================
+FAIL: test_una_peticion_fallida_deja_exactamente_un_registro_con_fase (test_extremo_a_extremo.UnaPeticionUnRegistro.test_una_peticion_fallida_deja_exactamente_un_registro_con_fase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/v5/tests/test_extremo_a_extremo.py", line 391, in test_una_peticion_fallida_deja_exactamente_un_registro_con_fase
+    self.assertEqual(len(f), 1,
+AssertionError: 2 != 1 : una peticion debe dejar UN registro, hay 2: [{'fallo': 'ErrorInfraestructura: HTTP 500: b\'{"error": {"message": "interno"}}\'', 'wall': 0.0018448829650878906, 'veredicto': 'NO EVALUABLE', 'objetivo': 200, 'warmup': True, 'fase': 'calentamiento', 'clave_esperada': None, 'ts': '2026-09-10T18:10:28.972639+00:00'}, {'objetivo': 200, 'warmup': True, 'fallo': 'ErrorInfraestructura: HTTP 500: b\'{"error": {"message": "interno"}}\'', 'ts': '2026-09-10T18:10:28.972703+00:00'}]
+
+======================================================================
+FAIL: test_python_bueno_aprueba_y_malo_suspende (test_verificador.CadaLenguajePublicoPuedeAprobarYSuspender.test_python_bueno_aprueba_y_malo_suspende)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/v5/tests/test_verificador.py", line 406, in test_python_bueno_aprueba_y_malo_suspende
+    self.assertEqual(estado, "PASA LAS PRUEBAS",
+AssertionError: 'COMPILA PERO FALLA' != 'PASA LAS PRUEBAS'
+- COMPILA PERO FALLA
++ PASA LAS PRUEBAS
+ : una solucion correcta NO puede puntuarse como fallo
+
+======================================================================
+FAIL: test_typescript_bueno_aprueba_y_malo_suspende (test_verificador.CadaLenguajePublicoPuedeAprobarYSuspender.test_typescript_bueno_aprueba_y_malo_suspende)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/v5/tests/test_verificador.py", line 416, in test_typescript_bueno_aprueba_y_malo_suspende
+    self.assertEqual(estado, "PASA LAS PRUEBAS",
+AssertionError: 'COMPILA PERO FALLA' != 'PASA LAS PRUEBAS'
+- COMPILA PERO FALLA
++ PASA LAS PRUEBAS
+ : una solucion correcta NO puede puntuarse como fallo
+
+======================================================================
+FAIL: test_toda_prueba_de_la_bateria_publica_emite_el_marcador (test_verificador.MarcadorDelProtocoloCoherente.test_toda_prueba_de_la_bateria_publica_emite_el_marcador) (id='P-COD-PY')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/v5/tests/test_verificador.py", line 316, in test_toda_prueba_de_la_bateria_publica_emite_el_marcador
+    self.assertIn("PRUEBAS-OK", p["pruebas"],
+AssertionError: 'PRUEBAS-OK' not found in "assert media_movil([1,2,3,4], 2) == [1.5, 2.5, 3.5]\nassert media_movil([1,2], 5) == []\nassert media_movil([1,2], 0) == []\nassert media_movil([], 1) == []\nprint('ok')" : las pruebas deben emitir el marcador que exige el verificador
+
+======================================================================
+FAIL: test_toda_prueba_de_la_bateria_publica_emite_el_marcador (test_verificador.MarcadorDelProtocoloCoherente.test_toda_prueba_de_la_bateria_publica_emite_el_marcador) (id='P-COD-TS')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/v5/tests/test_verificador.py", line 316, in test_toda_prueba_de_la_bateria_publica_emite_el_marcador
+    self.assertIn("PRUEBAS-OK", p["pruebas"],
+AssertionError: 'PRUEBAS-OK' not found in "const r = agrupaPor([{a:1},{a:2},{a:1}], x => String(x.a) as '1'|'2');\nif (r['1'].length !== 2 || r['2'].length !== 1) throw new Error('mal');\nconsole.log('ok');" : las pruebas deben emitir el marcador que exige el verificador
+
+----------------------------------------------------------------------
+Ran 107 tests in 12.580s
+
+FAILED (failures=8, errors=1)
+      calentamiento: prompt_n=100 pp=1.0 tg=20.00 gen=10 fin=stop
+      pasada 1/2: prompt_n=100 pp=2.0 tg=20.00 gen=10 fin=stop
+      pasada 2/2: prompt_n=100 pp=3.0 tg=20.00 gen=10 fin=stop
+      calentamiento: FALLO ErrorInfraestructura: timeout
+      calentamiento (reintento 1): FALLO ErrorInfraestructura: timeout
+[i] productiva activa al empezar: True
+[i] batch FIJO en 4096; solo se mueve ubatch
+[i] 1 pasadas medidas + 1 de calentamiento descartada
+[i] registro crudo: /tmp/tmpskgx2fs6.jsonl
+
+[i] parando llama-flashnext (la GPU no da para dos servidores)
+[*] ubatch=1024 (batch=4096)
+
+[i] limpiando y restaurando
+[i] unidad productiva intacta: True
+
+| ubatch | batch | prompt_n | pp t/s | tg t/s | estado |
+|---|---|---|---|---|---|
+| 1024 | 4096 | 100 | 1.0 | 2.00 | ok |
+
+Registro crudo por peticion: /tmp/tmpskgx2fs6.jsonl
+[i] productiva activa al empezar: True
+[i] batch FIJO en 4096; solo se mueve ubatch
+[i] 1 pasadas medidas + 1 de calentamiento descartada
+[i] registro crudo: /tmp/tmpx32piobe.jsonl
+
+[i] parando llama-flashnext (la GPU no da para dos servidores)
+[*] ubatch=1024 (batch=4096)
+    [X] fallo midiendo: ErrorInfraestructura: timings ausentes
+
+[i] limpiando y restaurando
+[i] llama-flashnext restaurada y sirviendo en 8080
+[i] unidad productiva intacta: True
+
+| ubatch | batch | prompt_n | pp t/s | tg t/s | estado |
+|---|---|---|---|---|---|
+| 1024 | 4096 | - | - | - | error: ErrorInfraestructura: timings ausentes |
+
+Registro crudo por peticion: /tmp/tmpx32piobe.jsonl
+[i] productiva activa al empezar: True
+[i] batch FIJO en 4096; solo se mueve ubatch
+[i] 1 pasadas medidas + 1 de calentamiento descartada
+[i] registro crudo: /tmp/tmp3rs0r18p.jsonl
+
+[i] parando llama-flashnext (la GPU no da para dos servidores)
+[*] ubatch=1024 (batch=4096)
+
+[i] limpiando y restaurando
+[i] llama-flashnext restaurada y sirviendo en 8080
+[i] unidad productiva intacta: True
+
+| ubatch | batch | prompt_n | pp t/s | tg t/s | estado |
+|---|---|---|---|---|---|
+| 1024 | 4096 | 100 | 1.0 | 2.00 | ok |
+
+Registro crudo por peticion: /tmp/tmp3rs0r18p.jsonl
+      calentamiento: FALLO ErrorInfraestructura: timeout tras 1200 s
+      calentamiento (reintento 1): FALLO ErrorInfraestructura: timeout tras 1200 s
+      calentamiento: prompt_n=100 pp=1.0 tg=1.00 gen=10 fin=stop
+      pasada 1/2: prompt_n=100 pp=2.0 tg=1.00 gen=10 fin=stop
+      pasada 2/2: prompt_n=100 pp=3.0 tg=1.00 gen=10 fin=stop
+    [!] llama-flashnext en estado 'inactive', dejo de esperar
+    [!] llama-flashnext en estado 'failed', dejo de esperar
+    [!] llama-flashnext en estado 'failed', dejo de esperar
