@@ -23,6 +23,8 @@ Uso:
   python3 scripts/verifica-codigo.py --etiqueta flashnext-v2 --sin-sandbox  # solo depuracion
 """
 import argparse
+import csv
+import io
 import json
 import pathlib
 import re
@@ -32,8 +34,62 @@ import sys
 import uuid
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-PROMPTS = json.loads((ROOT / "private" / "prompts.json").read_text())
-VERIF = {p["id"]: p for p in PROMPTS if p.get("verif")}
+RUTA_PRIVADA = ROOT / "private" / "prompts.json"
+RUTA_PUBLICA = ROOT / "benchmarks" / "bateria-publica.json"
+
+
+class ErrorBanco(Exception):
+    """El banco de pruebas no pudo evaluar: no dice nada sobre el codigo.
+
+    Se distingue a proposito de un veredicto: un sandbox que no arranca, un
+    compilador ausente o un timeout no son "NO COMPILA".
+    """
+
+
+def carga_bateria(ruta=None):
+    """Carga los enunciados y devuelve {id: caso} con las claves normalizadas.
+
+    Antes esto se hacia al importar el modulo leyendo private/prompts.json, asi
+    que en una copia limpia del repo (sin datos privados) hasta `--help`
+    reventaba con FileNotFoundError. Ahora se carga bajo demanda y la bateria
+    publica es un origen de primera clase: su formato trae los campos
+    `esperado_filas` / `pruebas` por caso, de modo que el flujo no depende de
+    una seleccion codificada por identificadores antiguos (C1, C4, C5...).
+    """
+    if ruta is None:
+        ruta = RUTA_PRIVADA if RUTA_PRIVADA.exists() else RUTA_PUBLICA
+    ruta = pathlib.Path(ruta)
+    if not ruta.exists():
+        raise ErrorBanco(f"no encuentro la bateria en {ruta}. Usa --bateria "
+                         f"para indicarla (publica: {RUTA_PUBLICA.name}).")
+    d = json.loads(ruta.read_text())
+    casos = d["prompts"] if isinstance(d, dict) else d
+    fuera = {}
+    for c in casos:
+        cid = c.get("id")
+        if not cid:
+            continue
+        # La bateria publica usa nombres largos; la privada, los cortos.
+        norm = dict(c)
+        norm["verif"] = c.get("verif") or c.get("verificador")
+        norm["p"] = c.get("p") or c.get("prompt") or c.get("enunciado")
+        norm["lang"] = c.get("lang") or c.get("lenguaje")
+        norm["pruebas"] = c.get("pruebas") or c.get("tests")
+        norm["esperado_filas"] = c.get("esperado_filas")
+        norm["esquema"] = c.get("esquema")
+        # La bateria publica no trae 'verif': se deriva del lenguaje, para que
+        # un caso publico se pueda verificar sin tabla codificada por id.
+        if not norm["verif"] and norm["lang"]:
+            norm["verif"] = {"sql": "sqlite", "sqlite": "sqlite",
+                             "python": "python", "py": "python",
+                             "rust": "rust", "typescript": "node",
+                             "ts": "node", "javascript": "node",
+                             "go": "go", "zig": "zig"}.get(norm["lang"].lower())
+        norm["origen"] = str(ruta)
+        fuera[cid] = norm
+    return fuera
+
+
 BASE_SANDBOX = pathlib.Path("/var/lib/verif-sandbox")
 
 # Las toolchains viven en el HOME (cargo, nvm, node_modules) y ProtectHome=yes las
@@ -133,6 +189,28 @@ def bloque(txt, langs):
     return m.group(1) if m else txt
 
 
+# Codigos con que systemd senala que NO llego a ejecutar el binario. Ver
+# systemd.exec(5): 203 EXEC (ejecutable no disponible o no ejecutable),
+# 200-242 estan reservados para fallos de preparacion del servicio.
+LANZADOR_FALLO = frozenset({203, 208, 209, 210, 212, 216, 217, 218, 219,
+                            220, 221, 222, 224, 225, 226, 227, 228, 229,
+                            230, 231, 232, 233, 235, 236, 237, 238, 239,
+                            240, 241, 242})
+
+_SENALES_LANZADOR = (
+    "Failed to start transient service",
+    "Failed to connect to bus",
+    "sudo: a password is required",
+    "sudo: command not found",
+    "systemd-run: command not found",
+)
+
+
+def _huele_a_lanzador(salida):
+    """Fallos del lanzador que no traen un codigo reservado."""
+    return any(s in salida for s in _SENALES_LANZADOR)
+
+
 class Caja:
     """Ejecuta ordenes aisladas. Si sandbox=False cae al comportamiento antiguo."""
 
@@ -169,9 +247,21 @@ class Caja:
 
     def run(self, cmd, stdin=None, segundos=180):
         if not self.sandbox:
-            p = subprocess.run(cmd, cwd=str(self.dir), input=stdin, capture_output=True,
-                               text=True, timeout=segundos + 30)
-            return p.returncode, (p.stdout + p.stderr).strip()
+            try:
+                p = subprocess.run(cmd, cwd=str(self.dir), input=stdin,
+                                   capture_output=True, text=True,
+                                   timeout=segundos + 30)
+            except FileNotFoundError as e:
+                # Herramienta ausente: el banco no pudo evaluar. NO es "NO COMPILA".
+                raise ErrorBanco(f"no encuentro el ejecutable {cmd[0]!r}: {e}") from e
+            salida = (p.stdout + p.stderr).strip()
+            # Mismo criterio que en la rama con sandbox: un fallo del lanzador
+            # no es un veredicto sobre el codigo del modelo.
+            if p.returncode in LANZADOR_FALLO or _huele_a_lanzador(salida):
+                raise ErrorBanco(
+                    f"el lanzador no pudo ejecutar {cmd[0]!r} "
+                    f"(codigo {p.returncode}): {salida[:300]}")
+            return p.returncode, salida
         pre = [
             "sudo", "-n", "systemd-run", "--quiet", "--pipe", "--collect",
             "--service-type=exec",
@@ -197,12 +287,21 @@ class Caja:
         salida = (p.stdout + p.stderr).strip()
         if p.returncode == 143 or "RuntimeMaxSec" in salida:
             return p.returncode, salida + "\n[sandbox] excedio el tiempo limite"
+        # Un fallo del LANZADOR no es un veredicto sobre el codigo. systemd
+        # devuelve estos codigos cuando no ha llegado a ejecutar el binario
+        # (203/EXEC = ejecutable no disponible, 226 = fallo de namespace...), y
+        # tratarlos como returncode del compilador producia "NO COMPILA" sin
+        # haber compilado nada. No todos los fallos de systemd-run lanzan
+        # excepcion Python: la mayoria son un codigo numerico.
+        if p.returncode in LANZADOR_FALLO or _huele_a_lanzador(salida):
+            raise ErrorBanco(
+                f"el lanzador no pudo ejecutar {cmd[0]!r} (codigo {p.returncode}): "
+                f"{salida[:300]}")
         return p.returncode, salida
 
 
 # --- Motores: devuelven (estado, log) -----------------------------------------
 # estado: "NO COMPILA" | "COMPILA PERO FALLA" | "PASA LAS PRUEBAS" | "COMPILA (sin pruebas)"
-
 def v_rustc(code, caja, pruebas):
     rustc = str(RUSTC) if caja.sandbox else "rustc"
     if pruebas:
@@ -238,10 +337,17 @@ def v_node(code, caja, pruebas):
     f = caja.escribe("a.ts", code + ("\n" + pruebas if pruebas else ""))
     tsc = [str(NODE), str(TSC)] if caja.sandbox else ["tsc"]
     node = str(NODE) if caja.sandbox else "node"
-    rc, o = caja.run(tsc + ["--target", "es2022", "--module", "commonjs",
+    # --noEmitOnError es imprescindible: por defecto tsc EMITE JavaScript aunque
+    # el tipado falle, asi que comprobar solo "existe a.js" daba PASA LAS
+    # PRUEBAS a codigo con errores reales de compilacion (p.ej. TS2322,
+    # asignar string a number) cuyo JS resultante se ejecuta sin problema.
+    rc, o = caja.run(tsc + ["--noEmitOnError", "--strict",
+                            "--target", "es2022", "--module", "commonjs",
                             "--outDir", str(caja.dir), str(f)])
+    if rc != 0:
+        return "NO COMPILA", "tsc fallo (codigo %d):\n%s" % (rc, o)
     js = caja.dir / "a.js"
-    rc2, existe = caja.run(["test", "-f", str(js)])
+    rc2, _existe = caja.run(["test", "-f", str(js)])
     if rc2 != 0:
         return "NO COMPILA", "tsc no genero JS:\n" + o
     rc, log = caja.run([node, str(js)])
@@ -268,23 +374,117 @@ def v_python(code, caja, pruebas):
     return ("COMPILA (sin pruebas)" if rc == 0 else "NO COMPILA"), log
 
 
-def v_sqlite(code, caja, pruebas):
-    """Ejecuta la consulta contra el esquema del enunciado y comprueba el resultado."""
-    caja.escribe("esquema.sql", SQL_ESQUEMA)
-    rc, o = caja.run(["sqlite3", "t.db"], stdin=SQL_ESQUEMA)
+def v_sqlite(code, caja, pruebas, esperado_filas=None, esquema=None):
+    """Ejecuta la consulta contra el esquema del enunciado y compara resultados.
+
+    Antes se buscaban subcadenas ("aparece 2024", "aparece 8400"), asi que
+    `SELECT '2024 2025 2026 84000' AS basura;` pasaba las pruebas sin consultar
+    ni una tabla. Ahora hay dos modos, ambos exigiendo valores y no textos:
+
+    - `esperado_filas`: comparacion de filas completas (bateria publica, donde
+      el resultado es cerrado). El esquema viaja con el caso.
+    - sin esperado: comprobacion estructurada de C6. No se comparan filas
+      literales porque "% de retencion medio" admite dos lecturas legitimas
+      (agregada 27,216 % vs media por nomina 27,215 %); se exigen los agregados
+      exactos y los porcentajes con tolerancia declarada.
+    """
+    esq = esquema or SQL_ESQUEMA
+    caja.escribe("esquema.sql", esq)
+    rc, o = caja.run(["sqlite3", "t.db"], stdin=esq)
     if rc:
         return "NO COMPILA", "fallo creando esquema: " + o
     sql = code if code.rstrip().endswith(";") else code + ";"
-    rc, log = caja.run(["sqlite3", "-header", "-csv", "t.db"], stdin=sql)
+    rc, log = caja.run(["sqlite3", "-noheader", "-csv", "t.db"], stdin=sql)
     if rc:
         return "NO COMPILA", log
-    # el enunciado pide por anio: 2024, 2025 y 2026, con el total bruto de 2024 = 8400
-    filas = [l for l in log.splitlines() if l.strip()]
-    anios = [a for a in ("2024", "2025", "2026") if any(a in f for f in filas)]
-    if len(anios) != 3:
-        return "COMPILA PERO FALLA", f"faltan anios (encontrados {anios}):\n{log}"
-    if not any("8400" in f.replace(".0", "") for f in filas if "2024" in f):
-        return "COMPILA PERO FALLA", f"el total bruto de 2024 deberia ser 8400:\n{log}"
+    filas = [f for f in csv.reader(io.StringIO(log)) if any(c.strip() for c in f)]
+
+    if esperado_filas is not None:
+        if _normaliza_filas(filas) != _normaliza_filas(esperado_filas):
+            return "COMPILA PERO FALLA", (
+                "filas distintas de las esperadas.\nesperado: %r\nobtenido: %r"
+                % (esperado_filas, filas))
+        return "PASA LAS PRUEBAS", log
+
+    return _comprueba_c6(filas, log)
+
+
+# Agregados calculados del esquema, no copiados del enunciado:
+#   ano: (total bruto, total liquido, retencion %, variacion % interanual)
+# La variacion del primer ano no esta definida (NULL o vacio, ambos validos).
+C6_ESPERADO = {
+    "2024": (8400.0, 6200.0, 26.19, None),
+    "2025": (9700.0, 7060.0, 27.22, 15.48),
+    "2026": (5200.0, 3800.0, 26.92, -46.39),
+}
+# Consulta de referencia del caso C6: es la que produce C6_ESPERADO al
+# ejecutarse contra SQL_ESQUEMA. Se publica para que el esperado sea
+# reproducible y no un numero copiado a mano.
+C6_CONSULTA = (
+    "SELECT substr(fecha,1,4) AS anio, "
+    "SUM(bruto) AS bruto, "
+    "SUM(liquido) AS liquido, "
+    "ROUND((1 - SUM(liquido)*1.0/SUM(bruto)) * 100, 2) AS retencion, "
+    "ROUND((SUM(bruto)*1.0/LAG(SUM(bruto)) OVER (ORDER BY substr(fecha,1,4)) "
+    "- 1) * 100, 2) AS var "
+    "FROM nominas GROUP BY anio ORDER BY anio;"
+)
+C6_TOLERANCIA = 0.05   # puntos porcentuales: cubre las dos lecturas de "medio"
+
+
+def _num(celda):
+    try:
+        return float(str(celda).strip().replace("%", ""))
+    except (TypeError, ValueError):
+        return None
+
+
+def _normaliza_filas(filas):
+    """Compara por valor: 8400 == 8400.0 == ' 8400 ', pero no por subcadena."""
+    fuera = []
+    for f in filas:
+        fila = []
+        for c in f:
+            v = _num(c)
+            fila.append(round(v, 4) if v is not None else str(c).strip())
+        fuera.append(tuple(fila))
+    return fuera
+
+
+def _comprueba_c6(filas, log):
+    if len(filas) != 3:
+        return "COMPILA PERO FALLA", f"esperaba 3 filas (una por anio), hay {len(filas)}:\n{log}"
+    for f in filas:
+        if len(f) < 5:
+            return "COMPILA PERO FALLA", (
+                f"cada fila necesita anio, bruto, liquido, retencion y variacion; "
+                f"llegaron {len(f)} columnas: {f!r}")
+    vistos = []
+    for f in filas:
+        ano = str(f[0]).strip()[:4]
+        if ano not in C6_ESPERADO:
+            return "COMPILA PERO FALLA", f"anio inesperado {f[0]!r}:\n{log}"
+        vistos.append(ano)
+        e_bruto, e_liq, e_ret, e_var = C6_ESPERADO[ano]
+        bruto, liq, ret, var = (_num(f[1]), _num(f[2]), _num(f[3]), _num(f[4]))
+        if bruto is None or abs(bruto - e_bruto) > 0.01:
+            return "COMPILA PERO FALLA", f"{ano}: bruto {f[1]!r}, esperaba {e_bruto}"
+        if liq is None or abs(liq - e_liq) > 0.01:
+            return "COMPILA PERO FALLA", f"{ano}: liquido {f[2]!r}, esperaba {e_liq}"
+        if ret is None or abs(ret - e_ret) > C6_TOLERANCIA:
+            return "COMPILA PERO FALLA", (
+                f"{ano}: retencion {f[3]!r}, esperaba {e_ret} +-{C6_TOLERANCIA}")
+        if e_var is None:
+            if var is not None and abs(var) > 0.01:
+                return "COMPILA PERO FALLA", (
+                    f"{ano}: la variacion del primer anio no esta definida, llego {f[4]!r}")
+        elif var is None or abs(var - e_var) > C6_TOLERANCIA:
+            return "COMPILA PERO FALLA", (
+                f"{ano}: variacion {f[4]!r}, esperaba {e_var} +-{C6_TOLERANCIA}")
+    if sorted(vistos) != ["2024", "2025", "2026"]:
+        return "COMPILA PERO FALLA", f"anios {vistos}, esperaba 2024/2025/2026"
+    if vistos != sorted(vistos):
+        return "COMPILA PERO FALLA", f"el enunciado pide orden por anio, llego {vistos}"
     return "PASA LAS PRUEBAS", log
 
 
@@ -294,29 +494,88 @@ MOTORES = {"rustc": (v_rustc, ["rust"]), "tsc": (v_tsc, ["typescript", "ts"]),
 
 
 def comprueba_sandbox():
-    """No damos por hecho que aisla: se comprueba antes de ejecutar nada del LLM."""
+    """No damos por hecho que aisla: se comprueba antes de ejecutar nada del LLM.
+
+    Devuelve (veredicto, motivo) donde veredicto es True (aisla), False (NO
+    aisla) o None (INCONCLUSO). El tercer estado es imprescindible: antes, un
+    comando de diagnostico que no llegaba a ejecutarse devolvia rc!=0 y eso se
+    leia como "no hay red" / "no lee el secreto" / "no escribe", es decir, una
+    prueba que no se ejecuto certificaba seguridad. Ahora cada sonda exige que
+    su herramienta exista y que el fallo sea el esperado.
+    """
     with Caja(sandbox=True) as c:
-        rc, _ = c.run(["/bin/echo", "vale"], segundos=30)
-        if rc != 0:
-            return False, "systemd-run no arranca"
-        rc, _ = c.run(["/usr/bin/getent", "hosts", "github.com"], segundos=30)
-        if rc == 0:
-            return False, "el sandbox TIENE RED"
-        rc, _ = c.run(["/bin/cat", str(pathlib.Path.home() / ".secrets/m5-llama-api.key")], segundos=30)
-        if rc == 0:
-            return False, "el sandbox LEE los secretos del HOME"
-        rc, _ = c.run(["/usr/bin/touch", "/usr/PWNED"], segundos=30)
-        if rc == 0:
-            return False, "el sandbox ESCRIBE en /usr"
+        try:
+            rc, salida = c.run(["/bin/echo", "vale"], segundos=30)
+        except ErrorBanco as e:
+            return None, f"INCONCLUSO: el sandbox no arranca ({e})"
+        if rc != 0 or "vale" not in salida:
+            return None, f"INCONCLUSO: systemd-run no ejecuta ni /bin/echo (rc={rc})"
+
+        def sonda(cmd, nombre):
+            """Devuelve (rc, salida) o marca inconcluso si la herramienta falta."""
+            existe, _ = c.run(["test", "-x", cmd[0]], segundos=30)
+            if existe != 0:
+                raise ErrorBanco(f"{nombre}: {cmd[0]} no esta en el sandbox, "
+                                 "la sonda no puede ejecutarse")
+            return c.run(cmd, segundos=30)
+
+        secreto = pathlib.Path.home() / ".secrets/m5-llama-api.key"
+        try:
+            rc, _ = sonda(["/usr/bin/getent", "hosts", "github.com"], "red")
+            if rc == 0:
+                return False, "el sandbox TIENE RED"
+            if not secreto.exists():
+                return None, ("INCONCLUSO: no existe el fichero senuelo "
+                              f"{secreto.name}, la sonda del secreto no prueba nada")
+            rc, _ = sonda(["/bin/cat", str(secreto)], "secreto")
+            if rc == 0:
+                return False, "el sandbox LEE los secretos del HOME"
+            rc, _ = sonda(["/usr/bin/touch", "/usr/PWNED"], "escritura")
+            if rc == 0:
+                return False, "el sandbox ESCRIBE en /usr"
+        except ErrorBanco as e:
+            return None, f"INCONCLUSO: {e}"
     return True, "sin red, sin HOME, /usr solo lectura"
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--etiqueta", required=True)
+    ap.add_argument("--bateria", default=None,
+                    help="JSON de enunciados. Por defecto private/prompts.json "
+                         "si existe, si no benchmarks/bateria-publica.json")
+    ap.add_argument("--respuestas", default=None,
+                    help="JSON de respuestas del modelo (por defecto "
+                         "private/resp-<etiqueta>.json)")
     ap.add_argument("--sin-sandbox", action="store_true",
                     help="SOLO depuracion: ejecuta con tus privilegios")
+    ap.add_argument("--salida", default=None,
+                    help="donde escribir el informe (por defecto "
+                         "private/verif-<etiqueta>.json)")
+    ap.add_argument("--solo", default="",
+                    help="ids separados por coma: verifica solo esos casos. "
+                         "Sin esto, un caso sin respuesta cuenta como "
+                         "'no evaluado por el banco' (salida 3), que es lo "
+                         "correcto en una campana completa.")
     a = ap.parse_args()
+
+    # Se carga DESPUES de parsear: asi --help funciona en una copia limpia sin
+    # los datos privados, que antes reventaba al importar el modulo.
+    try:
+        casos = carga_bateria(a.bateria)
+    except ErrorBanco as e:
+        sys.exit(f"❌ {e}")
+    verif = {cid: c for cid, c in casos.items() if c.get("verif")}
+    if a.solo:
+        quiere = {s.strip() for s in a.solo.split(",")}
+        desconocidos = quiere - set(verif)
+        if desconocidos:
+            sys.exit(f"❌ ids sin verificador en la bateria: {sorted(desconocidos)}")
+        verif = {cid: c for cid, c in verif.items() if cid in quiere}
+    if not verif:
+        sys.exit("❌ la bateria no trae ningun caso con verificador")
+    print(f"[i] bateria: {next(iter(verif.values()))['origen']} "
+          f"({len(verif)} casos con verificador)")
 
     usa_sandbox = not a.sin_sandbox
     if usa_sandbox:
@@ -324,19 +583,27 @@ def main():
         montados = monta_toolchains()
         print(f"[i] toolchains montadas ro en {TC}: {', '.join(montados)}")
         ok, detalle = comprueba_sandbox()
+        if ok is None:
+            # Inconcluso NO es aprobado: una comprobacion que no pudo
+            # ejecutarse no certifica aislamiento.
+            sys.exit(f"❌ No se pudo verificar el aislamiento ({detalle}). "
+                     "Me niego a ejecutar codigo del LLM sin certeza.")
         if not ok:
             sys.exit(f"❌ El sandbox no aisla ({detalle}). Me niego a ejecutar codigo del LLM.")
         print(f"[i] sandbox verificado: {detalle}\n")
     else:
         print("⚠️  SIN SANDBOX: ejecutando codigo del LLM con tus privilegios.\n")
 
-    src = ROOT / "private" / f"resp-{a.etiqueta}.json"
+    src = pathlib.Path(a.respuestas) if a.respuestas else (
+        ROOT / "private" / f"resp-{a.etiqueta}.json")
+    if not src.exists():
+        sys.exit(f"❌ no encuentro las respuestas en {src} (usa --respuestas)")
     res = json.loads(src.read_text())
 
     out = {}
     cuenta = {"PASA LAS PRUEBAS": 0, "COMPILA PERO FALLA": 0, "NO COMPILA": 0,
               "COMPILA (sin pruebas)": 0, "SIN RESPUESTA": 0, "HERRAMIENTA AUSENTE": 0}
-    for pid, meta in VERIF.items():
+    for pid, meta in verif.items():
         r = res.get(pid)
         if not r or "error" in r or not (r.get("texto") or "").strip():
             out[pid] = {"veredicto": "SIN RESPUESTA"}
@@ -357,13 +624,20 @@ def main():
             print(f"{pid:3} [{meta['verif']:6}] herramienta ausente, salto")
             continue
         code = bloque(r["texto"], langs)
-        pruebas = PRUEBAS.get(pid, (None, None))[1]
+        # Las pruebas vienen del propio caso si la bateria las trae (formato
+        # publico); si no, de la tabla PRUEBAS heredada por identificador.
+        pruebas = meta.get("pruebas") or PRUEBAS.get(pid, (None, None))[1]
         # H-024: un reventon del propio banco (sandbox que no arranca, disco
         # lleno, systemd-run que falla) NO es "NO COMPILA". Se separa el fallo
         # del modelo del fallo del instrumento.
         try:
             with Caja(sandbox=usa_sandbox) as caja:
-                estado, log = fn(code, caja, pruebas)
+                if meta["verif"] == "sqlite" and meta.get("esperado_filas") is not None:
+                    estado, log = fn(code, caja, pruebas,
+                                     esperado_filas=meta["esperado_filas"],
+                                     esquema=meta.get("esquema"))
+                else:
+                    estado, log = fn(code, caja, pruebas)
         except Exception as e:
             estado, log = "ERROR DEL BANCO", f"{type(e).__name__}: {e}"
         cuenta[estado] = cuenta.get(estado, 0) + 1
@@ -376,7 +650,9 @@ def main():
               + ("" if estado.startswith(("PASA", "COMPILA (")) or not log
                  else f"\n      {log.splitlines()[0][:150]}"))
 
-    dst = ROOT / "private" / f"verif-{a.etiqueta}.json"
+    dst = pathlib.Path(a.salida) if a.salida else (
+        ROOT / "private" / f"verif-{a.etiqueta}.json")
+    dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text(json.dumps(out, ensure_ascii=False, indent=1))
     print(f"\n{'-'*54}")
     print(f"  PASA LAS PRUEBAS      {cuenta['PASA LAS PRUEBAS']}   (compila y da el resultado correcto)")

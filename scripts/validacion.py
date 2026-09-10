@@ -25,6 +25,12 @@ Las dos excepciones son la frontera:
 from __future__ import annotations
 
 import json
+import math
+
+# Techo de plausibilidad para una tasa (t/s). No es una medida del hardware:
+# es una barrera contra metricas corruptas y contra prefill reaprovechado de
+# cache, que produce cifras de pp absurdas que no miden computo alguno.
+LIMITE_TASA = 1_000_000.0
 
 
 class ErrorInfraestructura(Exception):
@@ -73,22 +79,49 @@ def timings(d: dict) -> dict:
     if not isinstance(t, dict) or not t:
         raise ErrorInfraestructura("la respuesta no trae 'timings': medida invalida")
     faltan = [k for k in ("prompt_n", "prompt_per_second", "predicted_per_second")
-              if not isinstance(t.get(k), (int, float))]
+              if not isinstance(t.get(k), (int, float)) or isinstance(t.get(k), bool)]
     if faltan:
         raise ErrorInfraestructura(f"timings incompletos, faltan {faltan}")
-    if t["prompt_n"] <= 0 or t["prompt_per_second"] <= 0:
-        raise ErrorInfraestructura(f"timings no plausibles: {dict(list(t.items())[:4])}")
+    # Que el campo sea numerico NO acredita una medida: NaN, inf, negativos y
+    # recuentos fraccionarios pasaban la comprobacion de tipo y entraban en la
+    # mediana. Se exige finitud, signo y que los recuentos sean enteros.
+    for k in ("prompt_per_second", "predicted_per_second"):
+        v = float(t[k])
+        if not math.isfinite(v):
+            raise ErrorInfraestructura(f"{k} no es finito ({t[k]!r}): medida invalida")
+        if v <= 0:
+            raise ErrorInfraestructura(f"{k}={t[k]!r} no es una velocidad plausible")
+        if v > LIMITE_TASA:
+            raise ErrorInfraestructura(
+                f"{k}={t[k]!r} supera el limite de plausibilidad ({LIMITE_TASA} t/s): "
+                "sospecha de reutilizacion de cache o de metrica corrupta")
+    for k in ("prompt_n", "predicted_n"):
+        if k not in t:
+            continue
+        v = t[k]
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            raise ErrorInfraestructura(f"{k}={v!r} no es un recuento")
+        if not math.isfinite(float(v)) or float(v) != int(v):
+            raise ErrorInfraestructura(f"{k}={v!r} no es un recuento entero")
+        if int(v) <= 0:
+            raise ErrorInfraestructura(f"{k}={v!r} no es un recuento positivo")
     return t
 
 
 # ---------------------------------------------------------------- contratos
 
 
-def respuesta_final(d: dict) -> str:
+def respuesta_final(d: dict, exigir_stop: bool = False) -> str:
     """Contrato de TAREA: hace falta una respuesta final entregable.
 
     Rechaza contenido vacio (bucle de razonamiento, H-019) y finalizacion por
     agotamiento del presupuesto: al cliente le llega una respuesta truncada.
+
+    `exigir_stop=True` endurece el contrato para las tareas de resultado
+    comprobable: ademas de rechazar una finalizacion anormal, rechaza que el
+    campo VENGA AUSENTE. Un finish_reason que falta no es una finalizacion
+    normal, es una respuesta que no acredita como termino; darla por buena era
+    rellenar el hueco con 'stop' por nuestra cuenta.
     """
     msg, fin = _eleccion(d)
     content = (msg.get("content") or "").strip()
@@ -99,6 +132,9 @@ def respuesta_final(d: dict) -> str:
                 f"content vacio con {len(razon)} chars de razonamiento "
                 "(bucle de razonamiento, H-019)")
         raise FalloContrato("content vacio y sin razonamiento")
+    if exigir_stop and not fin:
+        raise FalloContrato(
+            "falta finish_reason: no acredita finalizacion normal")
     if fin and fin != "stop":
         raise FalloContrato(f"finalizacion anormal: finish_reason={fin!r}")
     return content
@@ -107,16 +143,19 @@ def respuesta_final(d: dict) -> str:
 def respuesta_exacta(d: dict, esperado: str) -> str:
     """Contrato de TAREA con resultado comprobable: el contenido ES el esperado.
 
-    Comparacion sobre el contenido normalizado completo, no sobre los digitos
-    que aparezcan dentro. '-391', 'No es 391' y '391%' NO son '391'.
+    Contrato ESTRICTO, el mismo que promete docs/metodologia.md:
+    content.strip() == esperado y finish_reason == 'stop'.
+
+    No hay normalizacion permisiva. La version anterior colapsaba espacios y
+    hacia rstrip('.'), con lo que '391.' y '391...' pasaban como '391' mientras
+    la metodologia prometia comparacion exacta: dos contratos distintos, uno
+    documentado y otro implementado. Si algun dia hace falta tolerar puntuacion,
+    va en un contrato aparte y documentado, no escondido aqui.
     """
-    content = respuesta_final(d)
-    norm = " ".join(content.split()).rstrip(".")
-    if norm != esperado:
+    content = respuesta_final(d, exigir_stop=True)
+    if content != esperado:
         raise FalloContrato(f"esperaba {esperado!r} y llego {content[:120]!r}")
-    # se devuelve el valor NORMALIZADO, que es sobre el que se ha validado:
-    # devolver el crudo invitaba a que el llamador comparase otra cosa distinta
-    return norm
+    return content
 
 
 def generacion_medida(d: dict, max_tokens: int) -> dict:
@@ -169,3 +208,33 @@ def llamada_herramienta(d: dict, nombre: str | None = None) -> dict:
     if fin and fin not in ("tool_calls", "stop"):
         raise FalloContrato(f"finalizacion anormal con tool_calls: {fin!r}")
     return {"nombre": fn["name"], "argumentos": args}
+
+
+def recuperacion_aguja(d: dict, clave: str) -> dict:
+    """Contrato de RECUPERACION: la aguja es una tarea de resultado comprobable.
+
+    Se separa a proposito de `generacion_medida`: usar el contrato de
+    microbenchmark para la aguja aceptaba como buena una respuesta truncada por
+    presupuesto, que es exactamente el caso en que el modelo NO ha llegado a
+    decir la clave. Aqui la finalizacion tiene que ser normal.
+
+    Se exige que la clave sea la respuesta, no que aparezca dentro de ella:
+    la comprobacion por subcadena da por bueno "no encuentro la clave R7-K2"
+    porque la cita. Se tolera unicamente puntuacion final y comillas, porque el
+    modelo responde en prosa minima, y eso queda declarado aqui.
+    """
+    content = respuesta_final(d, exigir_stop=True)
+    limpio = content.strip().strip("\"'`").rstrip(".!").strip()
+    if limpio != clave:
+        cita = clave in content
+        e = FalloContrato(
+            f"esperaba exactamente {clave!r} y llego {content[:120]!r}"
+            + (" (la cita, pero no la entrega como respuesta)" if cita else ""))
+        # Distingue los dos fallos, que NO significan lo mismo: citar la clave
+        # envuelta en prosa es un fallo de formato con la recuperacion hecha;
+        # no citarla es no haber leido la ventana. Quien analiza necesita
+        # separarlos, asi que el motivo viaja en la excepcion.
+        e.motivo = "formato" if cita else "no_recupera"
+        e.clave_presente = cita
+        raise e
+    return {"clave": clave, "texto": content, "motivo": None}
