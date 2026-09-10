@@ -491,3 +491,104 @@ contexto corto) es **2,7× más lento en prefill y 2,2× en generación**, ocupa
 fuera de upstream y falla en el idioma de trabajo. Queda como curiosidad: es la primera vez que este
 laboratorio corre una arquitectura con hiperconexiones mHC, y el build parcheado se conserva en
 `/models/llama.cpp-glm5` por si la rama entra algún día en upstream.
+
+
+## H-019 — Calidad de Qwen3.8-Flash-Next: bien en idioma y código, pero se cuelga razonando (2026-09-10)
+
+**Qué se probó.** Batería propia de 27 prompts (`private/prompts.json` v2) contra el servicio productivo
+`llama-flashnext`, `temperature 0`, `max_tokens 4096`, una pasada por prompt. Reparto: 6 de código con
+lenguajes verificables en el A8 (Rust, TypeScript, JS/Node, Python, SQL), 4 de «código nuevo» como prueba de
+alucinación de APIs recientes (Go 1.23 range-over-func, Zig, Swift 6, WGSL), 3 castellano, 2 inglés, 2 chino,
+3 de seguimiento literal de instrucciones, 2 de JSON estricto, 2 de razonamiento, 1 de lógica, 2 de
+conocimiento técnico. **Sin euskera** en esta tanda.
+
+Regla de esta fase: **el código no se corrige a ojo**. Se extrae el bloque y se compila y ejecuta de verdad
+(`scripts/verifica-codigo.py`): `rustc 1.98.1`, `tsc 6.0.3`, `node 22.23.1`, `python3 3.11`, `sqlite3 3.45`,
+más `go 1.22.2` (con `GOEXPERIMENT=rangefunc`, porque los iteradores range-over-func no son estables hasta
+1.23) y `zig 0.15.1` instalados para esta prueba, y WGSL compilado y **ejecutado en la iGPU del
+propio A8** (Radeon 780M, RADV, vía `wgpu` 0.32).
+
+**Rendimiento durante la batería** (27 prompts reales, no sintéticos): tg mediana **26,6 t/s**, pp mediana
+**44,3 t/s**. El tg encaja con los 27,4 t/s de referencia; el pp bajo es esperable porque estos prompts son
+de 30-120 tokens y el prefill no llega a amortizarse.
+
+### El hallazgo importante: bucles de razonamiento que devuelven vacío
+
+**5 de 27 prompts agotaron los 4 096 tokens sin emitir una sola palabra de respuesta**: todo el presupuesto
+se fue en `reasoning_content`. Los cinco eran de código (C1 Rust ISO-8601, C3 `DeepReadonly<T>`, C5 Python
+top-N, N1 Zig, N3 Swift 6). No es un fallo del servidor ni del cliente: el modelo entra en deliberación
+circular sobre requisitos ambiguos del enunciado.
+
+Se relanzaron los cinco con `max_tokens 16384`:
+
+| prompt | tokens generados | razonamiento | resultado | tiempo |
+|---|---|---|---|---|
+| C1 (Rust) | 16 384 (tope) | 56 033 car. | **vacío** | 670 s |
+| C3 (TypeScript) | 16 384 (tope) | 63 744 car. | **vacío** | 674 s |
+| N1 (Zig) | 16 384 (tope) | 59 744 car. | **vacío** | 676 s |
+| C5 (Python) | 3 325 | 11 991 car. | correcto | 130 s |
+| N3 (Swift 6) | 8 013 | — | correcto | 414 s |
+
+Es decir: **ampliar el presupuesto no arregla el bucle**, sólo lo hace más caro. Tres prompts consumieron
+11 minutos de GPU cada uno para devolver cadena vacía. Leyendo la cola del razonamiento de C1 se ve el
+patrón exacto: el modelo descubre que ISO 8601 admite años y meses, que no tienen duración fija en segundos,
+y se queda alternando entre «devolver None» y «asumir 365/30 días» sin decidir nunca — literalmente
+«*Which is more common in coding challenge? ... Hmm. Need choose*» repetido durante 56 000 caracteres.
+
+**Qué NO lo arregla:** añadir al prompt «si algo es ambiguo elige lo más razonable y responde ya, no
+deliberes». Se probó con C1: 208 s, 14 300 caracteres de razonamiento, respuesta vacía otra vez. La
+instrucción en lenguaje natural no corta el bucle.
+
+**Qué SÍ lo arregla:** desactivar el razonamiento en la propia plantilla de chat.
+
+| variante | tiempo | razonamiento | respuesta | ¿compila? |
+|---|---|---|---|---|
+| por defecto | 670 s | 56 033 car. | vacía | — |
+| `reasoning_effort: "low"` | 91 s | 5 478 car. | 1 921 car. | **sí, y pasa los tests** |
+| `chat_template_kwargs: {"enable_thinking": false}` | **35 s** | 0 | 3 194 car. | **sí, y pasa los tests** |
+
+Con `enable_thinking: false` los tres prompts colgados salen a la primera: C3 en 14,6 s, N1 en 20,5 s,
+N3 en 14,3 s. **19× más rápido que el bucle, y con respuesta.** Regla operativa para clientes de este
+servidor: en tareas de código con requisitos apilados, mandar `enable_thinking: false`; el razonamiento
+largo no está aportando calidad, está aportando riesgo de respuesta vacía.
+
+### Veredicto del compilador (no de mi criterio)
+
+- **C2 Rust, borrow checker** — compila. La explicación de aliasing XOR mutabilidad es correcta.
+- **C4 TypeScript, `async function*` por lotes** — compila en `--strict` y **se ejecuta**: lotes
+  `[1,2,3] [4,5,6] [7]` y `RangeError` con `n=0`, como se pedía.
+- **C6 SQL, CTE + `LAG`** — se ejecuta en SQLite real; la variación interanual sale correcta (−46,39 %).
+- **C5 Python** — ejecutado: top-N con desempate alfabético correcto y `[]` para `n<=0`.
+- **C1 Rust ISO-8601** (tras `enable_thinking: false`) — compila y **pasa las 6 aserciones**:
+  `PT1H30M15S`→5415, `P2DT3H`→183600, `P1DT2H3M4S`→93784, y `None` para `"hola"`, `"P"` y `""`.
+- **C3 `DeepReadonly<T>`** (ídem) — compila, congela en profundidad (`Object.isFrozen` true en objeto
+  anidado y en array) y, prueba negativa, **el compilador rechaza** `frozenConfig.name = "otro"`
+  (TS2540) y `frozenConfig.nested.ports.push(9090)` (TS2339). El tipo hace lo que dice hacer.
+- **N2 Go 1.23 range-over-func** — se ejecuta: iterador `iter.Seq` correcto por lotes.
+- **N4 WGSL** — compilado sin avisos y **ejecutado en la 780M**: suma de 1 000 flotantes exacta.
+- **N1 Zig** — **falla al compilar en Zig 0.15.1**: `std.io.getStdIn` ya no existe. Pero el modelo
+  **avisó él mismo** de que su código era para 0.13.x y de que «en Zig 0.14+ la API de `std.io` cambió»,
+  que es exactamente lo que el prompt le pedía declarar. Fallo de conocimiento actualizado, no de honestidad:
+  no se inventó una API que no existe, dijo para qué versión escribía.
+
+8 de 9 bloques de código pasan el compilador; el noveno falla por versión y viene etiquetado como tal.
+
+### Idiomas e instrucciones
+
+- **Castellano**: corrigió las 8 faltas del texto de taller sin tocar el estilo («Haber→A ver», «bamos→vamos»,
+  «ha Bilbao→a Bilbao», «nos a pedido→nos ha pedido», «sino→si no», «abra→habrá», «asta→hasta»).
+- **Inglés y chino**: correctos, incluida la traducción técnica del aviso de horno y los tres puntos sobre
+  apantallamiento dentro del límite de caracteres.
+- **Instrucciones literales**: acertó las 5 líneas de 1-2-3-4-5 palabras; saltó la Tierra en la lista de
+  planetas por diámetro sin dejar hueco en la numeración; y la frase de 12 palabras exactas sobre TIG salió
+  con 12 palabras contadas.
+- **JSON estricto**: los dos válidos, con tipos correctos y sin markdown alrededor (`1535.55` como float,
+  fecha normalizada a `2026-09-04`).
+- **Razonamiento**: cruce de trenes correcto (11:06, comprobado a mano en 11:06:24) y el problema de lógica
+  resuelto bien por casos.
+- **Conocimiento técnico**: la respuesta sobre F-CPU/PROFIsafe y la de por qué un MoE de 177B/3B activos
+  genera más rápido que un denso de 27B (limita el ancho de banda de memoria) son ambas correctas.
+
+**Veredicto.** Flash-Next se confirma como modelo productivo: idioma, instrucciones y JSON sin fallos, y
+código que compila. El único defecto real de esta tanda es el bucle de razonamiento, y tiene arreglo por
+parámetro, no por prompt.
