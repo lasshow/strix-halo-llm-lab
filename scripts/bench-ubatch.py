@@ -1,21 +1,41 @@
 #!/usr/bin/env python3
 """Barrido de --ubatch-size sobre una unidad systemd DE PRUEBAS, no la productiva.
 
-Por que asi (ver H-021):
-  - La version anterior reescribia con el mismo valor --batch-size Y --ubatch-size,
-    de modo que nunca se aislo el efecto de ubatch: se movian los dos a la vez.
-  - Editaba la unidad productiva en sitio, sin copia previa ni restauracion en
-    caso de error: si el script moria a mitad, el servicio se quedaba con la
-    configuracion del ultimo punto del barrido.
+Historia de correcciones:
 
-Este script:
-  - Genera 'llama-flashnext-bench.service' (puerto 8081) a partir de la productiva.
-  - Cambia SOLO --ubatch-size; --batch-size se fija con --batch y no se toca.
-  - Para la productiva mientras mide (la GPU no da para las dos) y la RESTAURA
-    en un bloque finally, pase lo que pase, incluido Ctrl-C.
-  - Borra la unidad de pruebas al terminar.
+  H-021: la version original reescribia --batch-size y --ubatch-size con el
+  mismo valor, asi que nunca aislo el efecto de ubatch. Ahora batch se fija con
+  --batch y solo se mueve ubatch.
 
-Uso: sudo -v primero. LLAMA_API_KEY=... python3 bench-ubatch.py --ubatch 512 1024 2048 --batch 4096
+  H-024 (auditoria externa del corte 35a2f26), corregido aqui:
+    a) `espera_salud(puerto)` aceptaba un puerto pero SIEMPRE consultaba
+       `systemctl is-active llama-flashnext-bench`. En la restauracion final se
+       la llamaba con 8080: si la productiva no levantaba, la unidad de pruebas
+       (ya parada y borrada) reportaba 'inactive', no 'failed', y la funcion se
+       quedaba dando vueltas 600 s antes de decir False. Ahora recibe unidad Y
+       puerto y consulta la unidad que le corresponde.
+    b) Una respuesta 200 con cuerpo `{}` producia (0, 0, 0) y la fila se
+       marcaba 'ok'. Ahora la validacion vive en validacion.py y una medida sin
+       timings es un error, no un cero.
+    c) El proceso salia con codigo 0 aunque todos los puntos hubieran fallado.
+       Ahora el codigo de salida refleja el resultado (ver TABLA DE SALIDAS).
+    d) La restauracion "intentaba arrancar" la productiva sin comprobar que
+       quedaba sana, y el resumen final no lo destacaba. Ahora un fallo de
+       restauracion es la condicion de salida MAS grave y se grita en pantalla.
+    e) Sin calentamiento: la primera pasada pagaba la carga en frio del modelo.
+       Ahora hay una pasada de calentamiento explicita que se registra y NO
+       entra en la mediana.
+    f) Solo quedaba el agregado. Ahora cada peticion se escribe en un JSONL
+       crudo y los resumenes se calculan desde ese registro.
+
+TABLA DE SALIDAS:
+    0  todos los puntos medidos y productiva restaurada
+    1  error de uso o de entorno (falta clave, falta sudo, unidad ilegible)
+    2  algun punto del barrido fallo (no arranco o no se pudo medir)
+    3  FALLO DE RESTAURACION: la productiva no volvio a estado sano
+
+Uso: sudo -v primero.
+    LLAMA_API_KEY=... python3 bench-ubatch.py --ubatch 512 1024 2048 --batch 4096
 """
 import argparse
 import json
@@ -27,12 +47,20 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from validacion import (ErrorInfraestructura, FalloContrato,  # noqa: E402
+                        cuerpo_json, generacion_medida)
 
 UNIT_PROD = "llama-flashnext"
 UNIT_BENCH = "llama-flashnext-bench"
 RUTA_BENCH = f"/etc/systemd/system/{UNIT_BENCH}.service"
+PUERTO_PROD = 8080
 PUERTO_BENCH = 8081
 CLAVE = os.environ.get("LLAMA_API_KEY", "")
+
+SALIDA_OK, SALIDA_ENTORNO, SALIDA_MEDIDA, SALIDA_RESTAURACION = 0, 1, 2, 3
 
 
 def sh(cmd, check=True):
@@ -55,7 +83,9 @@ def construye_unidad(texto, ubatch, batch):
         raise RuntimeError("no encontre --ubatch-size en la unidad productiva")
     if f"--batch-size {batch}" not in t:
         raise RuntimeError("no encontre --batch-size en la unidad productiva")
-    t = t.replace("--port 8080", f"--port {PUERTO_BENCH}")
+    t = t.replace(f"--port {PUERTO_PROD}", f"--port {PUERTO_BENCH}")
+    if f"--port {PUERTO_BENCH}" not in t:
+        raise RuntimeError(f"no encontre --port {PUERTO_PROD} en la unidad productiva")
     t = t.replace(
         "Description=llama.cpp server",
         f"Description=[BENCH ubatch={ubatch} batch={batch}] llama.cpp server",
@@ -65,7 +95,13 @@ def construye_unidad(texto, ubatch, batch):
     return t
 
 
-def espera_salud(puerto, limite=600):
+def espera_salud(unidad, puerto, limite=600):
+    """Espera a que ESA unidad sirva /health en ESE puerto.
+
+    Recibe las dos cosas a proposito: consultar una unidad distinta de la que
+    escucha en el puerto fue el fallo de encaminamiento que corrige H-024.
+    Corta antes de tiempo si la unidad entra en 'failed' o si desaparece.
+    """
     t0 = time.time()
     while time.time() - t0 < limite:
         try:
@@ -74,32 +110,82 @@ def espera_salud(puerto, limite=600):
                     return True
         except Exception:
             pass
-        if sh(f"systemctl is-active {UNIT_BENCH}", check=False) == "failed":
-            return False
+        estado = sh(f"systemctl is-active {unidad}", check=False)
+        if estado in ("failed", "inactive"):
+            # 'inactive' tambien corta: si nadie la esta arrancando, esperar
+            # los 600 s completos solo retrasa el diagnostico.
+            arrancando = sh(f"systemctl show -p ActiveState --value {unidad}",
+                            check=False) == "activating"
+            if not arrancando:
+                print(f"    [!] {unidad} en estado {estado!r}, dejo de esperar")
+                return False
         time.sleep(5)
+    print(f"    [!] {unidad} no respondio en {limite} s")
     return False
 
 
-def mide(puerto, palabras, pasadas):
-    prompt = ("El sistema de control industrial registra temperaturas del horno. " * palabras)[:200000]
-    datos = []
-    for _ in range(pasadas):
-        cuerpo = json.dumps({
-            "messages": [{"role": "user", "content": prompt + "\n\nResume en una frase."}],
-            "max_tokens": 160, "temperature": 0, "cache_prompt": False,
-            "chat_template_kwargs": {"enable_thinking": False},
-        }).encode()
-        req = urllib.request.Request(
-            f"http://127.0.0.1:{puerto}/v1/chat/completions", data=cuerpo,
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {CLAVE}"})
-        t0 = time.time()
-        with urllib.request.urlopen(req, timeout=1200) as r:
-            d = json.loads(r.read())
-        tm = d.get("timings", {})
-        datos.append((tm.get("prompt_n", 0), tm.get("prompt_per_second", 0),
-                      tm.get("predicted_per_second", 0), time.time() - t0))
-        print(f"      pasada: prompt_n={datos[-1][0]} pp={datos[-1][1]:.1f} tg={datos[-1][2]:.2f}")
-    return datos
+def una_peticion(puerto, prompt, max_tokens, timeout=1200):
+    """Una peticion validada. Distingue infraestructura de contrato."""
+    cuerpo = json.dumps({
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens, "temperature": 0, "cache_prompt": False,
+        "chat_template_kwargs": {"enable_thinking": False},
+    }).encode()
+    req = urllib.request.Request(
+        f"http://127.0.0.1:{puerto}/v1/chat/completions", data=cuerpo,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {CLAVE}"})
+    t0 = time.time()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            if r.status != 200:
+                raise ErrorInfraestructura(f"HTTP {r.status}")
+            bruto = r.read()
+    except urllib.error.HTTPError as e:
+        raise ErrorInfraestructura(f"HTTP {e.code}: {e.read()[:200]!r}") from e
+    except urllib.error.URLError as e:
+        raise ErrorInfraestructura(f"sin respuesta del servidor: {e.reason}") from e
+    except TimeoutError as e:
+        raise ErrorInfraestructura(f"timeout tras {timeout} s") from e
+    m = generacion_medida(cuerpo_json(bruto), max_tokens)
+    m["wall"] = time.time() - t0
+    return m
+
+
+def mide(puerto, palabras, pasadas, ubatch, batch, jsonl, max_tokens=160):
+    """Calentamiento + N pasadas medidas. Devuelve solo las medidas.
+
+    El calentamiento se registra en el JSONL con warmup=true para que quede
+    rastro, pero NO entra en ninguna mediana: la primera pasada paga la carga
+    en frio de pesos y la reserva del KV cache.
+    """
+    prompt = (("El sistema de control industrial registra temperaturas del horno. "
+               * palabras)[:200000] + "\n\nResume en una frase.")
+    medidas = []
+    for i in range(pasadas + 1):
+        es_warmup = (i == 0)
+        etiqueta = "calentamiento" if es_warmup else f"pasada {i}/{pasadas}"
+        try:
+            m = una_peticion(puerto, prompt, max_tokens)
+            registro = dict(m, ubatch=ubatch, batch=batch, warmup=es_warmup,
+                            ts=datetime.now(timezone.utc).isoformat(), fallo=None)
+            print(f"      {etiqueta}: prompt_n={m['prompt_n']} pp={m['pp']:.1f} "
+                  f"tg={m['tg']:.2f} gen={m['predicted_n']} fin={m['finish_reason']}")
+            if not es_warmup:
+                medidas.append(m)
+        except (ErrorInfraestructura, FalloContrato) as e:
+            registro = {"ubatch": ubatch, "batch": batch, "warmup": es_warmup,
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "fallo": f"{type(e).__name__}: {e}"}
+            print(f"      {etiqueta}: FALLO {type(e).__name__}: {str(e)[:120]}")
+        jsonl.write(json.dumps(registro, ensure_ascii=False) + "\n")
+        jsonl.flush()
+        # Las peticiones fallidas se CONSERVAN en el registro y cuentan en la
+        # tasa de fallos: no se repite hasta juntar N buenas (eso sesga).
+        if registro["fallo"] and not es_warmup:
+            raise RuntimeError(registro["fallo"])
+    if not medidas:
+        raise RuntimeError("ninguna pasada medida")
+    return medidas
 
 
 def main():
@@ -107,63 +193,102 @@ def main():
     ap.add_argument("--ubatch", type=int, nargs="+", default=[512, 1024, 2048])
     ap.add_argument("--batch", type=int, default=4096, help="fijo en todo el barrido")
     ap.add_argument("--palabras", type=int, default=3000)
-    ap.add_argument("--passes", type=int, default=2)
+    ap.add_argument("--passes", type=int, default=5,
+                    help="pasadas MEDIDAS; ademas se hace una de calentamiento")
+    ap.add_argument("--jsonl", default="",
+                    help="registro crudo por peticion (por defecto benchmarks/crudo-<ts>.jsonl)")
     a = ap.parse_args()
 
     if not CLAVE:
-        sys.exit("Falta LLAMA_API_KEY")
+        print("Falta LLAMA_API_KEY", file=sys.stderr)
+        return SALIDA_ENTORNO
     if sh("id -u") != "0" and sh("sudo -n true; echo $?", check=False) != "0":
-        sys.exit("Necesito sudo sin contrasena (ejecuta 'sudo -v' antes)")
+        print("Necesito sudo sin contrasena (ejecuta 'sudo -v' antes)", file=sys.stderr)
+        return SALIDA_ENTORNO
+    try:
+        prod = unidad_productiva()
+    except RuntimeError as e:
+        print(f"No puedo leer la unidad productiva: {e}", file=sys.stderr)
+        return SALIDA_ENTORNO
 
-    prod = unidad_productiva()
+    ruta_jsonl = a.jsonl or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "benchmarks",
+        f"crudo-ubatch-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.jsonl")
+    os.makedirs(os.path.dirname(os.path.abspath(ruta_jsonl)), exist_ok=True)
+
     prod_estaba_activa = sh(f"systemctl is-active {UNIT_PROD}", check=False) == "active"
     print(f"[i] productiva activa al empezar: {prod_estaba_activa}")
-    print(f"[i] batch FIJO en {a.batch}; solo se mueve ubatch\n")
-    filas = []
-    try:
-        if prod_estaba_activa:
-            print(f"[i] parando {UNIT_PROD} (la GPU no da para dos servidores)")
-            sh(f"sudo -n systemctl stop {UNIT_PROD}")
+    print(f"[i] batch FIJO en {a.batch}; solo se mueve ubatch")
+    print(f"[i] {a.passes} pasadas medidas + 1 de calentamiento descartada")
+    print(f"[i] registro crudo: {os.path.abspath(ruta_jsonl)}\n")
 
-        for ub in a.ubatch:
-            print(f"[*] ubatch={ub} (batch={a.batch})")
-            sh(f"sudo -n tee {RUTA_BENCH} >/dev/null <<'EOF'\n{construye_unidad(prod, ub, a.batch)}\nEOF")
-            sh("sudo -n systemctl daemon-reload")
-            sh(f"sudo -n systemctl restart {UNIT_BENCH}", check=False)
-            if not espera_salud(PUERTO_BENCH):
-                print("    ❌ no arranco o murio — lo anoto y sigo")
-                filas.append((ub, None, None, None, "no arranca"))
+    filas = []
+    restauracion_ok = True
+    with open(ruta_jsonl, "a", encoding="utf-8") as jsonl:
+        try:
+            if prod_estaba_activa:
+                print(f"[i] parando {UNIT_PROD} (la GPU no da para dos servidores)")
+                sh(f"sudo -n systemctl stop {UNIT_PROD}")
+
+            for ub in a.ubatch:
+                print(f"[*] ubatch={ub} (batch={a.batch})")
+                sh(f"sudo -n tee {RUTA_BENCH} >/dev/null <<'EOF'\n"
+                   f"{construye_unidad(prod, ub, a.batch)}\nEOF")
+                sh("sudo -n systemctl daemon-reload")
+                sh(f"sudo -n systemctl restart {UNIT_BENCH}", check=False)
+                if not espera_salud(UNIT_BENCH, PUERTO_BENCH):
+                    print("    [X] no arranco o murio - lo anoto y sigo")
+                    filas.append((ub, None, None, None, "no arranca"))
+                    sh(f"sudo -n systemctl stop {UNIT_BENCH}", check=False)
+                    continue
+                try:
+                    ms = mide(PUERTO_BENCH, a.palabras, a.passes, ub, a.batch, jsonl)
+                    filas.append((ub, ms[0]["prompt_n"],
+                                  statistics.median(m["pp"] for m in ms),
+                                  statistics.median(m["tg"] for m in ms), "ok"))
+                except Exception as e:
+                    print(f"    [X] fallo midiendo: {str(e)[:150]}")
+                    filas.append((ub, None, None, None, f"error: {str(e)[:60]}"))
                 sh(f"sudo -n systemctl stop {UNIT_BENCH}", check=False)
-                continue
-            try:
-                d = mide(PUERTO_BENCH, a.palabras, a.passes)
-                filas.append((ub, d[0][0], statistics.median(x[1] for x in d),
-                              statistics.median(x[2] for x in d), "ok"))
-            except Exception as e:
-                print(f"    ❌ fallo midiendo: {str(e)[:150]}")
-                filas.append((ub, None, None, None, f"error: {str(e)[:60]}"))
+        finally:
+            print("\n[i] limpiando y restaurando")
             sh(f"sudo -n systemctl stop {UNIT_BENCH}", check=False)
-    finally:
-        print("\n[i] limpiando y restaurando")
-        sh(f"sudo -n systemctl stop {UNIT_BENCH}", check=False)
-        sh(f"sudo -n systemctl disable {UNIT_BENCH}", check=False)
-        sh(f"sudo -n rm -f {RUTA_BENCH}", check=False)
-        sh("sudo -n systemctl daemon-reload", check=False)
-        if prod_estaba_activa:
-            sh(f"sudo -n systemctl start {UNIT_PROD}", check=False)
-            ok = espera_salud(8080)
-            print(f"[i] {UNIT_PROD} restaurada y sana: {ok}")
-        # la unidad productiva nunca se toco: se leyo, no se escribio
-        print(f"[i] unidad productiva intacta: {'--api-key-file' in prod}")
+            sh(f"sudo -n systemctl disable {UNIT_BENCH}", check=False)
+            sh(f"sudo -n rm -f {RUTA_BENCH}", check=False)
+            sh("sudo -n systemctl daemon-reload", check=False)
+            if prod_estaba_activa:
+                sh(f"sudo -n systemctl start {UNIT_PROD}", check=False)
+                restauracion_ok = espera_salud(UNIT_PROD, PUERTO_PROD, limite=300)
+                if restauracion_ok:
+                    print(f"[i] {UNIT_PROD} restaurada y sirviendo en {PUERTO_PROD}")
+                else:
+                    estado = sh(f"systemctl is-active {UNIT_PROD}", check=False)
+                    print("\n" + "=" * 66, file=sys.stderr)
+                    print(f"FALLO DE RESTAURACION: {UNIT_PROD} estaba activa al empezar "
+                          f"y ahora esta {estado!r} sin responder en {PUERTO_PROD}.",
+                          file=sys.stderr)
+                    print(f"Revisa: journalctl -u {UNIT_PROD} -n 50", file=sys.stderr)
+                    print("=" * 66, file=sys.stderr)
+            # la unidad productiva nunca se toco: se leyo, no se escribio
+            print(f"[i] unidad productiva intacta: {'--api-key-file' in prod}")
 
     print("\n| ubatch | batch | prompt_n | pp t/s | tg t/s | estado |")
     print("|---|---|---|---|---|---|")
     for ub, pn, pp, tg, est in filas:
         if pp is None:
-            print(f"| {ub} | {a.batch} | — | — | — | {est} |")
+            print(f"| {ub} | {a.batch} | - | - | - | {est} |")
         else:
             print(f"| {ub} | {a.batch} | {pn} | {pp:.1f} | {tg:.2f} | {est} |")
+    print(f"\nRegistro crudo por peticion: {os.path.abspath(ruta_jsonl)}")
+
+    fallidos = [f for f in filas if f[4] != "ok"]
+    if not restauracion_ok:
+        return SALIDA_RESTAURACION
+    if fallidos or not filas:
+        print(f"[!] {len(fallidos)}/{len(filas)} puntos fallaron", file=sys.stderr)
+        return SALIDA_MEDIDA
+    return SALIDA_OK
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
