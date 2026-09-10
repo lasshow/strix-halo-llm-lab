@@ -402,3 +402,45 @@ para tareas de código/latencia baja, arrancable bajo demanda en :8081
 **Matiz operativo importante:** con `max_tokens` 2k, un modelo razonador puede
 devolver la respuesta VACÍA (todo el presupuesto se va en `reasoning_content`).
 Para clientes del Flash-Next: presupuestar ≥4k o limitar el razonamiento.
+
+## H-017 — Aguja a 124k en el Flash-Next: 3/3, pero el precio es el prefill (2026-09-10)
+
+**Qué se midió.** Prueba de aguja en el modelo de producción
+(Qwen3.8-Flash-Next UD-IQ4_XS, servicio `llama-flashnext`, commit `311d421`),
+con un prompt real de **124.196 tokens** de relleno en castellano (informes de
+mantenimiento industrial) y la aguja insertada al **10%, 50% y 90%** de la
+ventana. Pregunta: recuperar un código de calibración literal.
+
+**Resultado: 3 de 3 recuperadas**, respuesta exacta y sin adornos en las tres
+profundidades (`AZUL-4417-KAPINET`). No hay zona muerta a media ventana ni
+sesgo hacia el final del prompt en este tamaño.
+
+| profundidad | prompt tokens | pp (tok/s) | tg (tok/s) | total |
+|---|---|---|---|---|
+| 0.1 | 124.196 | 144,4 | 11,68 | 870 s |
+| 0.5 | 124.196 | 147,7 | 11,61 | 852 s |
+| 0.9 | 124.154 | 147,4 | 11,62 | 853 s |
+
+**Lo que de verdad importa aquí no es la aguja, es el coste.** Comparado con
+el punto corto de H-015 (pp 416 / tg 27,3 a 512 tokens):
+
+- El **prefill cae a ~1/3** (416 → 145 tok/s) y, al ser lineal en el número de
+  tokens, un prompt de 124k tarda **~14 minutos solo en leerse**.
+- La **generación cae a ~43%** (27,3 → 11,6 tok/s): la atención sobre 124k de
+  KV pesa más que los 3B de parámetros activos.
+- El tiempo de respuesta está dominado al **99%** por el prefill (842 s de 852 s).
+
+**Consecuencia operativa:** la ventana de 262k del servicio es real y utilizable,
+pero un prompt de seis cifras de tokens **no es interactivo** en esta máquina.
+Para uso diario conviene mantener `--cache-reuse` haciendo su trabajo (prompts
+que crecen sobre un prefijo ya procesado) y evitar reenviar contextos enormes
+desde cero. Un RAG con 8-16k de contexto recuperado es el patrón sensato; volcar
+el documento entero no lo es.
+
+**Nota de método (fallo propio, corregido).** El primer script estimó «~16
+tokens por bloque» de relleno y generó sin querer un prompt de ~186k tokens,
+por encima del límite por slot (`-c 262144` con `-np 2` = **131.072 tokens
+efectivos por slot**). Se abortó y se reescribió calibrando contra el endpoint
+`/tokenize` del propio servidor: **47,91 tokens por bloque**. Regla para el
+laboratorio: el tamaño de un prompt sintético se **mide con el tokenizador del
+modelo**, nunca se estima.

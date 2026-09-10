@@ -37,3 +37,6 @@ fecha,modelo,params_totales,params_activos,arquitectura,cuantizacion,tamano_gb,b
 2026-09-10,Qwen3-8B,8B,8B,denso,Q4_K_M,4.68,Vulkan RADV,512,512,4096,512,1273.2,43.74,72797e8,off,llama-bench pp512/tg128 build nueva
 2026-09-10,Qwen3-Next-80B-A3B-Instruct,80B,3B,qwen3next MoE hibrido,IQ4_XS,42.6,Vulkan RADV,512,512,4096,512,738.4,62.58,72797e8,off,llama-bench; shader IQ4_XS df750f7: tg +87% vs 9113cc1
 2026-09-10,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87.2,Vulkan RADV,512,512,4096,512,416.2,27.33,72797e8,off,llama-bench; pp +85% (lazy fix) tg +8%
+2026-09-10,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87.2,Vulkan RADV,4096,4096,262144,124196,144.37,11.68,311d421,auto,aguja depth=0.1 recuperada (AZUL-4417-KAPINET); servidor -np 2 = 131k por slot
+2026-09-10,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87.2,Vulkan RADV,4096,4096,262144,124196,147.72,11.61,311d421,auto,aguja depth=0.5 recuperada
+2026-09-10,Qwen3.8-Flash-Next,177B,3B,MoE,UD-IQ4_XS,87.2,Vulkan RADV,4096,4096,262144,124154,147.40,11.62,311d421,auto,aguja depth=0.9 recuperada
