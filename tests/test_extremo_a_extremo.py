@@ -10,6 +10,7 @@
 #   python3 tests/test_extremo_a_extremo.py
 
 import json
+import re
 import os
 import subprocess
 import sys
@@ -63,7 +64,7 @@ class Falso(BaseHTTPRequestHandler):
         if not self._auth_ok():
             return self._envia(401, {"error": {"message": "clave invalida"}})
         n = int(self.headers.get("Content-Length", 0))
-        self.rfile.read(n)
+        cuerpo = self.rfile.read(n).decode("utf-8", "replace")
         m = MODO["v"]
 
         if m == "json-vacio":
@@ -98,6 +99,36 @@ class Falso(BaseHTTPRequestHandler):
                              "finish_reason": "length"}],
                 "timings": {"prompt_n": 10, "prompt_per_second": 100,
                             "predicted_per_second": 20, "predicted_n": 64}})
+
+        # --- modos de la aguja (hallazgo 4 de la 2a auditoria) ---------------
+        # La peticion de aguja se distingue por la pregunta que envia
+        # bench-context.py; se responde distinto solo a esa.
+        es_aguja = "codigo de autorizacion" in cuerpo.lower()
+        if es_aguja and m == "aguja-no-la-encuentra":
+            # El caso critico: la aguja falla pero las medidas de rendimiento
+            # son perfectas. Antes salia 0.
+            return self._envia(200, {
+                "choices": [{"message": {"content": "No encuentro ese codigo."},
+                             "finish_reason": "stop"}],
+                "timings": {"prompt_n": 200, "prompt_per_second": 100,
+                            "predicted_per_second": 20, "predicted_n": 8}})
+        if es_aguja and m == "aguja-truncada":
+            return self._envia(200, {
+                "choices": [{"message": {"content": "El codigo es"},
+                             "finish_reason": "length"}],
+                "timings": {"prompt_n": 200, "prompt_per_second": 100,
+                            "predicted_per_second": 20, "predicted_n": 64}})
+        if es_aguja and m == "aguja-error-500":
+            return self._envia(500, {"error": {"message": "interno"}})
+        if es_aguja:
+            # Devuelve la clave que el propio prompt lleva enterrada.
+            mm = re.search(r"reactor es (K\d+X7)", cuerpo)
+            clave = mm.group(1) if mm else "K0X7"
+            return self._envia(200, {
+                "choices": [{"message": {"content": clave},
+                             "finish_reason": "stop"}],
+                "timings": {"prompt_n": 200, "prompt_per_second": 100,
+                            "predicted_per_second": 20, "predicted_n": 8}})
 
         # normal: responde 391 y finaliza bien
         return self._envia(200, {
@@ -221,3 +252,110 @@ class BenchContext(Base):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class AgujaDeterminaElCodigoDeSalida(Base):
+    """Hallazgo 4 de la 2a auditoria: --needle podia aprobar una prueba fallida.
+
+    El resultado de la aguja se guardaba en una variable que no influia en el
+    codigo de salida, que dependia solo de las medidas de rendimiento. Con
+    medidas perfectas y aguja fallida, el script salia 0 y la peticion fallida
+    ni siquiera quedaba en el JSONL.
+    """
+
+    def corre(self, *extra):
+        entorno = dict(os.environ, LLAMA_API_KEY=CLAVE)
+        return subprocess.run(
+            [sys.executable, os.path.join(SCRIPTS, "bench-context.py"),
+             "--url", self.url, "--tokens", "200", "--passes", "1",
+             "--needle", *extra],
+            capture_output=True, text=True, timeout=180, env=entorno)
+
+    def test_aguja_correcta_sale_cero(self):
+        p = self.corre()
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+
+    def test_aguja_que_no_recupera_la_clave_no_puede_salir_cero(self):
+        MODO["v"] = "aguja-no-la-encuentra"
+        p = self.corre()
+        self.assertEqual(p.returncode, 2,
+                         f"medidas buenas + aguja fallida != exito\n{p.stdout[-800:]}")
+
+    def test_aguja_truncada_no_puede_salir_cero(self):
+        MODO["v"] = "aguja-truncada"
+        p = self.corre()
+        self.assertEqual(p.returncode, 2, p.stdout[-600:])
+
+    def test_el_intento_fallido_de_aguja_queda_en_el_jsonl(self):
+        """Antes se hacian 3 peticiones y solo quedaban las 2 buenas."""
+        import tempfile
+        MODO["v"] = "aguja-error-500"
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "crudo.jsonl")
+            p = self.corre("--jsonl", ruta)
+            with open(ruta, encoding="utf-8") as f:
+                lineas = [json.loads(x) for x in f if x.strip()]
+        fases = [x.get("fase") for x in lineas]
+        self.assertIn("needle", fases,
+                      f"la peticion de aguja no se registro: {fases}")
+        aguja = [x for x in lineas if x.get("fase") == "needle"]
+        self.assertTrue(any(x.get("fallo") for x in aguja),
+                        "el fallo de la aguja tiene que quedar registrado")
+        self.assertNotEqual(p.returncode, 0)
+
+    def test_las_fases_estan_marcadas_en_el_jsonl(self):
+        """Para recalcular sin mezclar recuperacion con rendimiento."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "crudo.jsonl")
+            p = self.corre("--jsonl", ruta)
+            self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+            with open(ruta, encoding="utf-8") as f:
+                lineas = [json.loads(x) for x in f if x.strip()]
+        fases = {x.get("fase") for x in lineas}
+        self.assertEqual(fases, {"calentamiento", "medida", "needle"},
+                         f"fases mal marcadas: {fases}")
+
+
+class CalidadNoSaleCeroSiTodoFalla(Base):
+    """Hallazgo 6: bench-calidad.py salia 0 con las N peticiones en HTTP 500.
+
+    Tambien comprueba lo que pidio el usuario explicitamente: las peticiones
+    fallidas SE CONSERVAN en el JSON de respuestas; no se borran para que
+    cuadren los numeros ni se reintenta hasta obtener resultados buenos.
+    """
+
+    def corre(self, tmp, *extra):
+        entorno = dict(os.environ, LLAMA_API_KEY=CLAVE)
+        bat = os.path.join(RAIZ, "benchmarks", "bateria-publica.json")
+        salida = os.path.join(tmp, "resp.json")
+        clave = os.path.join(tmp, "clave.txt")
+        with open(clave, "w") as f:
+            f.write(CLAVE)
+        p = subprocess.run(
+            [sys.executable, os.path.join(SCRIPTS, "bench-calidad.py"),
+             "--url", self.url, "--etiqueta", "prueba", "--bateria", bat,
+             "--salida", salida, "--keyfile", clave, "--solo", "P-ARIT-1",
+             "--max-tokens", "4096", *extra],
+            capture_output=True, text=True, timeout=180, env=entorno)
+        return p, salida
+
+    def test_todo_a_500_no_sale_cero(self):
+        import tempfile
+        MODO["v"] = "error-500"
+        with tempfile.TemporaryDirectory() as d:
+            p, salida = self.corre(d)
+            self.assertNotEqual(p.returncode, 0,
+                                f"todas las peticiones fallaron y salio 0\n{p.stdout[-600:]}")
+            with open(salida) as f:
+                res = json.load(f)
+        # Las fallidas se conservan, con su error:
+        self.assertTrue(res, "el JSON no puede quedar vacio")
+        self.assertTrue(any("error" in v for v in res.values()),
+                        "la peticion fallida tiene que quedar registrada")
+
+    def test_normal_sale_cero(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            p, _ = self.corre(d)
+            self.assertEqual(p.returncode, 0, p.stdout + p.stderr)

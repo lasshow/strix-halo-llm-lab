@@ -31,7 +31,11 @@
       "lang": "es",
       "contrato": "contiene",
       "p": "Tengo 3 cajas: A pesa el doble que B, y B pesa 4 kg menos que C. Si las tres juntas pesan 44 kg, cuanto pesa cada una? Da el resultado final en una linea con el formato 'A=.. B=.. C=..'.",
-      "esperado": ["A=20", "B=10", "C=14"],
+      "esperado": [
+        "A=20",
+        "B=10",
+        "C=14"
+      ],
       "_solucion": "A=2B y C=B+4 -> 2B+B+B+4=44 -> 4B=40 -> B=10, A=20, C=14 (suma 44)."
     },
     {
@@ -40,8 +44,16 @@
       "lang": "es",
       "contrato": "json",
       "p": "Devuelve UNICAMENTE un objeto JSON, sin texto alrededor ni bloque de codigo, con estas claves: 'horno' (cadena, valor 'H-204'), 'temperatura_c' (numero entero 1150) y 'alarmas' (lista vacia).",
-      "esquema_min": {"horno": "str", "temperatura_c": "int", "alarmas": "list"},
-      "esperado": {"horno": "H-204", "temperatura_c": 1150, "alarmas": []}
+      "esquema_min": {
+        "horno": "str",
+        "temperatura_c": "int",
+        "alarmas": "list"
+      },
+      "esperado": {
+        "horno": "H-204",
+        "temperatura_c": 1150,
+        "alarmas": []
+      }
     },
     {
       "id": "P-INS-1",
@@ -58,7 +70,11 @@
       "lang": "es",
       "contrato": "contiene",
       "p": "Enumera exactamente tres colores primarios, uno por linea, sin numeracion, sin guiones y sin ninguna frase adicional.",
-      "esperado": ["rojo", "azul", "amarillo"]
+      "esperado": [
+        "rojo",
+        "azul",
+        "amarillo"
+      ]
     },
     {
       "id": "P-COD-PY",
@@ -75,8 +91,14 @@
       "contrato": "codigo",
       "p": "Dada la tabla lecturas(horno TEXT, dia TEXT, grados REAL), escribe una consulta SQLite que devuelva, por horno, la media de grados redondeada a un decimal, solo para hornos con mas de 2 lecturas, ordenado de mayor a menor media. Columnas: horno, media. Solo el bloque SQL.",
       "esquema": "CREATE TABLE lecturas(horno TEXT, dia TEXT, grados REAL);\nINSERT INTO lecturas VALUES ('H1','2026-01-01',1000),('H1','2026-01-02',1100),('H1','2026-01-03',1200),('H2','2026-01-01',900),('H2','2026-01-02',950),('H3','2026-01-01',1500);",
-      "esperado_filas": [["H1", 1100.0], ["H2", 925.0]],
-      "_por_que": "H3 tiene una sola lectura y H2 dos: solo H1 supera 2. Ojo, el enunciado dice 'mas de 2', asi que la respuesta correcta es unicamente H1."
+      "esperado_filas": [
+        [
+          "H1",
+          1100.0
+        ]
+      ],
+      "_por_que": "H3 tiene una sola lectura y H2 dos: solo H1 supera 2. Ojo, el enunciado dice 'mas de 2', asi que la respuesta correcta es unicamente H1.",
+      "_consulta_referencia": "SELECT horno, ROUND(AVG(grados),1) FROM lecturas GROUP BY horno HAVING COUNT(*) > 2 ORDER BY 2 DESC"
     },
     {
       "id": "P-COD-TS",
