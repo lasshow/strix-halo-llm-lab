@@ -1,0 +1,98 @@
+{
+ "run_id": "h033-20260911",
+ "unidad": "llama-flashnext",
+ "modelo": "qwen3.8-flash-next",
+ "baseline_sha": "df03399b885831b2a1603b3abb0d8c156808e363",
+ "candidato_sha": "df03399b885831b2a1603b3abb0d8c156808e363",
+ "patch": "/home/lasso/lab/evidencias/parches/pr28501-vulkan-266464c8.patch",
+ "inicio": "2026-09-11T07:06:31+00:00",
+ "estado_inicial": "active",
+ "backup_unidad": "/etc/systemd/system/llama-flashnext.service.bak-h033-20260911",
+ "fases": {
+  "h033_ab_builds": {
+   "orden": [
+    "baseline",
+    "candidato",
+    "baseline",
+    "candidato"
+   ],
+   "rondas": 2,
+   "tamanos": [
+    8192,
+    32768
+   ],
+   "max_tokens": 160,
+   "umbrales": {
+    "pp": 1.05,
+    "tg": 0.98,
+    "greedy": "content identico entre brazos"
+   },
+   "corpus": {
+    "8192": "e891c5cd7f45",
+    "32768": "179e2944ec35"
+   },
+   "medianas": {
+    "baseline": {
+     "8192": {
+      "pp": 368.59961863375105,
+      "tg": 25.449114315972526,
+      "muestras": 2
+     },
+     "32768": {
+      "pp": 300.79730041791447,
+      "tg": 21.47914386236839,
+      "muestras": 2
+     }
+    },
+    "candidato": {
+     "8192": {
+      "pp": 428.0089962035802,
+      "tg": 25.4486059990938,
+      "muestras": 2
+     },
+     "32768": {
+      "pp": 340.30933960567506,
+      "tg": 21.48934525801339,
+      "muestras": 2
+     }
+    }
+   },
+   "ratios": {
+    "8192": {
+     "pp": 1.1612,
+     "tg": 1.0
+    },
+    "32768": {
+     "pp": 1.1314,
+     "tg": 1.0005
+    }
+   },
+   "greedy": {
+    "prompts": 3,
+    "seed": 42,
+    "identico": true,
+    "indices_distintos": []
+   },
+   "fallos": [],
+   "errores": []
+  }
+ },
+ "votos_fases": [
+  true
+ ],
+ "adoptar": true,
+ "cambios": [
+  "build promovida df03399b8858"
+ ],
+ "gates": {
+  "tras-aplicar": {
+   "restauracion": true,
+   "smoke_exacto": true
+  }
+ },
+ "aplicado": true,
+ "notas": [],
+ "estado_final": "active",
+ "codigo_salida": 0,
+ "fin": "2026-09-11T07:16:55+00:00"
+}
