@@ -1520,3 +1520,81 @@ con `--spec-type draft-mtp -md`, `salud.py` con vigilancia del kernel,
 distinto, vision), 27 pruebas nuevas que fallan todas contra el commit anterior
 (`git worktree --detach 1b7a935`). Bug real cazado por las pruebas antes de
 tocar el M5: `_corpus_de_la_escalera` no devolvia el corpus.
+
+
+### H-035 — MTP en la línea productiva (`np=2 -kvu`): la divergencia greedy era deriva numérica, 0 fugas entre slots, ×1,46 de generación… y NO se despliega porque el propio control no es determinista entre slots (2026-09-11)
+
+**Pregunta**: la cabeza MTP que en H-034 daba ×1,9 a un slot, ¿sirve tal cual
+en la configuración que corre de verdad (`-np 2 -kvu`, visión, cache-ram
+12288)? Y antes: la divergencia greedy de H-034, ¿era la PR aceptando tokens
+sin verificar (inaceptable) o un empate numérico (benigno)?
+
+**Método** (`scripts/fases_h035.py` vía `scripts/cadena-h035.sh` →
+`campana.py`, que despliega si las 4 fases adoptan y pasa el gate). Baseline
+= producción `df03399+PR28501` (`patches/pr28501-vulkan.patch`, 14eebc61);
+candidato = +PR28243 (`patches/mtp-stack-pr28501-pr28243.patch`, 6e8170fb).
+Ventana 13:11–13:24 (13 min). Crudo en `benchmarks/h035/`.
+
+**1. Diagnóstico greedy (`np=1`, `logprobs: true, top_logprobs: 5`, content
+completo)** — cerrado. Código, JSON y reescritura: **idénticos token a token**
+(256 tokens). Prosa y creativo divergen en el **token 26**:
+
+| familia | control eligió (logprob) | MTP eligió (logprob del control) | distancia |
+|---|---|---|---|
+| prosa | `,` (−1,7073) | ` oper` (−1,7285) | **0,021 nats** |
+| creativo | ` grados` (−1,2987) | ` gradient` (−1,4905) | **0,192 nats** |
+
+Los dos tokens de MTP son el **segundo del top-5 del control**, a centésimas
+del primero: **empate numérico**. La verificación de la PR funciona; lo que
+cambia es el argmax entre dos candidatos casi iguales cuando el lote de
+verificación (n+1 tokens) se computa en Vulkan en vez de token a token. La
+hipótesis "acepta sin verificar" queda **descartada con datos**. El fallo
+instrumental de H-034 (80 chars) está corregido: content completo + diff +
+logprobs en `medidas.jsonl`.
+
+**2. Aislamiento de slots (#28286)**: 4 conversaciones con nonce, 30 ciclos
+de pares concurrentes, MTP a `np=2 -kvu`: **60/60 correctas, 0 contaminaciones,
+0 fallos de recuperación**, especulación activa (timings + log). El issue no
+nos toca con esta build.
+
+**3. Velocidad `np=2 -kvu`, dos peticiones concurrentes por familia (tg por slot):**
+
+| familia | control | MTP n-max 2 | ratio |
+|---|---|---|---|
+| código | 21,24 | **31,22** | 1,470 |
+| json | 22,17 | **31,78** | 1,433 |
+| reescritura | 21,45 | **31,95** | 1,490 |
+| prosa | 21,28 | 23,14 | 1,087 |
+| creativo | 21,69 | 21,97 | 1,013 |
+
+tg mediana **×1,46**, pp **×1,90**, aceptación mediana 0,954, ninguna familia
+por debajo de 0,95. Los tres umbrales numéricos pasan. **La fase NO adopta por
+el gate greedy**, y el motivo es un hallazgo en sí: **el CONTROL (producción,
+sin MTP) devuelve texto distinto en los dos slots con el mismo prompt greedy**
+en 8 de 10 pares (código, json, prosa, creativo; solo reescritura coincide).
+A `-np 2 -kvu` con dos peticiones simultáneas la generación no es
+reproducible entre slots ni sin especulación: el lote conjunto de los dos
+slots cambia los empates igual que lo hace el lote de verificación de MTP.
+Exigir "idéntico al control" en esa configuración es exigir algo que
+producción no cumple hoy → el umbral estaba mal planteado para `np=2`.
+
+**4. Visión** con MTP a `np=2`: "Rojo" en ambos brazos, y visión + texto
+simultáneos en el MTP → "Rojo" y "CUATRO". Pasa.
+
+**Veredicto**: 3 de 4 fases adoptan; `aplicar` de la fase 3 dejó la unidad
+**sin MTP** (idempotente con la de hoy), build no promovida, gates
+`restauracion` y `smoke_exacto` **verdes tras el rearranque**, producción
+`active` a las 13:24. **Nada cambió en producción.**
+
+**Corrección pendiente (antes de relanzar)**: sustituir en la fase 3 la
+igualdad de texto por el criterio de la fase 1 aplicado a `np=2`: pedir
+logprobs también ahí y exigir que toda divergencia (intra-slot y MTP/control)
+sea empate ≤ 0,5 nats. Con eso el gate mide lo que importa (que no se acepte
+un token que el objetivo no elegiría) y no un determinismo que `-np 2` ya no
+ofrece. El smoke exacto (`391`) es corto y sobrevivió; se mantiene.
+
+**Instrumental** (commit `86378d3`): `validacion.tokens_con_logprobs`,
+`banco.pon_mtp/quita_mtp` (idempotentes, anclados a `--mmproj`),
+`campana.py --patch-baseline` (la baseline también lleva parche),
+`fases_h035.py` (4 fases), 30 pruebas nuevas que fallan todas contra el
+commit anterior.
