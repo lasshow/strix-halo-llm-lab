@@ -238,3 +238,48 @@ def recuperacion_aguja(d: dict, clave: str) -> dict:
         e.clave_presente = cita
         raise e
     return {"clave": clave, "texto": content, "motivo": None}
+
+
+def recuperacion_nonce(d: dict, propio: str, ajenos) -> dict:
+    """Contrato de AISLAMIENTO DE CACHE (H-032): cada conversacion, su codigo.
+
+    Se separa de `recuperacion_aguja` porque la pregunta es otra. Alli se mide
+    si el modelo encuentra un dato enterrado en su ventana, y por eso el
+    contrato es "la clave ES la respuesta". Aqui se mide si la cache de prompt
+    devuelve lo que guardo, y lo grave no es que el modelo conteste con prosa:
+    es que conteste con el codigo de OTRA conversacion. Exigir igualdad exacta
+    mezclaria las dos cosas -- un "el codigo es 3f2a..." correcto se apuntaria
+    como fallo de cache y hundiria la fase por un motivo que no es el suyo.
+
+    Por eso la comprobacion es por presencia, sobre el contenido normalizado
+    (strip + mayusculas, que los nonces son hex y el modelo puede devolverlos
+    en cualquier caja), y en este orden:
+
+        1. ¿aparece algun nonce AJENO? -> contaminacion. Es el fallo que busca
+           H-032 y manda sobre cualquier otro: una respuesta que trae el codigo
+           propio Y uno ajeno sigue siendo una fuga entre contextos.
+        2. ¿aparece el nonce PROPIO? -> si no, `no_recupera`: la cache no
+           devolvio lo que guardo, pero tampoco cruzo contextos.
+
+    El motivo viaja en la excepcion (`e.motivo`, `e.intrusos`) porque los dos
+    fallos NO significan lo mismo y quien analiza tiene que poder separarlos:
+    solo el primero descalifica `--cache-ram`.
+    """
+    content = respuesta_final(d, exigir_stop=True)
+    normal = content.strip().upper()
+    intrusos = [a for a in ajenos if a and a.strip().upper() in normal]
+    if intrusos:
+        e = FalloContrato(
+            f"nonce ajeno {intrusos[0]!r} aparecio en la respuesta de la "
+            f"conversacion de {propio!r}: {content[:120]!r}")
+        e.motivo = "contaminacion"
+        e.intrusos = intrusos
+        raise e
+    if propio.strip().upper() not in normal:
+        e = FalloContrato(
+            f"esperaba el nonce {propio!r} y llego {content[:120]!r} "
+            "(no hay nonce ajeno: la cache no cruzo contextos, no devolvio nada)")
+        e.motivo = "no_recupera"
+        e.intrusos = []
+        raise e
+    return {"nonce": propio, "texto": content, "motivo": None, "intrusos": []}
