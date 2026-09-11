@@ -345,6 +345,14 @@ def responde(cuerpo: dict) -> dict:
         tokens = _tokens_logprobs(contenido, div)
         if div:
             contenido = "".join(t["token"] for t in tokens)
+        # Como llama.cpp real: en el brazo MTP los tokens ACEPTADOS del
+        # borrador llegan con logprob 0 y sin top_logprobs (H-035b). Aqui, uno
+        # de cada tres tokens, salvo que el guion lo apague.
+        if mtp and not CONF.get("mtp_logprobs_completos"):
+            for i, t in enumerate(tokens):
+                if i % 3 == 1:
+                    t["logprob"] = 0.0
+                    t["top_logprobs"] = []
 
     predicted = max(1, min(int(cuerpo.get("max_tokens") or 16), len(contenido) // 2 + 1))
     timings = {

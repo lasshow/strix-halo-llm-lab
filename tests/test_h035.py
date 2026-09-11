@@ -125,6 +125,23 @@ class Clasificacion(unittest.TestCase):
         self.assertEqual(r["clase"], "longitud")
         self.assertEqual(r["posicion"], 2)
 
+    def test_misma_cadena_tokenizada_distinta_es_identico(self):
+        """' horn'+'o' frente a ' horno': el cliente recibe el mismo texto."""
+        c = self._seq(["a", " horn", "o", " b"])
+        m = self._seq(["a", " horno", " b"])
+        r = self.f.clasifica_divergencia(c, m, 0.5)
+        self.assertEqual(r["clase"], "identico")
+
+    def test_referencia_sin_distribucion_no_es_no_verificado(self):
+        """Un token aceptado del borrador (logprob 0, top vacio) como
+        referencia no permite juzgar: clase propia, nunca 'no_verificado'."""
+        c = [{"token": "a", "logprob": -0.1, "top": {"a": -0.1}},
+             {"token": "1", "logprob": 0.0, "top": {}}]
+        m = [{"token": "a", "logprob": -0.1, "top": {"a": -0.1}},
+             {"token": "2", "logprob": 0.0, "top": {}}]
+        r = self.f.clasifica_divergencia(c, m, 0.5)
+        self.assertEqual(r["clase"], "sin_distribucion")
+
     def test_tokens_con_logprobs_exige_el_bloque(self):
         with self.assertRaises(self.val.ErrorInfraestructura):
             self.val.tokens_con_logprobs(
@@ -313,7 +330,9 @@ class Velocidad(ConBancoH035):
 
     def test_empate_intra_slot_y_mtp_control_pasa(self):
         """Lo que hace el M5 a np=2: los dos slots divergen entre si (tambien
-        en el control) y MTP diverge del control, todo a <0,5 nats -> pasa."""
+        en el control) y MTP diverge del control, todo a <0,5 nats -> pasa.
+        El fake, como llama.cpp, devuelve los tokens aceptados del MTP con
+        logprob 0 y top vacio: la fase NO debe usar el MTP como referencia."""
         self.base(divergencia_intra_slot={"posicion": 5, "clase": "empate"},
                   divergencia={"prosa": {"posicion": 9, "clase": "empate"}})
         r = self.f.np2_kvu_velocidad(self.ctx())
@@ -321,15 +340,21 @@ class Velocidad(ConBancoH035):
         g = r["resumen"]["greedy"]
         self.assertGreater(len(g["empates"]), 0)
         self.assertEqual(g["no_verificadas"], [])
-        self.assertTrue(any("slot0-vs-slot1" in e for e in g["empates"]))
-        self.assertTrue(any("mtp-vs-control prosa" in e for e in g["empates"]))
+        self.assertEqual(g["sin_distribucion"], [])
+        self.assertTrue(any("control" in e and "slot0-vs-slot1" in e for e in g["empates"]))
+        self.assertTrue(any(e.startswith("mtp-vs-control prosa") for e in g["empates"]))
+        # cada slot del MTP se juzga contra el control: 5 fam x 2 slots + 5 intra
+        self.assertEqual(g["comparaciones"], 15)
+        self.assertFalse(any(e.startswith("mtp ") for e in g["detalle"]))
 
     def test_divergencia_intra_slot_no_verificada_tumba(self):
+        """Con el control de referencia, un slot del MTP que se va a un token
+        fuera del top del control es no_verificado (el intra-slot del control
+        con esa clase tambien lo es: produccion no deberia hacerlo)."""
         self.base(divergencia_intra_slot={"posicion": 5, "clase": "no_verificado"})
         r = self.f.np2_kvu_velocidad(self.ctx())
         self.assertFalse(r["adoptar"])
-        self.assertTrue(any("slot0-vs-slot1" in e
-                            for e in r["resumen"]["greedy"]["no_verificadas"]))
+        self.assertTrue(r["resumen"]["greedy"]["no_verificadas"])
 
     def test_las_peticiones_de_velocidad_piden_logprobs(self):
         self.base()

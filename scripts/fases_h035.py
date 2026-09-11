@@ -144,11 +144,24 @@ def clasifica_divergencia(control: list[dict], mtp: list[dict],
     i = primer_token_distinto(control, mtp)
     if i is None:
         return {"clase": "identico", "posicion": None}
+    # Misma cadena, tokenizada distinta (" horn"+"o" frente a " horno"): el
+    # texto que le llega al cliente es identico, y eso es lo que se juzga.
+    if "".join(t["token"] for t in control) == "".join(t["token"] for t in mtp):
+        return {"clase": "identico", "posicion": i, "nota": "misma cadena, tokenizacion distinta"}
     if i >= len(control) or i >= len(mtp):
         # Uno se acabo antes: misma secuencia hasta ahi, longitudes distintas.
         return {"clase": "longitud", "posicion": i,
                 "len_control": len(control), "len_mtp": len(mtp)}
     c, m = control[i], mtp[i]
+    if not c["top"]:
+        # La referencia no trae distribucion en esa posicion. Pasa con los
+        # tokens ACEPTADOS del borrador: llama.cpp los devuelve con logprob 0 y
+        # top vacio. Con esa referencia no se puede juzgar nada: no es
+        # 'no_verificado', es 'sin distribucion'; la fase debe usar otra
+        # referencia (el control, que no especula).
+        return {"clase": "sin_distribucion", "posicion": i,
+                "token_control": c["token"], "token_mtp": m["token"],
+                "logprob_control_top1": round(c["logprob"], 4)}
     top1_lp = c["logprob"]
     lp_mtp = c["top"].get(m["token"])
     if lp_mtp is None:
@@ -488,11 +501,16 @@ def np2_kvu_velocidad(ctx) -> dict:
                      "pp": banco.mediana(medidas[b][f]["pp"]),
                      "muestras": len(medidas[b][f]["tg"])} for f in FAMILIAS}
              for b in brazos}
-    # greedy por logprobs: intra-slot (referencia = slot 0 del mismo brazo) y
-    # MTP vs control (referencia = slot 0 del control).
+    # greedy por logprobs. La REFERENCIA es siempre una secuencia del control
+    # (no especula: trae distribucion en todos los tokens). El brazo MTP
+    # devuelve los tokens aceptados del borrador con logprob 0 y top vacio, asi
+    # que no sirve de referencia: primera pasada de H-035b, 3 falsos
+    # 'no_verificado' que eran exactamente eso.
+    #   - control slot0 vs slot1: cuanto baila produccion sola a np=2
+    #   - control slot0 vs cada slot del MTP: lo que se juzga
     greedy = {"margen_nats": margen, "comparaciones": 0, "identicas": 0,
-              "empates": [], "longitud": [], "no_verificadas": [],
-              "detalle": {}}
+              "empates": [], "longitud": [], "sin_distribucion": [],
+              "no_verificadas": [], "detalle": {}}
 
     def _juzga(etiqueta, ref, otro):
         cl = clasifica_divergencia(ref, otro, margen)
@@ -503,6 +521,8 @@ def np2_kvu_velocidad(ctx) -> dict:
             greedy["empates"].append(etiqueta)
         elif cl["clase"] == "longitud":
             greedy["longitud"].append(etiqueta)
+        elif cl["clase"] == "sin_distribucion":
+            greedy["sin_distribucion"].append(etiqueta)
         else:
             greedy["no_verificadas"].append(etiqueta)
         if cl["clase"] != "identico":
@@ -510,17 +530,26 @@ def np2_kvu_velocidad(ctx) -> dict:
         return cl
 
     for (brazo, familia, pasada), seqs in sorted(secuencias.items()):
-        if len(seqs) == 2:
-            _juzga(f"{brazo} {familia} p{pasada} slot0-vs-slot1", seqs[0], seqs[1])
-        if brazo == "mtp":
-            ref = secuencias.get(("control", familia, pasada))
-            if ref and seqs:
-                _juzga(f"mtp-vs-control {familia} p{pasada}", ref[0], seqs[0])
+        if brazo == "control":
+            if len(seqs) == 2:
+                _juzga(f"control {familia} p{pasada} slot0-vs-slot1", seqs[0], seqs[1])
+            continue
+        ref = secuencias.get(("control", familia, pasada))
+        if not ref:
+            fallos.append(f"{familia} p{pasada}: sin secuencia de control de referencia")
+            continue
+        for k, s in enumerate(seqs):
+            _juzga(f"mtp-vs-control {familia} p{pasada} slot{k}", ref[0], s)
     if greedy["no_verificadas"]:
         fallos.append(
             f"{len(greedy['no_verificadas'])} divergencia(s) greedy NO son empate "
             f"(token fuera del top-{TOP_LOGPROBS} de la referencia o a mas de "
             f"{margen} nats): " + ", ".join(greedy["no_verificadas"][:8]))
+    if greedy["sin_distribucion"]:
+        # Con el control de referencia esto no deberia ocurrir; si ocurre es
+        # que el control no trae logprobs completos y no se puede juzgar.
+        fallos.append("la referencia (control) no trae distribucion en la posicion "
+                      "divergente: " + ", ".join(greedy["sin_distribucion"][:8]))
     if not (espec["timings"] or espec["log"]) and not errores:
         fallos.append("la especulacion NO esta activa: lo medido no es MTP")
 
