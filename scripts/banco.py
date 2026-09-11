@@ -149,6 +149,7 @@ def args_de_unidad(texto_unidad: str) -> list[str]:
 # cortas que trae la unidad productiva (`-np`, `-kvu`) para que el diff entre
 # la linea medida y la documentada sea legible.
 _FLAGS = {
+    "model":        (("--model", "-m"), "valor"),
     "port":         (("--port",), "valor"),
     "host":         (("--host",), "valor"),
     "cache_ram":    (("--cache-ram",), "valor"),
@@ -358,6 +359,20 @@ def pon_mtp(texto_unidad: str, cabeza: str, n_max: int, p_min: float = 0.0) -> s
 def quita_mtp(texto_unidad: str) -> str:
     """Deja la unidad sin cabeza MTP (el `aplicar` cuando H-035 NO adopta)."""
     return _RE_LINEA_SPEC.sub("", texto_unidad)
+
+
+_RE_MODEL = re.compile(r"(^[ \t]*(?:--model|-m)[ \t=]+)(\S+)", re.M)
+
+
+def pon_modelo(texto_unidad: str, gguf: str) -> str:
+    """Cambia el GGUF del tronco en la unidad (H-036 requant). Sin `--model` es
+    error: la unidad no es la que se probo."""
+    if not os.path.isabs(gguf) or not gguf.endswith(".gguf"):
+        raise RuntimeError(f"modelo no es una ruta absoluta a un .gguf: {gguf!r}")
+    nuevo, n = _RE_MODEL.subn(lambda m: f"{m.group(1)}{gguf}", texto_unidad)
+    if n != 1:
+        raise RuntimeError(f"la unidad trae {n} lineas --model; se esperaba exactamente 1")
+    return nuevo
 
 
 # ================================================================== peticiones

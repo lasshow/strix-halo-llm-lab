@@ -425,59 +425,72 @@ def _par_concurrente(srv, clave, texto, max_tokens):
         return [f.result() for f in [pool.submit(una), pool.submit(una)]]
 
 
-def np2_kvu_velocidad(ctx) -> dict:
-    """A/B alternado control vs MTP a `np=2 -kvu`, dos peticiones a la vez.
+def ab_np2(ctx, brazos: dict, etiqueta: str, fase: str, *, umbral_tg=UMBRAL_TG,
+           umbral_tg_familia=UMBRAL_TG_FAMILIA, umbral_pp=UMBRAL_PP,
+           exigir_especulacion: bool = True, pasadas: int | None = None,
+           build_de=None, referencia: list[str] | None = None) -> dict:
+    """Nucleo A/B a `np=2 -kvu` con dos peticiones concurrentes por familia.
+
+    `brazos` = {"control": args, "<candidato>": args}: exactamente dos, el
+    primero es la referencia. `build_de(brazo)` -> "baseline"|"candidato"
+    decide que binario arranca cada brazo (por defecto control=baseline).
+    Reutilizado por H-035 (MTP vs sin MTP) y H-036 (cada variante de drluoto
+    contra la produccion vigente).
 
     tg y pp se toman de cada respuesta (dos por familia y pasada); el ratio se
     calcula sobre medianas.
 
     Greedy: a `np=2` la generacion NO es reproducible ni sin MTP (H-035, primera
     pasada: el control dio texto distinto en los dos slots en 8 de 10 pares),
-    asi que "identico al control" no es un criterio que produccion cumpla. El
-    criterio es el de la fase 1: toda divergencia -- entre los dos slots del
-    mismo brazo, y de MTP frente al control -- se clasifica con los logprobs
-    del brazo de referencia en el primer token distinto; `empate` (<= margen
-    nats) y `longitud` son benignos, `no_verificado` es fallo: el brazo eligio
-    un token que la referencia no consideraba. Devuelve `aplicar`.
+    asi que "identico al control" no es un criterio que produccion cumpla. Toda
+    divergencia -- entre los dos slots del control, y de cada slot del
+    candidato frente al slot 0 del control -- se clasifica con los logprobs del
+    CONTROL en el primer token distinto; `empate` (<= margen nats) y `longitud`
+    son benignos, `no_verificado` es fallo. La referencia de logprobs es el
+    control SOLO si el control no especula: un servidor con `draft-mtp`
+    devuelve logprobs unicamente del primer token (medido en el M5: 39 de 40
+    tokens con logprob 0 y top vacio). Si el control lleva MTP (H-036), se
+    pasa `referencia` = la misma linea sin flags de especulacion; se arranca
+    una vez mas (una pasada, solo logprobs) y los dos brazos se juzgan contra
+    ella. `referencia` no entra en la tabla de velocidad.
     """
-    cabeza, n_max, margen = _cabeza(), _nmax(), _margen()
-    pasadas = int(os.environ.get("H035_PASADAS", PASADAS))
+    nombres = list(brazos)
+    assert len(nombres) == 2 and nombres[0] == "control", "ab_np2: control + un candidato"
+    cand = nombres[1]
+    margen = _margen()
+    pasadas = int(os.environ.get("H035_PASADAS", PASADAS)) if pasadas is None else pasadas
+    build_de = build_de or (lambda b: "baseline" if b == "control" else "candidato")
     corpus = ctx.corpus(h034.CORPUS_FAMILIAS)
     textos = h034.textos_familias(corpus["texto"])
     clave = banco.clave_de(ctx)
-    base = h034._args_productivos(ctx)
-    brazos = {"control": list(base), "mtp": args_prod_mtp(base, n_max, cabeza)}
     medidas = {b: {f: {"tg": [], "pp": []} for f in FAMILIAS} for b in brazos}
-    contenidos: dict[tuple[str, str, int], list[str]] = {}
     secuencias: dict[tuple[str, str, int], list[list[dict]]] = {}
-    aceptaciones: list[float] = []
-    espec = {"timings": False, "log": False}
+    aceptaciones: dict[str, list[float]] = {b: [] for b in brazos}
+    espec = {b: {"timings": False, "log": False} for b in brazos}
     orden: list[str] = []
     errores: list[str] = []
     for pasada in range(1, pasadas + 1):
         for brazo, args in brazos.items():
             orden.append(brazo)
             try:
-                with _servidor(ctx, args, f"h035-vel-{brazo}-p{pasada}",
-                               "baseline" if brazo == "control" else "candidato") as srv:
+                with _servidor(ctx, args, f"{etiqueta}-{brazo}-p{pasada}",
+                               build_de(brazo)) as srv:
                     for familia in FAMILIAS:
                         par = _par_concurrente(srv, clave, textos[familia], MAX_TOKENS)
-                        textos_par, seqs_par = [], []
+                        seqs_par = []
                         for k, d in enumerate(par):
                             m = generacion_medida(d, MAX_TOKENS)
                             toks = tokens_con_logprobs(d)
                             bo = h034._borrador(d)
                             medidas[brazo][familia]["tg"].append(m["tg"])
                             medidas[brazo][familia]["pp"].append(m["pp"])
-                            textos_par.append(m["texto"])
                             seqs_par.append(toks)
-                            if brazo == "mtp":
-                                if bo["hay_telemetria"]:
-                                    espec["timings"] = True
-                                if bo["acceptance"] is not None:
-                                    aceptaciones.append(bo["acceptance"])
+                            if bo["hay_telemetria"]:
+                                espec[brazo]["timings"] = True
+                            if bo["acceptance"] is not None:
+                                aceptaciones[brazo].append(bo["acceptance"])
                             ctx.medida({
-                                "fase": "h035-velocidad", "brazo": brazo,
+                                "fase": fase, "brazo": brazo,
                                 "config": f"{familia} np2 kvu", "familia": familia,
                                 "pasada": pasada, "slot": k,
                                 "prompt_n": int(m["prompt_n"]),
@@ -489,108 +502,145 @@ def np2_kvu_velocidad(ctx) -> dict:
                                 "obtenido": {"tg": round(m["tg"], 2), "pp": round(m["pp"], 2),
                                              "acceptance": bo["acceptance"]},
                             })
-                        contenidos[(brazo, familia, pasada)] = textos_par
                         secuencias[(brazo, familia, pasada)] = seqs_par
-                    if brazo == "mtp" and h034._dice_aceptacion(srv):
-                        espec["log"] = True
+                    if h034._dice_aceptacion(srv):
+                        espec[brazo]["log"] = True
             except ErrorInfraestructura as e:
                 errores.append(f"{brazo} pasada {pasada}: {e}")
+
+    # Referencia de logprobs sin especulacion (una pasada, un slot por familia)
+    ref_seq: dict[str, list[dict]] = {}
+    if referencia is not None:
+        if banco.valor_de(referencia, "spec_type") is not None:
+            raise RuntimeError("ab_np2: la referencia de logprobs no puede especular")
+        try:
+            with _servidor(ctx, referencia, f"{etiqueta}-referencia", "baseline") as srv:
+                for familia in FAMILIAS:
+                    d = banco.peticion_chat(
+                        srv.url, clave, [{"role": "user", "content": textos[familia]}],
+                        **_sin_pensar(max_tokens=MAX_TOKENS, cache_prompt=False,
+                                      logprobs=True, top_logprobs=TOP_LOGPROBS))
+                    generacion_medida(d, MAX_TOKENS)
+                    ref_seq[familia] = tokens_con_logprobs(d)
+                    ctx.medida({"fase": fase, "brazo": "referencia",
+                                "config": f"{familia} np2 sin-espec logprobs",
+                                "familia": familia, "timings": timings(d),
+                                "tokens_con_logprobs": len(ref_seq[familia]),
+                                "esperado": "logprobs completos",
+                                "obtenido": {"tokens": len(ref_seq[familia])}})
+        except ErrorInfraestructura as e:
+            errores.append(f"referencia: {e}")
 
     fallos: list[str] = []
     tabla = {b: {f: {"tg": banco.mediana(medidas[b][f]["tg"]),
                      "pp": banco.mediana(medidas[b][f]["pp"]),
                      "muestras": len(medidas[b][f]["tg"])} for f in FAMILIAS}
              for b in brazos}
-    # greedy por logprobs. La REFERENCIA es siempre una secuencia del control
-    # (no especula: trae distribucion en todos los tokens). El brazo MTP
-    # devuelve los tokens aceptados del borrador con logprob 0 y top vacio, asi
-    # que no sirve de referencia: primera pasada de H-035b, 3 falsos
-    # 'no_verificado' que eran exactamente eso.
-    #   - control slot0 vs slot1: cuanto baila produccion sola a np=2
-    #   - control slot0 vs cada slot del MTP: lo que se juzga
     greedy = {"margen_nats": margen, "comparaciones": 0, "identicas": 0,
               "empates": [], "longitud": [], "sin_distribucion": [],
               "no_verificadas": [], "detalle": {}}
 
-    def _juzga(etiqueta, ref, otro):
+    def _juzga(et, ref, otro):
         cl = clasifica_divergencia(ref, otro, margen)
         greedy["comparaciones"] += 1
         if cl["clase"] == "identico":
             greedy["identicas"] += 1
         elif cl["clase"] == "empate":
-            greedy["empates"].append(etiqueta)
+            greedy["empates"].append(et)
         elif cl["clase"] == "longitud":
-            greedy["longitud"].append(etiqueta)
+            greedy["longitud"].append(et)
         elif cl["clase"] == "sin_distribucion":
-            greedy["sin_distribucion"].append(etiqueta)
+            greedy["sin_distribucion"].append(et)
         else:
-            greedy["no_verificadas"].append(etiqueta)
+            greedy["no_verificadas"].append(et)
         if cl["clase"] != "identico":
-            greedy["detalle"][etiqueta] = {k: v for k, v in cl.items() if k != "top_control"}
+            greedy["detalle"][et] = {k: v for k, v in cl.items() if k != "top_control"}
         return cl
 
-    for (brazo, familia, pasada), seqs in sorted(secuencias.items()):
-        if brazo == "control":
-            if len(seqs) == 2:
-                _juzga(f"control {familia} p{pasada} slot0-vs-slot1", seqs[0], seqs[1])
-            continue
-        ref = secuencias.get(("control", familia, pasada))
-        if not ref:
-            fallos.append(f"{familia} p{pasada}: sin secuencia de control de referencia")
-            continue
-        for k, s in enumerate(seqs):
-            _juzga(f"mtp-vs-control {familia} p{pasada} slot{k}", ref[0], s)
+    if referencia is None:
+        # el control no especula: es la referencia
+        for (brazo, familia, pasada), seqs in sorted(secuencias.items()):
+            if brazo == "control":
+                if len(seqs) == 2:
+                    _juzga(f"control {familia} p{pasada} slot0-vs-slot1", seqs[0], seqs[1])
+                continue
+            ref = secuencias.get(("control", familia, pasada))
+            if not ref:
+                fallos.append(f"{familia} p{pasada}: sin secuencia de control de referencia")
+                continue
+            for k, sq in enumerate(seqs):
+                _juzga(f"{cand}-vs-control {familia} p{pasada} slot{k}", ref[0], sq)
+    else:
+        # ambos brazos especulan: cada slot de cada brazo contra la referencia
+        for (brazo, familia, pasada), seqs in sorted(secuencias.items()):
+            ref = ref_seq.get(familia)
+            if not ref:
+                fallos.append(f"{familia}: sin referencia de logprobs")
+                continue
+            for k, sq in enumerate(seqs):
+                _juzga(f"{brazo}-vs-referencia {familia} p{pasada} slot{k}", ref, sq)
+        greedy["referencia"] = "linea productiva sin especulacion (una pasada)"
     if greedy["no_verificadas"]:
         fallos.append(
             f"{len(greedy['no_verificadas'])} divergencia(s) greedy NO son empate "
             f"(token fuera del top-{TOP_LOGPROBS} de la referencia o a mas de "
             f"{margen} nats): " + ", ".join(greedy["no_verificadas"][:8]))
     if greedy["sin_distribucion"]:
-        # Con el control de referencia esto no deberia ocurrir; si ocurre es
-        # que el control no trae logprobs completos y no se puede juzgar.
         fallos.append("la referencia (control) no trae distribucion en la posicion "
                       "divergente: " + ", ".join(greedy["sin_distribucion"][:8]))
-    if not (espec["timings"] or espec["log"]) and not errores:
-        fallos.append("la especulacion NO esta activa: lo medido no es MTP")
+    if exigir_especulacion and not (espec[cand]["timings"] or espec[cand]["log"]) and not errores:
+        fallos.append(f"la especulacion NO esta activa en {cand}: lo medido no es MTP")
 
     ctrl_tg = banco.mediana([v for f in FAMILIAS_VELOCIDAD for v in medidas["control"][f]["tg"]])
-    mtp_tg = banco.mediana([v for f in FAMILIAS_VELOCIDAD for v in medidas["mtp"][f]["tg"]])
+    cand_tg = banco.mediana([v for f in FAMILIAS_VELOCIDAD for v in medidas[cand][f]["tg"]])
     ctrl_pp = banco.mediana([v for f in FAMILIAS for v in medidas["control"][f]["pp"]])
-    mtp_pp = banco.mediana([v for f in FAMILIAS for v in medidas["mtp"][f]["pp"]])
-    ratio_tg = round(mtp_tg / ctrl_tg, 4) if (mtp_tg and ctrl_tg) else None
-    ratio_pp = round(mtp_pp / ctrl_pp, 4) if (mtp_pp and ctrl_pp) else None
+    cand_pp = banco.mediana([v for f in FAMILIAS for v in medidas[cand][f]["pp"]])
+    ratio_tg = round(cand_tg / ctrl_tg, 4) if (cand_tg and ctrl_tg) else None
+    ratio_pp = round(cand_pp / ctrl_pp, 4) if (cand_pp and ctrl_pp) else None
     por_familia = {}
     for f in FAMILIAS:
-        c, v = tabla["control"][f]["tg"], tabla["mtp"][f]["tg"]
+        c, v = tabla["control"][f]["tg"], tabla[cand][f]["tg"]
         r = round(v / c, 4) if (c and v) else None
         por_familia[f] = r
         if r is None:
             fallos.append(f"{f}: falta la medida de algun brazo")
-        elif r < UMBRAL_TG_FAMILIA:
-            fallos.append(f"{f}: tg {r:.3f}x, por debajo de {UMBRAL_TG_FAMILIA}")
+        elif r < umbral_tg_familia:
+            fallos.append(f"{f}: tg {r:.3f}x, por debajo de {umbral_tg_familia}")
     if ratio_tg is None:
         fallos.append("sin mediana de tg comparable")
-    elif ratio_tg < UMBRAL_TG:
-        fallos.append(f"tg mediana {ratio_tg:.3f}x, por debajo de {UMBRAL_TG}")
+    elif ratio_tg < umbral_tg:
+        fallos.append(f"tg mediana {ratio_tg:.3f}x, por debajo de {umbral_tg}")
     if ratio_pp is None:
         fallos.append("sin mediana de pp comparable")
-    elif ratio_pp < UMBRAL_PP:
-        fallos.append(f"pp {ratio_pp:.3f}x, por debajo de {UMBRAL_PP}")
+    elif ratio_pp < umbral_pp:
+        fallos.append(f"pp {ratio_pp:.3f}x, por debajo de {umbral_pp}")
 
-    resumen = {
-        "np": 2, "kvu": True, "n_max": n_max, "pasadas": pasadas, "orden": orden,
-        "concurrencia": 2, "max_tokens": MAX_TOKENS,
-        "cabeza_mtp": os.path.basename(cabeza),
+    return {
+        "np": 2, "kvu": True, "pasadas": pasadas, "orden": orden,
+        "concurrencia": 2, "max_tokens": MAX_TOKENS, "candidato": cand,
         "corpus": {"objetivo": h034.CORPUS_FAMILIAS, "sha256": corpus["sha256"][:12]},
-        "umbrales": {"tg_mediana": UMBRAL_TG, "tg_por_familia": UMBRAL_TG_FAMILIA,
-                     "pp": UMBRAL_PP,
-                     "greedy": f"toda divergencia (intra-slot y mtp/control) es empate <= {margen} nats o longitud; no_verificado = fallo"},
+        "umbrales": {"tg_mediana": umbral_tg, "tg_por_familia": umbral_tg_familia,
+                     "pp": umbral_pp,
+                     "greedy": f"toda divergencia (intra-slot del control y candidato/control) es empate <= {margen} nats o longitud; no_verificado = fallo"},
         "tabla": tabla, "ratio_tg": ratio_tg, "ratio_pp": ratio_pp,
         "ratio_tg_por_familia": por_familia,
-        "acceptance_mediana": banco.mediana(aceptaciones),
+        "acceptance_mediana": {b: banco.mediana(a) for b, a in aceptaciones.items()},
         "especulacion": espec, "greedy": greedy,
         "fallos": fallos, "errores": errores,
     }
+
+
+def np2_kvu_velocidad(ctx) -> dict:
+    """A/B alternado control (sin MTP) vs MTP a `np=2 -kvu`. Devuelve `aplicar`."""
+    cabeza, n_max = _cabeza(), _nmax()
+    base = h034._args_productivos(ctx)
+    brazos = {"control": list(base), "mtp": args_prod_mtp(base, n_max, cabeza)}
+    resumen = ab_np2(ctx, brazos, "h035-vel", "h035-velocidad")
+    resumen.update(n_max=n_max, cabeza_mtp=os.path.basename(cabeza))
+    # compatibilidad con el resumen publicado en H-035
+    resumen["acceptance_mediana"] = resumen["acceptance_mediana"]["mtp"]
+    resumen["especulacion"] = resumen["especulacion"]["mtp"]
+    fallos, errores = resumen["fallos"], resumen["errores"]
     adoptar = not fallos and not errores
     resumen["despliega_mtp"] = adoptar
 
@@ -603,7 +653,8 @@ def np2_kvu_velocidad(ctx) -> dict:
               "adoptar": adoptar, "aplicar": aplicar}
     if fallos or errores:
         salida["error"] = "; ".join(fallos + errores)
-    ctx.log(f"  H-035 velocidad np=2: adoptar={adoptar} tg x{ratio_tg} pp x{ratio_pp}")
+    ctx.log(f"  H-035 velocidad np=2: adoptar={adoptar} tg x{resumen['ratio_tg']} "
+            f"pp x{resumen['ratio_pp']}")
     return salida
 
 
