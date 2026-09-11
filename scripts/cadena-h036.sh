@@ -47,13 +47,16 @@ case "$BRAZO" in
     PARCHE_CAND="${AQUI}/../patches/mtp-stack-frspec.patch"
     [ -f "$PARCHE_CAND" ] || { echo "falta $PARCHE_CAND (parches FR-Spec portados)" >&2; exit 2; }
     exec python3 "${AQUI}/campana.py" --run-id "$RUN_ID" \
+      --repo "$(readlink -f "$LLAMA_CURRENT")/src" \
       --baseline-sha "$BASE" --patch-baseline "$PARCHE_BASE" \
       --candidato-sha "$BASE" --patch "$PARCHE_CAND" \
       --salida "$SALIDA" --fase fases_h036.py:frspec ;;
   kvzero)
     PARCHE_CAND="${AQUI}/../patches/mtp-stack-kvzero.patch"
     [ -f "$PARCHE_CAND" ] || { echo "falta $PARCHE_CAND" >&2; exit 2; }
+    # el repo de origen es el arbol de la build productiva (sin red)
     exec python3 "${AQUI}/campana.py" --run-id "$RUN_ID" \
+      --repo "$(readlink -f "$LLAMA_CURRENT")/src" \
       --baseline-sha "$BASE" --patch-baseline "$PARCHE_BASE" \
       --candidato-sha "$BASE" --patch "$PARCHE_CAND" \
       --salida "$SALIDA" --fase fases_h036.py:kvzero ;;
