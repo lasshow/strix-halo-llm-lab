@@ -159,6 +159,9 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
     ├── bench-calidad.py         Lanza la batería de calidad y guarda respuestas crudas
     ├── verifica-codigo.py       Compila y ejecuta el código que genera el modelo
     ├── campana.py               Runner de campañas A/B: gates, rollback y fases enchufables
+    ├── banco.py                 Servidor de banco: ExecStart real, clave fuera de argv, y muere siempre
+    ├── fases_h032.py            H-032: corrección de la caché de prompt, regresión #28495, TTFT
+    ├── fases_h033.py            H-033: A/B de builds alternado + igualdad greedy
     ├── builds.sh                Builds por SHA en /models/llama-builds + symlink de promoción
     ├── prompts.py               Corpus medido con el tokenizador real y congelado con su sha256
     ├── salud.py                 La única espera: unidad activa + /health + modelo correcto

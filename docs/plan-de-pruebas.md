@@ -39,6 +39,12 @@ una por ventana, con los umbrales escritos **antes** de medir y los dos gates
 (`restauracion.sh` genérico + `smoke-test.sh` exacto) como condición de promoción.
 El corpus sale de [`../scripts/prompts.py`](../scripts/prompts.py): **el mismo fichero
 congelado para todos los brazos**, verificado contra `timings.prompt_n` antes de cada A/B.
+Cada fase levanta su servidor de banco con
+[`../scripts/banco.py`](../scripts/banco.py), que deriva la línea de arranque del
+**ExecStart real de la unidad** (nunca una línea copiada a mano), mantiene la credencial
+fuera de `argv` y mata el proceso en el `finally` —SIGTERM, SIGKILL a los 20 s y espera a
+que el puerto quede libre—, porque un servidor de banco mal apagado es lo que hacía que
+"producción restaurada" diera verde en H-031.
 
 Van en este orden a propósito: H-032 cierra la deuda que dejó H-031 (se adoptó
 `cache-ram 12288` sin cuantificar su beneficio), y H-034/H-035 dependen de que
@@ -51,17 +57,54 @@ contexto de otra conversación no es una optimización, es un fallo de datos ser
 rápido. Es la deuda directa de H-031, que adoptó `--cache-ram 12288` con el beneficio
 sin cuantificar (issue #27148, fix #27624, ambos abiertos).
 
-- **Correctness:** *nonces* distintos sembrados en 4 conversaciones y recuperados
-  después; además **pares concurrentes**, que es donde una caché compartida entre slots
-  puede cruzar contextos. Decenas de ciclos, no tres.
-- **Barrido:** `cache-ram` 0 / 4096 / 12288, con `-kvu`.
-- **Qué se mide, y no "si aparecen líneas en el journal":** `cache_n`, TTFT y memoria.
-  La ausencia de líneas de prompt-cache en el journal **no prueba** inactividad.
-- **Regresión #28495, como HIPÓTESIS y no como fallo demostrado.** El reporte fuerte
-  es sobre HIP/ROCm y nosotros somos Vulkan/RADV: puede no aplicarnos en absoluto.
-  Contraste `np=1` vs `np=2 +kvu` vs `np=2` sin `kvu`, con peticiones largas
-  consecutivas, `cache_prompt=false`, **midiendo pp desde la 2ª** (la 1ª paga el
-  arranque en frío y contamina la comparación).
+Implementada en [`../scripts/fases_h032.py`](../scripts/fases_h032.py), tres fases
+enchufables e independientes. Baseline y candidato son la **misma build** (df03399):
+aquí no se compara código, se compara configuración.
+
+```
+python3 campana.py --run-id h032 --baseline-sha df03399… \
+    --fase fases_h032.py:correccion_cache_ram \
+    --fase fases_h032.py:regresion_28495 \
+    --fase fases_h032.py:rendimiento_cache_ram
+```
+
+- **Correctness** (`correccion_cache_ram`): *nonces* de 12 hex sembrados en 4
+  conversaciones A-D (cada una con ~2k tokens de corpus congelado delante, para que el
+  prefijo largo sea lo que la caché guarda) y recuperados después; además **pares
+  concurrentes** elegidos al azar, que es donde una caché compartida entre slots puede
+  cruzar contextos. 30 ciclos por defecto, no tres.
+  Contrato por respuesta ([`recuperacion_nonce`](../scripts/validacion.py)): el contenido
+  normalizado contiene su nonce y **ninguno** de los otros tres —incluido el de la
+  petición que viaja en paralelo—. Se distingue *contaminación* (aparece un nonce ajeno)
+  de *no recupera* (no aparece ninguno): solo la primera descalifica `--cache-ram`.
+- **Barrido:** `cache-ram` 0 / 4096 / 12288, con `-np 2 -kvu`.
+- **Qué se mide, y no "si aparecen líneas en el journal":** `cache_n`, TTFT con caché
+  (2ª petición a la misma conversación) frente a sin caché (1ª), `prompt_n` real y RSS
+  del proceso (`/proc/<pid>/status VmRSS`). La ausencia de líneas de prompt-cache en el
+  journal **no prueba** inactividad.
+- **Regresión #28495, como HIPÓTESIS y no como fallo demostrado** (`regresion_28495`).
+  El reporte fuerte es sobre HIP/ROCm y nosotros somos Vulkan/RADV: puede no aplicarnos
+  en absoluto, y por eso esta fase es **diagnóstico y no vota**. Contraste `np=1` vs
+  `np=2 +kvu` vs `np=2` sin `kvu`, 4 peticiones largas consecutivas (corpus 16.384),
+  `cache_prompt=false`, **midiendo pp desde la 2ª** (la 1ª paga el arranque en frío y
+  contamina la comparación).
+
+**Umbrales de H-032, escritos antes de medir** (salen de los docstrings de
+`fases_h032.py`; las constantes son `UMBRAL_CAIDA_PP` y `UMBRAL_TTFT`):
+
+| Fase | Criterio | Efecto |
+|---|---|---|
+| `correccion_cache_ram` | **contaminaciones == 0 en TODAS** las configuraciones de `cache-ram` | `adoptar=True`. Una sola respuesta con nonce ajeno ⇒ `adoptar=False` y el detalle en `error`. No hay umbral estadístico: no se negocia una tasa de fuga de contexto |
+| `correccion_cache_ram` | una configuración que **no se pudo medir** | tampoco acredita cero ⇒ `adoptar=False` |
+| `regresion_28495` | mediana de pp de la 2ª-4ª **< 0,80×** la 1ª, **o** < 0,80× la mediana de `np=1` | `resumen.regresion_detectada=True`. No vota (no devuelve `adoptar`) |
+| `rendimiento_cache_ram` | TTFT mediano de `12288` **≤ 1,05×** el de `4096` (5 repeticiones sobre contexto de 8.192 con `cache_prompt=true`, tras una de cebado) | `adoptar=True` y `aplicar` deja `--cache-ram 12288`; si no, lo baja a `4096` |
+
+> **Limitación declarada:** no hay estado compartido entre fases (`Contexto` no lo tiene
+> y no se toca `campana.py` para añadirlo). `rendimiento_cache_ram` no puede saber por sí
+> misma si hubo contaminación: el voto combinado lo hace el runner (todas las fases con
+> `adoptar` deben ser `True`), así que no se promueve nada, pero su `aplicar` escribiría
+> `4096` en vez de apagar la caché. Para **apagarla** hay que ejecutar la campaña con
+> `H032_CONTAMINACION=1`, y entonces `aplicar` escribe `--cache-ram 0`.
 
 ### H-033 — df03399 vs df03399 + PR #28501
 
@@ -69,6 +112,24 @@ A/B mínimo: el candidato es la baseline **más el parche de esa PR y nada más*
 por **SHA exacto** (una PR es una rama móvil; "la PR #28501" sin SHA no es una
 configuración reproducible). El `patch_sha256` queda en el `manifest.json` de la build.
 Cualquier otra diferencia entre brazos invalida el punto.
+
+Implementada en [`../scripts/fases_h033.py`](../scripts/fases_h033.py)
+(`--fase fases_h033.py:ab_builds`). Orden **alternado A,B,A,B** —2 rondas × corpus 8.192
+y 32.768, `cache_prompt=false`, `max_tokens 160`— porque medir A entero y después B
+entero le regala al segundo brazo cualquier deriva térmica de la hora anterior. Misma
+línea de argumentos productiva y mismo corpus congelado en los dos brazos.
+
+**Umbrales de H-033, escritos antes de medir** (constantes `UMBRAL_PP` y `UMBRAL_TG`).
+Adoptar exige las **tres** cosas a la vez:
+
+| # | Criterio | Si no se cumple |
+|---|---|---|
+| 1 | `pp` candidato **≥ 1,05×** baseline **en los dos tamaños** | `adoptar=False`; una mejora que solo sale en un tamaño no es la que promete la PR |
+| 2 | `tg` candidato **≥ 0,98×** baseline en los dos tamaños | `adoptar=False`; se admite un 2 % de ruido, no un peaje |
+| 3 | **Igualdad greedy**: 3 prompts cortos con `temperature 0`, `seed 42`, `max_tokens 64` devuelven un `content` **idéntico** entre brazos | `adoptar=False` y el detalle en `error`: si el texto cambia no es una build más rápida, es otra build, y el A/B de velocidad ya no compara lo mismo |
+
+No devuelve `aplicar`: aquí no hay nada que escribir en la unidad. La promoción de build
+la hace el runner (`builds.sh promover`) cuando el voto sale `True` y los gates dan verde.
 
 ### H-034 — Cabezas MTP sidecar (la vía que H-031 no llegó a probar)
 
