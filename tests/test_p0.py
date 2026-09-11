@@ -18,11 +18,13 @@ import importlib.util
 import json
 import os
 import shutil
+import signal
 import stat
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -252,6 +254,55 @@ class CredencialDelExecStart(ConServidor):
         p = self.credencial("--crudo", UNIDAD)
         self.assertEqual(p.returncode, 0, p.stderr)
         self.assertEqual(p.stdout.strip(), "clave-en-la-linea")
+
+    def test_unidad_600_systemctl_cat_sin_privilegios_cae_a_sudo(self):
+        """Visto en el M5 real con la bateria en verde: la unidad es 600 root y
+        `systemctl cat` sin privilegios imprime la cabecera '# /etc/...' y
+        falla en el cuerpo. El texto NO estaba vacio, asi que el fallback a
+        sudo nunca se intentaba y el gate decia 'no declara ExecStart'."""
+        # systemctl "sin privilegios": solo cabecera; con sudo: el fichero.
+        sin_priv = os.path.join(self.m5.base, "bin", "systemctl-sinpriv")
+        with open(sin_priv, "w") as f:
+            f.write("#!/bin/bash\n"
+                    f"if [ \"$1\" = cat ]; then echo '# {self.m5.ruta_unidad}'; echo; "
+                    "echo 'Failed to open: Permiso denegado' >&2; exit 1; fi\n"
+                    f"exec {self.m5.systemctl} \"$@\"\n")
+        os.chmod(sin_priv, 0o755)
+        sudo = os.path.join(self.m5.base, "bin", "sudo")
+        with open(sudo, "w") as f:
+            f.write("#!/bin/bash\n[ \"$1\" = -n ] && shift\n"
+                    f"[ \"$1\" = {sin_priv} ] && shift && exec {self.m5.systemctl} \"$@\"\n"
+                    "exec \"$@\"\n")
+        os.chmod(sudo, 0o755)
+        env = self.m5.entorno(SYSTEMCTL=sin_priv,
+                              PATH=os.path.join(self.m5.base, "bin") + ":" + os.environ["PATH"])
+        p = subprocess.run(["bash", os.path.join(SCRIPTS, "credencial.sh"), "--crudo", UNIDAD],
+                           capture_output=True, text=True, timeout=60, env=env)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertEqual(p.stdout.strip(), CLAVE_BUENA)
+
+    def test_prefiere_el_argv_resuelto_de_systemctl_show(self):
+        """M5 real, 11-09-2026: `systemctl cat` devolvia una linea del ExecStart
+        SIN la barra de continuacion (la 2a) y el raspado cortaba el argv antes
+        de --api-key-file. `systemctl show -p ExecStart` trae el argv resuelto
+        por systemd y es la fuente que se usa primero."""
+        show = os.path.join(self.m5.base, "bin", "systemctl-show")
+        with open(show, "w") as f:
+            f.write("#!/bin/bash\n"
+                    "if [ \"$1\" = show ]; then echo '{ path=/bin/llama-server ; "
+                    "argv[]=/bin/llama-server --model m.gguf --port 8080 "
+                    f"--api-key-file {self.m5.keyfile} --metrics ; "
+                    "ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; "
+                    "pid=0 ; code=(null) ; status=0/0 }'; exit 0; fi\n"
+                    "if [ \"$1\" = cat ]; then printf '[Service]\\nExecStart=/bin/llama-server \\\\\\n"
+                    "  --model m.gguf\\n  --api-key-file /otra/ruta \\\\\\n  --metrics\\n'; exit 0; fi\n"
+                    f"exec {self.m5.systemctl} \"$@\"\n")
+        os.chmod(show, 0o755)
+        p = subprocess.run(["bash", os.path.join(SCRIPTS, "credencial.sh"), "--crudo", UNIDAD],
+                           capture_output=True, text=True, timeout=60,
+                           env=self.m5.entorno(SYSTEMCTL=show))
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertEqual(p.stdout.strip(), CLAVE_BUENA)
 
     def test_falla_si_el_execstart_no_declara_credencial(self):
         with open(self.m5.ruta_unidad, "w") as f:
@@ -532,6 +583,43 @@ class RollbackDeUnidadYDeBuild(CampanaBase):
             self.assertNotIn(CLAVE_BUENA, texto)
 
 
+class InterrupcionPorSenal(CampanaBase):
+    """M5 real, 11-09-2026: al abortar la cadena con SIGTERM, campana.py y su
+    servidor de banco (87 GB) siguieron vivos con produccion PARADA. Una senal
+    tiene que pasar por los `finally`: rearrancar produccion, no promover nada
+    y salir con codigo de fase fallida."""
+
+    def test_sigterm_rearranca_produccion_y_no_promueve(self):
+        fase = os.path.join(self.m5.base, "fase_lenta.py")
+        with open(fase, "w") as f:
+            f.write("import time\n"
+                    "def lenta(ctx):\n"
+                    "    time.sleep(60)\n"
+                    "    return {'adoptar': True}\n")
+        proc = subprocess.Popen(
+            [sys.executable, os.path.join(SCRIPTS, "campana.py"),
+             "--run-id", "p0-senal", "--unidad", UNIDAD, "--modelo", MODELO,
+             "--puerto-prod", str(self.puerto), "--puerto-banco", "8099",
+             "--baseline-sha", "base0000", "--candidato-sha", "cand1111",
+             "--saltar-construccion", "--salida", self.salida,
+             "--fase", f"{fase}:lenta"],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+            env=self._entorno())
+        # esperar a que haya parado produccion y este dentro de la fase
+        for _ in range(100):
+            if self.m5.lee_estado() == "inactive":
+                break
+            time.sleep(0.1)
+        self.assertEqual(self.m5.lee_estado(), "inactive")
+        proc.send_signal(signal.SIGTERM)
+        salida, _ = proc.communicate(timeout=60)
+        self.assertEqual(proc.returncode, 2, salida[-1500:])
+        self.assertEqual(self.m5.lee_estado(), "active",
+                         "SIGTERM dejo produccion parada")
+        self.assertEqual(self.apunta_a(), "base0000", "promovio tras la senal")
+        self.assertIn("interrumpida", self.resultados())
+
+
 class EstadoInicialRespetado(CampanaBase):
     """Fallo E: la campana vieja arrancaba produccion SIEMPRE al final, en un
     `finally`, aunque la hubiera encontrado parada. Eso no es restaurar: es
@@ -643,10 +731,6 @@ class CorpusCongelado(unittest.TestCase):
         self.assertEqual(self.p.verifica_ficheros(self.dir), [])
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
-
 # ===========================================================================
 # G. Una build con parche NO comparte directorio con la build sin parche
 # ===========================================================================
@@ -685,3 +769,7 @@ class BuildConParcheTieneSuPropioDirectorio(unittest.TestCase):
         esperado = self.sha + "+" + hashlib.sha256(open(self.parche, "rb").read()).hexdigest()[:8]
         self.assertEqual(campana.id_build(self.sha, self.parche), esperado)
         self.assertEqual(campana.id_build(self.sha, None), self.sha)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

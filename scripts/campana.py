@@ -63,6 +63,7 @@ import json
 import os
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import time
@@ -367,6 +368,20 @@ def main(argv=None) -> int:
     # ------------------------------------------------------------- fases --
     parada_por_nosotros = False
     votos, aplicadores, fallos_fase = [], [], 0
+
+    # SIGTERM/SIGINT/SIGHUP se convierten en excepcion para que se ejecuten los
+    # `finally` (matar el servidor de banco, rearrancar produccion). Sin esto,
+    # al abortar la cadena el 11-09 el runner y su banco de 87 GB siguieron
+    # vivos con produccion parada.
+    class Interrumpida(Exception):
+        pass
+
+    def _senal(num, _marco):
+        raise Interrumpida(f"senal {num}")
+
+    for sig_ in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(sig_, _senal)
+
     try:
         if estado_inicial == "active":
             ctx.log(f"paro {a.unidad} (la GPU no da para dos servidores)")
@@ -378,6 +393,12 @@ def main(argv=None) -> int:
             ctx.log(f"--- fase {spec}")
             try:
                 r = fn(ctx) or {}
+            except Interrumpida as e:
+                fallos_fase += 1
+                ctx.nota(f"campana interrumpida ({e}) en la fase {spec}: paro aqui")
+                resultados.setdefault("fases", {})[spec] = {"error": f"interrumpida: {e}"}
+                resultados["interrumpida"] = str(e)
+                break
             except Exception as e:
                 fallos_fase += 1
                 ctx.nota(f"fase {spec} fallo: {type(e).__name__}: {e}")
@@ -392,10 +413,20 @@ def main(argv=None) -> int:
                 votos.append(bool(r["adoptar"]))
             if callable(r.get("aplicar")):
                 aplicadores.append((nombre, r["aplicar"]))
+    except Interrumpida as e:
+        # senal fuera de una fase (p. ej. durante la parada de produccion)
+        fallos_fase += 1
+        ctx.nota(f"campana interrumpida ({e}) fuera de fase: paro aqui")
+        resultados["interrumpida"] = str(e)
     finally:
         if parada_por_nosotros:
             ctx.log(f"arranco {a.unidad} (estaba activa al empezar)")
             sh(_sudo(f"{SYSTEMCTL} start {a.unidad}"))
+
+    if resultados.get("interrumpida"):
+        # Interrumpida: no se aplica nada, produccion ya se ha rearrancado.
+        ctx.log("campana interrumpida: no se aplica ni promueve nada")
+        return _cierra(ctx, resultados, SALIDA_FASE)
 
     adoptar = a.forzar_adopcion or (bool(votos) and all(votos))
     resultados["votos_fases"] = votos

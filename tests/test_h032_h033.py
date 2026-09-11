@@ -552,7 +552,13 @@ class CorreccionDeCache(ConBanco):
             self.assertEqual(m["fase"], "h032-correccion")
             self.assertEqual(m["brazo"], "baseline")
             self.assertIn("cache-ram", m["config"])
-            self.assertEqual(m["prompt_n"], 2048)
+            # Las preguntas de ciclo van con cache caliente: prompt_n es lo
+            # RECOMPUTADO (pocos tokens), no el prompt entero. Antes esta
+            # prueba afirmaba 2048 y certificaba justo el error que abortaba
+            # la fase en el M5 real.
+            # (el doble solo acierta la cache sobre textos identicos, asi que
+            # aqui devuelve el total; el servidor real devuelve menos)
+            self.assertTrue(0 < m["prompt_n"] <= 2048)
             self.assertIn("prompt_per_second", m["timings"])
             self.assertIn("cache_n", m["timings"])
             self.assertIsNotNone(m["prompt_ms"])
@@ -702,7 +708,9 @@ class RendimientoDeCacheRam(ConBanco):
         self.assertEqual(len(medidas), 12)          # 2 configs x (1 cebado + 5)
         self.assertEqual(sum(1 for m in medidas if m["cebado"]), 2)
         for m in medidas:
-            self.assertEqual(m["prompt_n"], 8192)
+            # prompt_n_corpus es el del cebado (frio); prompt_n de cada
+            # repeticion caliente es solo lo recomputado.
+            self.assertEqual(m["prompt_n_corpus"], 8192)
         calientes = [m for m in medidas if not m["cebado"]]
         self.assertTrue(all(m["cache_n"] == 8192 for m in calientes))
 

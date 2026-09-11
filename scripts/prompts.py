@@ -140,8 +140,15 @@ def tokens_por_chat(url: str, texto: str, clave: str | None = None,
         "max_tokens": 1, "temperature": 0, "cache_prompt": False,
         "chat_template_kwargs": {"enable_thinking": False},
     }, clave, timeout=timeout)
-    t = timings(d)
-    return int(t["prompt_n"])
+    # Aqui solo interesa prompt_n. No se pasa por `timings()` porque ese
+    # contrato exige velocidades de generacion plausibles y con max_tokens=1
+    # el servidor real devuelve predicted_per_second=0 (visto en el M5): un
+    # sondeo de recuento de tokens no es una medida de generacion.
+    t = d.get("timings") or {}
+    pn = t.get("prompt_n")
+    if not isinstance(pn, (int, float)) or int(pn) <= 0:
+        raise ErrorInfraestructura(f"timings.prompt_n ausente o no positivo: {pn!r}")
+    return int(pn)
 
 
 def genera(objetivo: int, medidor, tolerancia: int = TOLERANCIA,

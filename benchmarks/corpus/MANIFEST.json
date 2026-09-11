@@ -1,0 +1,45 @@
+{
+ "corpus": {
+  "16384": {
+   "fecha": "2026-09-11T06:07:06+00:00",
+   "fichero": "16384-ecff0922.txt",
+   "medido_con": "/v1/chat/completions",
+   "modelo": "qwen3.8-flash-next",
+   "objetivo": 16384,
+   "prompt_n": 16362,
+   "sha256": "ecff092262c826456fa6ca3f03058fd164aa2e903ff6d56770ee730b8bc4a0ef",
+   "tolerancia": 64
+  },
+  "2048": {
+   "fecha": "2026-09-11T06:05:57+00:00",
+   "fichero": "2048-5cce041a.txt",
+   "medido_con": "/v1/chat/completions",
+   "modelo": "qwen3.8-flash-next",
+   "objetivo": 2048,
+   "prompt_n": 2025,
+   "sha256": "5cce041a414b9d73ee0085659c0f0201f270ef9820157771b5c3c73403a6cf5b",
+   "tolerancia": 64
+  },
+  "32768": {
+   "fecha": "2026-09-11T06:08:55+00:00",
+   "fichero": "32768-179e2944.txt",
+   "medido_con": "/v1/chat/completions",
+   "modelo": "qwen3.8-flash-next",
+   "objetivo": 32768,
+   "prompt_n": 32784,
+   "sha256": "179e2944ec3582b3499aa9e39cd4900b4ef74ac98ebb6ffde5abd2377ba7b441",
+   "tolerancia": 64
+  },
+  "8192": {
+   "fecha": "2026-09-11T06:06:19+00:00",
+   "fichero": "8192-e891c5cd.txt",
+   "medido_con": "/v1/chat/completions",
+   "modelo": "qwen3.8-flash-next",
+   "objetivo": 8192,
+   "prompt_n": 8159,
+   "sha256": "e891c5cd7f451ed8f7c313d5733b06d32f2c96286830e329be5cae0f00c5a6c9",
+   "tolerancia": 64
+  }
+ },
+ "tolerancia": 64
+}

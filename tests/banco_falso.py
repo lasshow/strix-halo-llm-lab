@@ -183,6 +183,12 @@ def responde(cuerpo: dict) -> dict:
             cache = cache.get(str(ARGS.get("cache_ram")), cache.get("por_defecto", 120.0))
         prompt_ms = float(cache)
         cache_n = prompt_n
+        # Como el llama-server real: con acierto de cache, `prompt_n` cuenta
+        # SOLO lo que se tuvo que procesar (el sufijo nuevo), no el prompt
+        # entero. El doble antiguo devolvia el total y por eso la bateria
+        # estaba en verde mientras la fase abortaba en el M5 real
+        # ("el corpus de 2048 tokens mide 4").
+        prompt_n = max(1, prompt_n - cache_n) if cache_n < prompt_n else 4
     else:
         prompt_ms = float(CONF.get("prompt_ms_frio", 900.0))
         cache_n = 0
