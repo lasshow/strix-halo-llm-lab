@@ -401,11 +401,13 @@ def np2_kvu_aislamiento(ctx) -> dict:
 
 # ============================================ 3. velocidad a np=2 -kvu
 def _par_concurrente(srv, clave, texto, max_tokens):
-    """Dos peticiones iguales a la vez: lo que ve un servidor con dos slots."""
+    """Dos peticiones iguales a la vez, con logprobs: lo que ve un servidor
+    con dos slots, y lo que hace falta para juzgar una divergencia."""
     def una():
         return banco.peticion_chat(srv.url, clave,
                                    [{"role": "user", "content": texto}],
-                                   **_sin_pensar(max_tokens=max_tokens, cache_prompt=False))
+                                   **_sin_pensar(max_tokens=max_tokens, cache_prompt=False,
+                                                 logprobs=True, top_logprobs=TOP_LOGPROBS))
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         return [f.result() for f in [pool.submit(una), pool.submit(una)]]
 
@@ -414,11 +416,18 @@ def np2_kvu_velocidad(ctx) -> dict:
     """A/B alternado control vs MTP a `np=2 -kvu`, dos peticiones a la vez.
 
     tg y pp se toman de cada respuesta (dos por familia y pasada); el ratio se
-    calcula sobre medianas. El content greedy de MTP se compara con el del
-    control y, si difiere, se acepta SOLO si el diagnostico (fase 1) clasifico
-    esa familia como empate; de lo contrario es fallo. Devuelve `aplicar`.
+    calcula sobre medianas.
+
+    Greedy: a `np=2` la generacion NO es reproducible ni sin MTP (H-035, primera
+    pasada: el control dio texto distinto en los dos slots en 8 de 10 pares),
+    asi que "identico al control" no es un criterio que produccion cumpla. El
+    criterio es el de la fase 1: toda divergencia -- entre los dos slots del
+    mismo brazo, y de MTP frente al control -- se clasifica con los logprobs
+    del brazo de referencia en el primer token distinto; `empate` (<= margen
+    nats) y `longitud` son benignos, `no_verificado` es fallo: el brazo eligio
+    un token que la referencia no consideraba. Devuelve `aplicar`.
     """
-    cabeza, n_max = _cabeza(), _nmax()
+    cabeza, n_max, margen = _cabeza(), _nmax(), _margen()
     pasadas = int(os.environ.get("H035_PASADAS", PASADAS))
     corpus = ctx.corpus(h034.CORPUS_FAMILIAS)
     textos = h034.textos_familias(corpus["texto"])
@@ -427,6 +436,7 @@ def np2_kvu_velocidad(ctx) -> dict:
     brazos = {"control": list(base), "mtp": args_prod_mtp(base, n_max, cabeza)}
     medidas = {b: {f: {"tg": [], "pp": []} for f in FAMILIAS} for b in brazos}
     contenidos: dict[tuple[str, str, int], list[str]] = {}
+    secuencias: dict[tuple[str, str, int], list[list[dict]]] = {}
     aceptaciones: list[float] = []
     espec = {"timings": False, "log": False}
     orden: list[str] = []
@@ -439,13 +449,15 @@ def np2_kvu_velocidad(ctx) -> dict:
                                "baseline" if brazo == "control" else "candidato") as srv:
                     for familia in FAMILIAS:
                         par = _par_concurrente(srv, clave, textos[familia], MAX_TOKENS)
-                        textos_par = []
+                        textos_par, seqs_par = [], []
                         for k, d in enumerate(par):
                             m = generacion_medida(d, MAX_TOKENS)
+                            toks = tokens_con_logprobs(d)
                             bo = h034._borrador(d)
                             medidas[brazo][familia]["tg"].append(m["tg"])
                             medidas[brazo][familia]["pp"].append(m["pp"])
                             textos_par.append(m["texto"])
+                            seqs_par.append(toks)
                             if brazo == "mtp":
                                 if bo["hay_telemetria"]:
                                     espec["timings"] = True
@@ -457,6 +469,7 @@ def np2_kvu_velocidad(ctx) -> dict:
                                 "pasada": pasada, "slot": k,
                                 "prompt_n": int(m["prompt_n"]),
                                 "predicted_n": int(m["predicted_n"]),
+                                "tokens_con_logprobs": len(toks),
                                 "timings": timings(d), "pp": m["pp"], "tg": m["tg"],
                                 "borrador": bo, "content_completo": m["texto"],
                                 "esperado": f"tg de {brazo} en {familia}",
@@ -464,6 +477,7 @@ def np2_kvu_velocidad(ctx) -> dict:
                                              "acceptance": bo["acceptance"]},
                             })
                         contenidos[(brazo, familia, pasada)] = textos_par
+                        secuencias[(brazo, familia, pasada)] = seqs_par
                     if brazo == "mtp" and h034._dice_aceptacion(srv):
                         espec["log"] = True
             except ErrorInfraestructura as e:
@@ -474,27 +488,39 @@ def np2_kvu_velocidad(ctx) -> dict:
                      "pp": banco.mediana(medidas[b][f]["pp"]),
                      "muestras": len(medidas[b][f]["tg"])} for f in FAMILIAS}
              for b in brazos}
-    # greedy: entre slots del mismo brazo (deben ser iguales: mismo prompt) y
-    # MTP vs control (igual o empate explicado por la fase 1)
-    empates_ok = set(getattr(ctx, "familias_empate_h035", set()))
-    greedy = {"intra_slot_distinto": [], "mtp_vs_control_distinto": [],
-              "explicadas_por_diagnostico": []}
-    for (brazo, familia, pasada), par in sorted(contenidos.items()):
-        if len(par) == 2 and par[0] != par[1]:
-            greedy["intra_slot_distinto"].append(f"{brazo} {familia} p{pasada}")
+    # greedy por logprobs: intra-slot (referencia = slot 0 del mismo brazo) y
+    # MTP vs control (referencia = slot 0 del control).
+    greedy = {"margen_nats": margen, "comparaciones": 0, "identicas": 0,
+              "empates": [], "longitud": [], "no_verificadas": [],
+              "detalle": {}}
+
+    def _juzga(etiqueta, ref, otro):
+        cl = clasifica_divergencia(ref, otro, margen)
+        greedy["comparaciones"] += 1
+        if cl["clase"] == "identico":
+            greedy["identicas"] += 1
+        elif cl["clase"] == "empate":
+            greedy["empates"].append(etiqueta)
+        elif cl["clase"] == "longitud":
+            greedy["longitud"].append(etiqueta)
+        else:
+            greedy["no_verificadas"].append(etiqueta)
+        if cl["clase"] != "identico":
+            greedy["detalle"][etiqueta] = {k: v for k, v in cl.items() if k != "top_control"}
+        return cl
+
+    for (brazo, familia, pasada), seqs in sorted(secuencias.items()):
+        if len(seqs) == 2:
+            _juzga(f"{brazo} {familia} p{pasada} slot0-vs-slot1", seqs[0], seqs[1])
         if brazo == "mtp":
-            ref = contenidos.get(("control", familia, pasada))
-            if ref and par and par[0] != ref[0]:
-                if familia in empates_ok:
-                    greedy["explicadas_por_diagnostico"].append(f"{familia} p{pasada}")
-                else:
-                    greedy["mtp_vs_control_distinto"].append(f"{familia} p{pasada}")
-    if greedy["intra_slot_distinto"]:
-        fallos.append("dos slots con el mismo prompt greedy dieron texto distinto: "
-                      + ", ".join(greedy["intra_slot_distinto"]))
-    if greedy["mtp_vs_control_distinto"]:
-        fallos.append("MTP difiere del control sin que el diagnostico lo explique como "
-                      "empate: " + ", ".join(greedy["mtp_vs_control_distinto"]))
+            ref = secuencias.get(("control", familia, pasada))
+            if ref and seqs:
+                _juzga(f"mtp-vs-control {familia} p{pasada}", ref[0], seqs[0])
+    if greedy["no_verificadas"]:
+        fallos.append(
+            f"{len(greedy['no_verificadas'])} divergencia(s) greedy NO son empate "
+            f"(token fuera del top-{TOP_LOGPROBS} de la referencia o a mas de "
+            f"{margen} nats): " + ", ".join(greedy["no_verificadas"][:8]))
     if not (espec["timings"] or espec["log"]) and not errores:
         fallos.append("la especulacion NO esta activa: lo medido no es MTP")
 
@@ -528,7 +554,8 @@ def np2_kvu_velocidad(ctx) -> dict:
         "cabeza_mtp": os.path.basename(cabeza),
         "corpus": {"objetivo": h034.CORPUS_FAMILIAS, "sha256": corpus["sha256"][:12]},
         "umbrales": {"tg_mediana": UMBRAL_TG, "tg_por_familia": UMBRAL_TG_FAMILIA,
-                     "pp": UMBRAL_PP, "greedy": "identico o empate del diagnostico"},
+                     "pp": UMBRAL_PP,
+                     "greedy": f"toda divergencia (intra-slot y mtp/control) es empate <= {margen} nats o longitud; no_verificado = fallo"},
         "tabla": tabla, "ratio_tg": ratio_tg, "ratio_pp": ratio_pp,
         "ratio_tg_por_familia": por_familia,
         "acceptance_mediana": banco.mediana(aceptaciones),

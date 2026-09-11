@@ -331,10 +331,19 @@ def responde(cuerpo: dict) -> dict:
     if cuerpo.get("logprobs") and fam:
         contenido = _texto_largo(fam)
     lp_conf = CONF.get("divergencia") or {}
+    # H-035 fase 3: `divergencia_intra_slot` hace que UNA de cada dos
+    # peticiones iguales (orden par) diverja en ambos brazos, como hace el
+    # servidor real a np=2. Se clasifica con la misma clase.
+    intra = CONF.get("divergencia_intra_slot")
+    div = None
+    if mtp and fam in lp_conf:
+        div = lp_conf[fam]
+    elif intra and fam and orden % 2 == 0:
+        div = intra
     tokens = None
     if cuerpo.get("logprobs"):
-        tokens = _tokens_logprobs(contenido, lp_conf.get(fam) if (mtp and fam) else None)
-        if mtp and fam in lp_conf:
+        tokens = _tokens_logprobs(contenido, div)
+        if div:
             contenido = "".join(t["token"] for t in tokens)
 
     predicted = max(1, min(int(cuerpo.get("max_tokens") or 16), len(contenido) // 2 + 1))
