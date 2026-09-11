@@ -156,6 +156,15 @@ class Contexto:
                                              self.args.tolerancia_corpus)
 
 
+def id_build(sha: str, patch: str | None) -> str:
+    """Mismo identificador que builds.sh: sha, o sha+8 hex del sha256 del parche."""
+    if not patch:
+        return sha
+    import hashlib
+    with open(patch, "rb") as f:
+        return f"{sha}+{hashlib.sha256(f.read()).hexdigest()[:8]}"
+
+
 # ------------------------------------------------------------------ unidad
 def ruta_unidad(unidad: str) -> str:
     return os.path.join(DIR_UNIDADES, f"{unidad}.service")
@@ -346,9 +355,14 @@ def main(argv=None) -> int:
                 print(f"Fallo construyendo {cual}: {e}", file=sys.stderr)
                 return SALIDA_ENTORNO
     dir_builds = os.environ.get("LLAMA_BUILDS_DIR", "/models/llama-builds")
-    for cual, sha_ in (("baseline", a.baseline_sha), ("candidato", a.candidato_sha)):
-        if sha_:
-            ctx.builds[cual] = os.path.join(dir_builds, sha_)
+    # El identificador de build de builds.sh es <sha> o <sha>+<sha256(parche)[:8]>
+    # cuando el candidato lleva parche: dos builds del mismo sha con y sin
+    # parche NO comparten directorio.
+    ids = {"baseline": a.baseline_sha,
+           "candidato": id_build(a.candidato_sha, a.patch) if a.candidato_sha else None}
+    for cual, id_ in ids.items():
+        if id_:
+            ctx.builds[cual] = os.path.join(dir_builds, id_)
 
     # ------------------------------------------------------------- fases --
     parada_por_nosotros = False
@@ -420,7 +434,7 @@ def main(argv=None) -> int:
             sh(_sudo(f"{SYSTEMCTL} restart {a.unidad}"))
         if adoptar and a.candidato_sha:
             sh(f"bash {shlex.quote(os.path.join(AQUI, 'builds.sh'))} promover "
-               f"{shlex.quote(a.candidato_sha)}", check=True)
+               f"{shlex.quote(ids['candidato'])}", check=True)
             promovido = True
             cambios.append(f"build promovida {a.candidato_sha[:12]}")
     except Exception as e:
