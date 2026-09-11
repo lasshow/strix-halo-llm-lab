@@ -37,7 +37,7 @@ set -uo pipefail
 DIR_BUILDS="${LLAMA_BUILDS_DIR:-/models/llama-builds}"
 ACTUAL="${LLAMA_CURRENT:-/models/llama-current}"
 ANTERIOR="${DIR_BUILDS}/ANTERIOR"
-FLAGS_BASE="-DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF"
+FLAGS_BASE="-DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF -DGGML_NATIVE=ON"
 FLAGS="${CMAKE_FLAGS:-$FLAGS_BASE}"
 TRABAJOS="${TRABAJOS:-$(nproc 2>/dev/null || echo 4)}"
 
@@ -76,9 +76,15 @@ cmd_construir() {
   [ -n "$repo" ] && [ -n "$sha" ] || muere "uso: builds.sh construir <repo> <sha> [--patch f]"
   [ -z "$parche" ] || [ -f "$parche" ] || muere "no encuentro el parche ${parche}"
 
-  local destino="${DIR_BUILDS}/${sha}"
+  # El identificador de la build es <sha> a secas, o <sha>+<8 primeros hex del
+  # sha256 del parche> cuando se aplica uno. Sin el sufijo, baseline y
+  # baseline+parche compartian directorio y la segunda salia "ya construida"
+  # devolviendo el binario SIN parche (visto al preparar H-033).
+  local id_build="$sha"
+  [ -n "$parche" ] && id_build="${sha}+$(sha256_de "$parche" | cut -c1-8)"
+  local destino="${DIR_BUILDS}/${id_build}"
   if [ -x "${destino}/build/bin/llama-server" ]; then
-    info "${sha} ya construida en ${destino}, no recompilo"
+    info "${id_build} ya construida en ${destino}, no recompilo"
     echo "$destino"
     return 0
   fi
@@ -124,6 +130,7 @@ cmd_construir() {
 import datetime, json, sys
 ruta, repo, remoto, sha, rama, patch, flags, compilador, version = sys.argv[1:10]
 json.dump({
+    "id_build": ruta.rsplit("/", 2)[-2],
     "repo": repo,
     "remoto": remoto or None,
     "sha": sha,

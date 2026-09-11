@@ -1,0 +1,63 @@
+diff --git a/ggml/src/ggml-vulkan/ggml-vulkan.cpp b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+index a04a6b27a8c1..94822a7bda6a 100644
+--- a/ggml/src/ggml-vulkan/ggml-vulkan.cpp
++++ b/ggml/src/ggml-vulkan/ggml-vulkan.cpp
+@@ -10217,7 +10217,8 @@ static void ggml_vk_mul_mat_id_q_f16(ggml_backend_vk_context * ctx, vk_context&
+     // n_as counts, n_as offsets, one total, then one packed row id per (expert, token).
+     // Hoisting requires 16-bit indices for the packing and a table that fits one binding.
+     const uint64_t hoisted_row_id_words = 2 * n_as + 1 + nei0 * nei1;
+-    const bool hoist_row_ids = n_as <= 256 && nei0 <= 0xffff && nei1 <= 0xffff &&
++    // 512 matches MAX_EXPERTS in count_experts.comp (models such as Qwen3.8-Flash-Next have 512 experts)
++    const bool hoist_row_ids = n_as <= 512 && nei0 <= 0xffff && nei1 <= 0xffff &&
+                                 hoisted_row_id_words * sizeof(uint32_t) <=
+                                     ctx->device->properties.limits.maxStorageBufferRange;
+ 
+diff --git a/ggml/src/ggml-vulkan/vulkan-shaders/count_experts.comp b/ggml/src/ggml-vulkan/vulkan-shaders/count_experts.comp
+index ef659959d950..347989b7191b 100644
+--- a/ggml/src/ggml-vulkan/vulkan-shaders/count_experts.comp
++++ b/ggml/src/ggml-vulkan/vulkan-shaders/count_experts.comp
+@@ -30,9 +30,14 @@ layout(local_size_x = BLOCK_SIZE, local_size_y = 1, local_size_z = 1) in;
+ layout (binding = 0) readonly buffer A {uint data_a[];};
+ layout (binding = 1) writeonly buffer D {uint data_d[];};
+ 
+-shared uint vals[BLOCK_SIZE];
+-shared uint offsets[BLOCK_SIZE];
+-shared uint cursors[BLOCK_SIZE];
++// Upper bound on n_experts for the hoisted row-id path. Must match the limit in
++// ggml_vk_mul_mat_id_q_f16 (hoist_row_ids). The non-hoisted reduction below only
++// needs BLOCK_SIZE entries.
++#define MAX_EXPERTS 512
++
++shared uint vals[MAX_EXPERTS];
++shared uint offsets[MAX_EXPERTS];
++shared uint cursors[MAX_EXPERTS];
+ 
+ // data_d layout when p.hoist_row_ids is set:
+ //   [0,              n_experts)   per-expert row count
+@@ -46,8 +51,8 @@ void main() {
+     const uint tid = gl_LocalInvocationID.x;
+ 
+     if (p.hoist_row_ids != 0) {
+-        if (tid < p.n_experts) {
+-            vals[tid] = 0;
++        for (uint e = tid; e < p.n_experts; e += BLOCK_SIZE) {
++            vals[e] = 0;
+         }
+         barrier();
+ 
+diff --git a/tests/test-backend-ops.cpp b/tests/test-backend-ops.cpp
+index c93e41b2e253..9f9a54d60bda 100644
+--- a/tests/test-backend-ops.cpp
++++ b/tests/test-backend-ops.cpp
+@@ -9813,6 +9813,11 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
+ 
+     // gpt-oss issue with Vulkan mmq_id
+     test_cases.emplace_back(new test_mul_mat_id(GGML_TYPE_MXFP4, GGML_TYPE_F32, 32, 2, false, 2880, 32, 2880));
++    // more than 256 experts (hoisted row-id path, e.g. Qwen3.8-Flash-Next with 512 experts)
++    for (int n : {1, 5, 64, 300}) {
++        test_cases.emplace_back(new test_mul_mat_id(GGML_TYPE_IQ3_S,  GGML_TYPE_F32, 512, 10, false, 128, n, 512));
++        test_cases.emplace_back(new test_mul_mat_id(GGML_TYPE_Q4_0,   GGML_TYPE_F32, 512, 10, false, 256, n, 128));
++    }
+     test_cases.emplace_back(new test_mul_mat_id(GGML_TYPE_Q4_0, GGML_TYPE_F32, 32, 2, false, 2880, 32, 2880));
+ 
+     for (ggml_type type_a : all_types) {

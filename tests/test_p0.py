@@ -645,3 +645,43 @@ class CorpusCongelado(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+# ===========================================================================
+# G. Una build con parche NO comparte directorio con la build sin parche
+# ===========================================================================
+class BuildConParcheTieneSuPropioDirectorio(unittest.TestCase):
+    """Visto al preparar H-033: `construir <sha>` y `construir <sha> --patch f`
+    caian en el mismo <DIR>/<sha>, y la segunda salia "ya construida" devolviendo
+    el binario SIN parche. El identificador de build lleva ahora sufijo
+    +<sha256(parche)[:8]>, y campana.py calcula el mismo identificador."""
+
+    def setUp(self):
+        self.base = tempfile.mkdtemp(prefix="p0-parche-")
+        self.addCleanup(shutil.rmtree, self.base, ignore_errors=True)
+        self.dir_builds = os.path.join(self.base, "llama-builds")
+        self.sha = "c" * 40
+        os.makedirs(os.path.join(self.dir_builds, self.sha, "build", "bin"))
+        open(os.path.join(self.dir_builds, self.sha, "build", "bin", "llama-server"), "w").close()
+        os.chmod(os.path.join(self.dir_builds, self.sha, "build", "bin", "llama-server"), 0o755)
+        self.parche = os.path.join(self.base, "p.diff")
+        with open(self.parche, "w") as f:
+            f.write("--- a\n+++ b\n")
+
+    def test_construir_con_parche_no_reutiliza_la_build_sin_parche(self):
+        r = subprocess.run(
+            ["bash", os.path.join(SCRIPTS, "builds.sh"), "construir",
+             "/repo/inexistente", self.sha, "--patch", self.parche],
+            capture_output=True, text=True, timeout=60,
+            env=dict(os.environ, LLAMA_BUILDS_DIR=self.dir_builds))
+        self.assertNotIn("ya construida", r.stdout + r.stderr)
+        # sin repo real no puede compilar: lo que importa es que NO haya
+        # devuelto la build sin parche como si fuera la parcheada
+        self.assertNotEqual(r.returncode, 0)
+
+    def test_campana_calcula_el_mismo_identificador(self):
+        import hashlib
+        campana = carga("campana_p0", os.path.join(SCRIPTS, "campana.py"))
+        esperado = self.sha + "+" + hashlib.sha256(open(self.parche, "rb").read()).hexdigest()[:8]
+        self.assertEqual(campana.id_build(self.sha, self.parche), esperado)
+        self.assertEqual(campana.id_build(self.sha, None), self.sha)
