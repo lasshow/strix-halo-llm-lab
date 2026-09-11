@@ -1421,12 +1421,15 @@ Umbrales (pp ≥1,05x en ambos tamanos, tg ≥0,98x, greedy identico): **pasa lo
 Coincide con lo que reporta el autor de la PR en Strix Halo (+19 % @8k, +16 % @32k)
 y con la doc de drluoto (H-031b) para el UD-IQ4_XS stock.
 
-**Estado en produccion — OJO:** la campana promovio el symlink
-`/models/llama-current -> …+14eebc61`, pero la unidad `llama-flashnext` sigue
-arrancando `/models/llama.cpp/build/bin/llama-server` (df03399 sin parche), porque
-la migracion del `ExecStart` al symlink se dejo a proposito para una ventana
-aparte (auditoria de P0). **El +16 % esta medido, no desplegado.** Desplegarlo =
-cambiar una linea del ExecStart al symlink + restart + gates; 2 minutos de corte.
+**Desplegado en produccion el 2026-09-11 09:50** (ventana aparte, como pedia la
+auditoria de P0): `ExecStart` migrado a `/models/llama-current/build/bin/llama-server`
+(backup `.bak-symlink-20260911`), `daemon-reload` + `restart`, ~2 min de corte.
+Verificado sobre el proceso vivo: `/proc/<pid>/exe` apunta a la build
+`…+14eebc61`, `restauracion.sh` 8/8, `smoke-test.sh` 391 exacto + 401,
+`modalities.vision=true`. Medida de produccion con el corpus de 8.159 tokens:
+**pp 431,3 / 426,2 · tg 25,47** (antes 368,6 / 25,45). A partir de aqui promover
+o revertir una build es `builds.sh promover|volver` + `systemctl restart`, sin
+tocar la unidad.
 
 **Lo que hizo falta arreglar para poder medir** (commit 4bf6d0d): la credencial
 del gate se lee ahora del argv resuelto por `systemctl show`; el corpus se
