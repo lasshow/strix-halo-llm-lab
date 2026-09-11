@@ -194,8 +194,10 @@ guardados. `scripts/fases_h035.py`, lanzado con `scripts/cadena-h035.sh`
    #28286 nos toca = no se despliega.
 3. **`np2_kvu_velocidad`**: A/B alternado control/MTP a `np=2 -kvu`, 5 familias,
    2 pasadas, **dos peticiones concurrentes** por familia. Umbrales: tg mediana
-   ≥ 1,15x, familia ≥ 0,95x, pp ≥ 0,97x, greedy idéntico o empate explicado por
-   la fase 1. Devuelve `aplicar`: si adopta, `banco.pon_mtp` escribe los 4 flags
+   ≥ 1,15x, familia ≥ 0,95x, pp ≥ 0,97x. Greedy **por logprobs** (a `np=2` ni el
+   control es reproducible entre slots — 1ª pasada H-035): toda divergencia,
+   intra-slot y MTP/control, debe ser empate ≤ 0,5 nats o de longitud;
+   `no_verificado` tumba. Devuelve `aplicar`: si adopta, `banco.pon_mtp` escribe los 4 flags
    tras `--mmproj`; si no, `banco.quita_mtp` (idempotente con la unidad de hoy).
 4. **`np2_kvu_vision`**: cuadrado rojo en ambos brazos y, en el MTP, visión y
    texto a la vez (los dos slots).

@@ -301,19 +301,48 @@ class Velocidad(ConBancoH035):
         con = banco.pon_mtp(UNIDAD_REAL, "/m/mtp.gguf", 2)
         self.assertEqual(r["aplicar"](con), UNIDAD_REAL)
 
-    def test_greedy_distinto_sin_diagnostico_es_fallo(self):
-        self.base(mtp_greedy_distinto=True)
+    def test_greedy_distinto_sin_logprobs_que_lo_expliquen_es_fallo(self):
+        """MTP elige en `codigo` un token que esta en el top del control pero
+        a 3 nats: la referencia no lo consideraba de verdad -> no_verificado."""
+        self.base(divergencia={"codigo": {"posicion": 4, "clase": "lejano"}})
         r = self.f.np2_kvu_velocidad(self.ctx())
         self.assertFalse(r["adoptar"])
-        self.assertIn("sin que el diagnostico lo explique", r["error"])
+        self.assertIn("NO son empate", r["error"])
+        self.assertTrue(any("mtp-vs-control codigo" in e
+                            for e in r["resumen"]["greedy"]["no_verificadas"]))
 
-    def test_greedy_distinto_explicado_por_el_diagnostico_pasa(self):
-        self.base(mtp_greedy_distinto=True)
-        ctx = self.ctx()
-        ctx.familias_empate_h035 = set(self.f.FAMILIAS)
-        r = self.f.np2_kvu_velocidad(ctx)
+    def test_empate_intra_slot_y_mtp_control_pasa(self):
+        """Lo que hace el M5 a np=2: los dos slots divergen entre si (tambien
+        en el control) y MTP diverge del control, todo a <0,5 nats -> pasa."""
+        self.base(divergencia_intra_slot={"posicion": 5, "clase": "empate"},
+                  divergencia={"prosa": {"posicion": 9, "clase": "empate"}})
+        r = self.f.np2_kvu_velocidad(self.ctx())
         self.assertTrue(r["adoptar"], r.get("error"))
-        self.assertEqual(len(r["resumen"]["greedy"]["explicadas_por_diagnostico"]), 5)
+        g = r["resumen"]["greedy"]
+        self.assertGreater(len(g["empates"]), 0)
+        self.assertEqual(g["no_verificadas"], [])
+        self.assertTrue(any("slot0-vs-slot1" in e for e in g["empates"]))
+        self.assertTrue(any("mtp-vs-control prosa" in e for e in g["empates"]))
+
+    def test_divergencia_intra_slot_no_verificada_tumba(self):
+        self.base(divergencia_intra_slot={"posicion": 5, "clase": "no_verificado"})
+        r = self.f.np2_kvu_velocidad(self.ctx())
+        self.assertFalse(r["adoptar"])
+        self.assertTrue(any("slot0-vs-slot1" in e
+                            for e in r["resumen"]["greedy"]["no_verificadas"]))
+
+    def test_las_peticiones_de_velocidad_piden_logprobs(self):
+        self.base()
+        self.f.np2_kvu_velocidad(self.ctx())
+        for c in self.b.cuerpos():
+            self.assertIs(c["logprobs"], True)
+            self.assertEqual(c["top_logprobs"], 5)
+
+    def test_sin_logprobs_la_fase_no_adopta(self):
+        self.base(sin_logprobs=True)
+        r = self.f.np2_kvu_velocidad(self.ctx())
+        self.assertFalse(r["adoptar"])
+        self.assertIn("logprobs", r["error"])
 
     def test_alterna_control_y_mtp_con_la_linea_productiva(self):
         os.environ["H035_PASADAS"] = "2"
