@@ -88,18 +88,38 @@ credencial_de_unidad() {
     return 1
   fi
 
+  # Un fichero de unidad legible tiene una seccion [Service]. `systemctl cat`
+  # sin privilegios sobre una unidad 600 imprime la cabecera "# /etc/..." y
+  # falla en el cuerpo con "Permiso denegado": texto NO vacio pero inutil.
+  # Con la comprobacion "-z" el sudo nunca llegaba a intentarse (visto al
+  # lanzar H-032 en el M5 real, con los tests en verde).
   local texto
   texto=$("${SYSTEMCTL:-systemctl}" cat "$unidad" 2>/dev/null)
-  if [ -z "$texto" ]; then
+  if ! printf '%s\n' "$texto" | grep -q '^\[Service\]'; then
     texto=$(sudo -n "${SYSTEMCTL:-systemctl}" cat "$unidad" 2>/dev/null)
   fi
-  if [ -z "$texto" ]; then
+  if ! printf '%s\n' "$texto" | grep -q '^\[Service\]'; then
     echo "credencial: no pude leer la unidad '${unidad}' con systemctl cat" >&2
     return 1
   fi
 
-  local arranque
-  arranque=$(printf '%s\n' "$texto" | _execstart_efectivo)
+  # Fuente principal: `systemctl show -p ExecStart`, que devuelve el argv YA
+  # RESUELTO por systemd (continuaciones, comillas, drop-ins). Es lo que el
+  # proceso ejecuta de verdad y no requiere privilegios. Raspar `systemctl cat`
+  # queda como respaldo: en el M5 real recortaba la barra de continuacion de
+  # algunas lineas y el parser cortaba el ExecStart a la mitad.
+  local arranque=""
+  local show
+  show=$("${SYSTEMCTL:-systemctl}" show -p ExecStart --value "$unidad" 2>/dev/null)
+  case "$show" in
+    *'argv[]='*)
+      arranque="${show#*argv\[\]=}"
+      arranque="${arranque%% ; ignore_errors=*}"
+      ;;
+  esac
+  if [ -z "${arranque// }" ]; then
+    arranque=$(printf '%s\n' "$texto" | _execstart_efectivo)
+  fi
   if [ -z "${arranque// }" ]; then
     echo "credencial: la unidad '${unidad}' no declara ExecStart" >&2
     return 1

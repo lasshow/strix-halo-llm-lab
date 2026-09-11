@@ -229,13 +229,20 @@ def _una_config(ctx, srv, clave, corpus, cr, ciclos, semilla, problemas) -> dict
                 srv.url, clave, siembras[et],
                 **_sin_pensar(max_tokens=16, cache_prompt=True))
             t = timings(d)
-            prompt_n_real = int(t["prompt_n"])
+            # Con cache_prompt=true, `prompt_n` cuenta SOLO los tokens que el
+            # servidor tuvo que procesar: en la 2a vuelta sale ~4 (el resto
+            # vino de cache). El tamano real del prompt se verifica con la
+            # 1a vuelta, que es fria. Visto en el M5 el 11-09: la fase abortaba
+            # con "el corpus de 2048 mide 4".
+            if vuelta == 1:
+                prompt_n_real = int(t["prompt_n"])
             (ttft_sin if vuelta == 1 else ttft_con).append(banco.ttft_ms(d))
             ctx.medida({
                 "fase": "h032-correccion", "brazo": "baseline",
                 "config": f"cache-ram {cr}", "cache_ram": cr,
                 "etapa": "siembra", "conversacion": et, "vuelta": vuelta,
-                "marca": marca, "prompt_n": prompt_n_real,
+                "marca": marca, "prompt_n": int(t["prompt_n"]),
+                "prompt_n_corpus": prompt_n_real,
                 "prompt_ms": banco.ttft_ms(d), "cache_n": banco.cache_n(d),
                 "timings": t, "esperado": "OK",
                 "obtenido": _texto(d)[:80],
@@ -442,14 +449,18 @@ def rendimiento_cache_ram(ctx) -> dict:
                         srv.url, clave, mensajes,
                         **_sin_pensar(max_tokens=32, cache_prompt=True))
                     t = timings(d)
-                    pn = int(t["prompt_n"])
+                    if i == 0:
+                        # el cebado es la unica peticion fria: con cache
+                        # caliente prompt_n solo cuenta lo recomputado.
+                        pn = int(t["prompt_n"])
                     if i:                       # i == 0 es el cebado
                         ttfts.append(banco.ttft_ms(d))
                         cns.append(banco.cache_n(d))
                     ctx.medida({
                         "fase": "h032-rendimiento", "brazo": "baseline",
                         "config": f"cache-ram {cr}", "cache_ram": cr,
-                        "repeticion": i, "cebado": i == 0, "prompt_n": pn,
+                        "repeticion": i, "cebado": i == 0,
+                        "prompt_n": int(t["prompt_n"]), "prompt_n_corpus": pn,
                         "prompt_ms": banco.ttft_ms(d), "cache_n": banco.cache_n(d),
                         "timings": t, "esperado": "ttft con cache caliente",
                         "obtenido": banco.ttft_ms(d),
