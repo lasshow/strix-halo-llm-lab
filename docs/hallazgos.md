@@ -1188,3 +1188,62 @@ smoke autenticado, y como **control negativo** que sin clave devuelva 401.
 modelo respondio "Si", que con el criterio viejo habria sido rojo). Controles
 negativos: con una unidad inexistente da 2 fallos y codigo 1; con un puerto
 muerto, 4 fallos. Detecta lo que debe detectar.
+
+### H-031 — Campana nocturna desatendida: build, especulacion, DPM y cache-ram con umbrales fijados antes de medir
+
+**Fecha:** 2026-09-11 · `scripts/campana-nocturna.py` · evidencias en `evidencias/campana-20260910/`
+
+Cuatro palancas medidas en una sola pasada desatendida de 25,6 min, con
+produccion parada, cada configuracion como proceso hijo en el puerto 8081 y
+la unidad productiva rearrancada en `finally` (gane quien gane). Los umbrales
+de adopcion se escribieron en la cabecera del script ANTES de lanzar; la
+vision (`--mmproj`) se mantuvo cargada en todas las configuraciones porque es
+requisito de uso, no variable.
+
+**F1 · build 311d421 vs df03399** (13 commits, 3 Vulkan: fusion topk_moe
+#28422, matrices M pequena #28457, copias async). Alternado A,B,A,B, 6 pasadas
+cortas + 2 largas por lado, `prompt_n` real 2.294 y 18.038:
+
+| build | pp 2,3k | tg 2,3k | pp 18k | tg 18k |
+|---|---|---|---|---|
+| 311d421 | 330,8 | 26,74 | 360,5 | 23,85 |
+| df03399 | 335,4 | 26,86 | 361,8 | 23,97 |
+
++1,4 % prefill, +0,4 % decode: **dentro de la dispersion** (las pasadas de
+una misma build van de 331 a 345). Los tres commits Vulkan no mueven la aguja
+en este modelo con RADV. Se adopta igual porque el umbral era "no empeora"
+(motivo: ir al dia con upstream, no rendimiento).
+
+**F2 · especulacion sin pesos extra.** `--spec-type draft-mtp` **no arranca**:
+`context type MTP requested but model doesn't contain MTP layers`. El GGUF
+UD-IQ4_XS de Unsloth **no lleva la cabeza MTP** (o llama.cpp aun no la lee
+para Qwen3.8-Next): la conclusion de H-020 "Flash-Next tiene cabeza MTP" sale
+de la ficha, no del fichero, y aqui se cae. `ngram-simple` arranca y da lo
+esperado de un metodo sin modelo: acceptance 29,6 % solo en codigo (26,31 vs
+27,65 t/s del control = **peor**, porque cada borrador rechazado cuesta un
+paso de verificacion), 0 % en prosa/json/creativo (identico al control).
+Ganancia prosa+codigo 0,976x → no adoptable. Con tg ya limitado por ancho de
+banda a ~27 t/s y ~3B activos, el margen de la especulacion es escaso salvo
+con un borrador que acepte >60 %.
+
+**F3 · DPM `auto` vs `high`** (3 peticiones cortas tras 45 s de reposo, ciclo
+auto→high→auto): prompt_ms 820 / 816 / 821 — **identico**. Idle 6,6 W → 14,4 W
+(+7,8 W a cambio de nada). El reloj sube en cuanto entra trabajo; el arranque
+"frio" que se sospechaba no existe a escala de una peticion. No adoptado.
+
+**F4 · aplicado:** rebuild del arbol productivo a df03399 (restorecon
+incluido) y `--cache-ram 4096 → 12288` (17 GB libres medidos; caben ~4
+conversaciones de 33k en cache en vez de 1). Smoke: respuesta no vacia con
+`finish_reason=stop` ('391' a 17·23), control negativo 401, `/props`
+`modalities.vision=true`. Produccion final: pp 336,2 · tg 26,86.
+
+**Lecciones:**
+- Una capacidad declarada en la ficha del modelo (MTP) hay que comprobarla
+  contra el GGUF concreto antes de planear en torno a ella.
+- El estimador de tokens del relleno (1,78 tok/palabra) se queda **24 % corto**
+  con este tokenizador (2.294 reales vs 3.000 pedidos). No invalida la
+  comparacion (todas las configuraciones reciben el mismo prompt y se registra
+  `prompt_n`), pero las etiquetas "3k/24k" del plan eran falsas: usar siempre
+  el `prompt_n` real en tablas.
+- Con umbrales escritos de antemano, tres de cuatro palancas quedaron en "no"
+  y el informe lo dice sin que nadie tenga que defender la noche de trabajo.
