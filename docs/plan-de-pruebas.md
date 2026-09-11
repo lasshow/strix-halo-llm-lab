@@ -210,13 +210,27 @@ un fallo del gate. `n-max = 2` (no pierde en ninguna familia en H-034).
 
 ### H-036 — Parches de `drluoto/llama.cpp`, uno a uno
 
-Su rama `strix-halo-vulkan` es **cantera de parches, no checkout** (ver H-031b: mismo
-M5 y mismo punto de partida de 27 t/s, pero sin `--mmproj` documentado y con la pila
-entera cambiada a la vez). Se evalúa **un cambio por brazo** contra nuestra línea base:
-requant Q5_K denso + routers Q8_0, cabeza de borrador propia,
-`GGML_VK_DISABLE_GDN_CACHE_FUSION=1`, `-np 3 --ctx-checkpoints 8`. Adoptar diez cambios
-juntos y medir una mejora no dice cuál la produjo — ese error ya costó desmontar H-011
-en H-022.
+Su rama `strix-halo-vulkan` es **cantera de parches, no checkout** (ver H-031b). Revisada
+el 11-09 (HEAD `ba5354d`): de su pila, **ya tenemos** el row-id hoisting (PR #28501,
+H-033) y "siempre N tokens de borrador" (`p-min 0`, H-034); `GGML_VK_DISABLE_GDN_CACHE_FUSION`
+**no aplica** (es un port suyo de #27973 que nuestro upstream no lleva); `--ctx-checkpoints`
+ya vale 32. Quedan cuatro cambios, **un brazo por campaña** (`scripts/fases_h036.py` +
+`scripts/cadena-h036.sh <brazo>`), cada uno A/B contra la producción que dejó el anterior
+(`fases_h035.ab_np2`: np=2, dos concurrentes, greedy por logprobs), en orden de coste:
+
+- **B `nmax3`**: `--spec-draft-n-max 3` (su default). Solo flag.
+- **A `frspec`**: cabeza `mtp-…-Q8_0-frspec-65k.gguf` (vocabulario del borrador recortado
+  a 65k con mapa `d2t`) + sus 6 parches `qwen4exp` **portados** (no aplican sobre df03399).
+  Es la promesa para prosa/creativo, donde MTP casi no ayuda.
+- **C `requant`**: tronco con densos Q5_K y routers Q8_0 (`LLAMA_QUANT_ALLOW_ROUTER`).
+- **D `kvzero`**: KV cells a cero al liberar (nathanw1014). Determinismo, no velocidad.
+
+Umbrales fijados antes de medir: B/A/C adoptan con tg mediana ≥ 1,08x, familia ≥ 0,95x,
+pp ≥ 0,97x y cero `no_verificado`; D con tg ≥ 0,98x. **Referencia greedy**: como control y
+candidato llevan MTP y con `draft-mtp` el servidor solo devuelve logprobs del primer token
+(medido: 39/40 a cero), cada campaña arranca además la línea productiva **sin especulación**
+como referencia de logprobs (una pasada). Adoptar diez cambios juntos y medir una mejora no
+dice cuál la produjo — ese error ya costó desmontar H-011 en H-022.
 
 ### Y al final, el ubatch definitivo
 

@@ -101,6 +101,8 @@ def parsea(argv: list[str]) -> dict:
         consume = 1 if pegado else 2
         if base in ("--port",):
             d["port"] = int(valor); i += consume; continue
+        if base in ("--model", "-m"):
+            d["model"] = valor; i += consume; continue
         if base in ("--host",):
             d["host"] = valor; i += consume; continue
         if base in ("--alias",):
@@ -280,6 +282,14 @@ def responde(cuerpo: dict) -> dict:
     tg = float(por_brazo("tg", 25.0))
 
     mtp = mtp_activo() and not CONF.get("mtp_sin_efecto")
+    # H-036: factores por variante, para simular cada brazo de drluoto.
+    for clave_conf, valor_arg in (("tg_por_modelo", ARGS.get("model")),
+                                  ("tg_por_cabeza", ARGS.get("draft_model")),
+                                  ("tg_por_nmax", ARGS.get("spec_draft_n_max"))):
+        tabla = CONF.get(clave_conf) or {}
+        k = os.path.basename(str(valor_arg)) if valor_arg is not None else None
+        if k in tabla:
+            tg *= float(tabla[k])
     if mtp:
         tg *= float(CONF.get("mtp_factor", 1.0))
         # H-034: "una familia se hunde" — factor por familia, sobre el de MTP.
@@ -336,7 +346,11 @@ def responde(cuerpo: dict) -> dict:
     # servidor real a np=2. Se clasifica con la misma clase.
     intra = CONF.get("divergencia_intra_slot")
     div = None
-    if mtp and fam in lp_conf:
+    # `divergencia_brazo`: si esta, la divergencia solo la hace ese sha (H-036,
+    # donde control y candidato llevan MTP los dos). Sin ella, cualquier brazo MTP.
+    solo_brazo = CONF.get("divergencia_brazo")
+    aplica_div = mtp and (BRAZO == solo_brazo if solo_brazo else True)
+    if aplica_div and fam in lp_conf:
         div = lp_conf[fam]
     elif intra and fam and orden % 2 == 0:
         div = intra
@@ -348,9 +362,11 @@ def responde(cuerpo: dict) -> dict:
         # Como llama.cpp real: en el brazo MTP los tokens ACEPTADOS del
         # borrador llegan con logprob 0 y sin top_logprobs (H-035b). Aqui, uno
         # de cada tres tokens, salvo que el guion lo apague.
+        # Medido en el M5 (H-036): con draft-mtp el servidor devuelve logprobs
+        # SOLO del primer token; los demas llegan con logprob 0 y sin top.
         if mtp and not CONF.get("mtp_logprobs_completos"):
             for i, t in enumerate(tokens):
-                if i % 3 == 1:
+                if i >= 1:
                     t["logprob"] = 0.0
                     t["top_logprobs"] = []
 
@@ -399,7 +415,7 @@ def main(argv: list[str]) -> int:
     anota({"evento": "arranque", "args": resto, "origen_clave": origen,
            "cache_ram": ARGS.get("cache_ram"), "parallel": ARGS.get("parallel"),
            "kvu": ARGS.get("kvu"), "host": ARGS.get("host"),
-           "port": ARGS.get("port"),
+           "port": ARGS.get("port"), "model": ARGS.get("model"),
            "spec_type": ARGS.get("spec_type"),
            "draft_model": ARGS.get("draft_model"),
            "spec_draft_n_max": ARGS.get("spec_draft_n_max")})
