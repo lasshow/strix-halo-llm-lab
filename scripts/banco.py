@@ -30,6 +30,13 @@ Por que existe, y por que no vale con "lanza el binario con unos flags":
      /v1/models. Un proceso que muere al arrancar es ErrorInfraestructura en el
      acto, no una espera que se come el limite entero.
 
+  5. **El log del hijo y el anillo del kernel son medidas, no adorno.** H-034
+     confirma que la especulacion esta activa leyendo `draft acceptance = ...`
+     del propio servidor (`ServidorBanco.log_tail`), y vigila los resets de GPU
+     de #27306 con `dmesg_desde()`. Por eso la salida del hijo ya nunca va a
+     /dev/null, y por eso `dmesg_desde` devuelve **None** cuando no ha podido
+     mirar: "no lo se" y "no ha pasado nada" no son lo mismo.
+
 Uso tipico desde una fase de `campana.py`:
 
     args = banco.con_cambios(banco.args_de_unidad(texto_unidad),
@@ -44,6 +51,7 @@ Uso tipico desde una fase de `campana.py`:
 """
 from __future__ import annotations
 
+import http.client
 import json
 import math
 import os
@@ -57,6 +65,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -68,6 +77,8 @@ from validacion import ErrorInfraestructura, cuerpo_json, timings  # noqa: E402
 LIMITE_ARRANQUE = 900.0        # s hasta declarar que el servidor no arranca
 PAUSA_ESPERA = 2.0             # s entre sondeos de /health
 GRACIA_CIERRE = 20.0           # s entre el SIGTERM y el SIGKILL
+JOURNALCTL = "journalctl"      # se sustituye por entorno en las pruebas
+SUDO = "sudo -n"               # idem; vaciarlo desactiva el segundo intento
 
 
 # ====================================================================== unidad
@@ -150,8 +161,16 @@ _FLAGS = {
     "api_key":      (("--api-key",), "valor"),
     "api_key_file": (("--api-key-file",), "valor"),
     "alias":        (("--alias",), "valor"),
+    "mmproj":       (("--mmproj",), "valor"),
     "kvu":          (("-kvu", "--kv-unified"), "bandera"),
     "metrics":      (("--metrics",), "bandera"),
+    # Especulacion sidecar (H-034). Solo las entiende la build con la PR
+    # #28243 apilada; en la baseline son flags desconocidos y el servidor no
+    # arranca, que es justo lo que queremos que pase si alguien las mezcla.
+    "spec_type":        (("--spec-type",), "valor"),
+    "draft_model":      (("-md", "--model-draft"), "valor"),
+    "spec_draft_n_max": (("--spec-draft-n-max",), "valor"),
+    "spec_draft_p_min": (("--spec-draft-p-min",), "valor"),
 }
 
 
@@ -168,6 +187,56 @@ def _quita(args: list[str], nombres: tuple[str, ...], con_valor: bool) -> list[s
     return fuera
 
 
+def _alias_de(flag: str) -> tuple[tuple[str, ...] | None, str | None]:
+    """Alias y tipo de un flag TAL COMO APARECE EN LA LINEA (`-kvu`, `--mmproj`)."""
+    for nombres, tipo in _FLAGS.values():
+        if flag in nombres:
+            return nombres, tipo
+    return None, None
+
+
+def _quita_desconocido(args: list[str], flag: str) -> list[str]:
+    """Quita un flag que no esta en la tabla, y su valor si la linea dice que
+    lo lleva.
+
+    Sin tabla no hay forma de saber si `--loquesea` consume el token siguiente,
+    asi que lo decide la linea: se arrastra el token de detras solo si no
+    parece otro flag. Es una heuristica, y por eso esta escrita aqui: un valor
+    que empiece por guion (un numero negativo) se quedaria huerfano. Los flags
+    que el laboratorio toca de verdad estan en `_FLAGS` y no pasan por aqui.
+    """
+    fuera, i = [], 0
+    while i < len(args):
+        t = args[i]
+        if t.split("=", 1)[0] != flag:
+            fuera.append(t)
+            i += 1
+            continue
+        if "=" in t:
+            i += 1
+            continue
+        i += 2 if (i + 1 < len(args) and not args[i + 1].startswith("-")) else 1
+    return fuera
+
+
+def quita_flags(args: list[str], flags) -> list[str]:
+    """Copia de `args` sin esos flags (con su valor si lo tienen).
+
+    Se resuelve por la tabla `_FLAGS` cuando el flag esta en ella, de modo que
+    quitar `-kvu` quita tambien `--kv-unified`: si solo se borrara el alias
+    escrito, una unidad que use la forma larga se quedaria con el flag puesto y
+    el brazo mediria otra configuracion sin avisar.
+    """
+    fuera = list(args)
+    for f in flags:
+        nombres, tipo = _alias_de(f)
+        if nombres is None:
+            fuera = _quita_desconocido(fuera, f)
+        else:
+            fuera = _quita(fuera, nombres, tipo == "valor")
+    return fuera
+
+
 def con_cambios(args: list[str], **kv) -> list[str]:
     """Copia de `args` con los flags pedidos sustituidos, anadidos o quitados.
 
@@ -178,16 +247,33 @@ def con_cambios(args: list[str], **kv) -> list[str]:
       - `None` lo QUITA, en cualquiera de sus alias y en la forma `--flag=x`;
       - una bandera (`kvu`) se pone con True y se quita con False.
 
+    Dos claves no son flags sino operaciones sobre la linea, y se aplican
+    SIEMPRE en este orden, pase el que pase el llamante:
+
+      `quitar=[...]`     flags a eliminar, con su valor si lo tienen. Va
+                         primero para que un `con_cambios(a, quitar=["-md"],
+                         draft_model=x)` no se borre a si mismo.
+      `extra_args=[...]` tokens que se anaden TAL CUAL al final. Es la valvula
+                         para un flag que la tabla todavia no conoce; lo que se
+                         mide con el queda en el log de arranque del banco.
+
     Una clave desconocida es un error: `con_cambios(args, cache_rma=0)` tiene
     que cantar, no devolver la linea intacta y medir la configuracion vieja.
     """
+    kv = dict(kv)
+    quitar = kv.pop("quitar", None)
+    extra = kv.pop("extra_args", None)
     fuera = list(args)
+    if quitar is not None:
+        if isinstance(quitar, str):
+            raise ValueError("quitar espera una lista de flags, no una cadena")
+        fuera = quita_flags(fuera, quitar)
     for clave, valor in kv.items():
         spec = _FLAGS.get(clave)
         if spec is None:
             raise ValueError(
                 f"con_cambios no sabe tocar {clave!r}; conocidas: "
-                f"{', '.join(sorted(_FLAGS))}")
+                f"{', '.join(sorted(_FLAGS))}, quitar, extra_args")
         nombres, tipo = spec
         fuera = _quita(fuera, nombres, tipo == "valor")
         if tipo == "bandera":
@@ -195,6 +281,10 @@ def con_cambios(args: list[str], **kv) -> list[str]:
                 fuera.append(nombres[0])
         elif valor is not None:
             fuera += [nombres[0], str(valor)]
+    if extra is not None:
+        if isinstance(extra, str):
+            raise ValueError("extra_args espera una lista de tokens, no una cadena")
+        fuera += [str(t) for t in extra]
     return fuera
 
 
@@ -238,6 +328,18 @@ def peticion_chat(url: str, clave: str | None, messages: list[dict],
     Todo lo que no sea un 200 con cuerpo JSON parseable es
     ErrorInfraestructura: el banco no ha podido medir, y eso no es ni una
     medida de cero ni un fallo del modelo (metodologia, regla 6).
+
+    `messages` viaja TAL CUAL: un `content` que sea una lista de partes
+    (`{"type": "text"...}` + `{"type": "image_url"...}`) es contenido
+    multimodal valido y aqui no se toca ni se serializa a texto. La fase de
+    vision de H-034 depende de eso.
+
+    Una conexion que se corta a media respuesta -- que es lo que hace un
+    servidor al que la GPU se le lleva por delante (#27306) -- entra tambien
+    por aqui como ErrorInfraestructura. Antes se escapaba como
+    `http.client.RemoteDisconnected` cruda porque no es `URLError`, y la fase
+    que la recibia moria por una excepcion sin clasificar en vez de anotar el
+    techo de contexto.
     """
     cuerpo = dict(params)
     cuerpo["messages"] = messages
@@ -259,6 +361,11 @@ def peticion_chat(url: str, clave: str | None, messages: list[dict],
         raise ErrorInfraestructura(f"sin respuesta del servidor: {e.reason}") from e
     except TimeoutError as e:
         raise ErrorInfraestructura(f"timeout tras {timeout} s") from e
+    except (http.client.HTTPException, OSError) as e:
+        raise ErrorInfraestructura(
+            f"la conexion con el servidor se corto a media respuesta "
+            f"({type(e).__name__}: {e}): el proceso ha muerto o la GPU se lo "
+            "ha llevado por delante") from e
     d = cuerpo_json(bruto)
     # Reloj de pared del cliente: no sustituye a timings, pero delata una
     # respuesta cacheada por un proxy o una cola que no se ve en el servidor.
@@ -370,6 +477,51 @@ def rss_mb(pid: int) -> float | None:
     return None
 
 
+# ============================================================ vigilancia del kernel
+def marca_ahora() -> str:
+    """Instante actual en el formato que entiende `journalctl --since`.
+
+    Se toma ANTES de empezar la fase y se pasa a `dmesg_desde`: asi lo que se
+    lee del kernel es lo que ha pasado durante la medida, no el historial del
+    arranque de la maquina.
+    """
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def dmesg_desde(marca: str, ejecutar=None) -> list[str] | None:
+    """Lineas del kernel con `amdgpu` desde `marca`, o None si no se puede mirar.
+
+    Dos intentos, en este orden: `journalctl -k` a secas y, si no sale, con
+    `sudo -n`. Leer el anillo del kernel no siempre esta al alcance del usuario
+    del laboratorio, y el matiz importa: **None NO es "sano"**. Un reset de GPU
+    que no se ha podido mirar es una escalera de contexto sin vigilancia, y la
+    fase tiene que escribirlo asi en el informe (#27306: el driver hace un
+    `llama_decode(ctx_dft)` tras cada ubatch y ya nos costo un DeviceLost real
+    en H-014). Una lista vacia si es "no ha pasado nada"; None es "no lo se".
+
+    El filtro es `amdgpu` a secas. Decidir QUE linea es un incidente es cosa de
+    quien vigila -- la fase de H-034 lo hace con su propio patron --, porque un
+    filtro estrecho aqui escondería una linea nueva que todavia no sabemos leer.
+    """
+    ejecutar = ejecutar or (lambda cmd: subprocess.run(
+        cmd, capture_output=True, text=True, timeout=60))
+    jctl = os.environ.get("JOURNALCTL", JOURNALCTL)
+    sudo = os.environ.get("SUDO", SUDO)
+    base = [jctl, "-k", "--no-pager", "--since", marca]
+    intentos = [base]
+    if sudo.strip():
+        intentos.append(shlex.split(sudo) + base)
+    for cmd in intentos:
+        try:
+            p = ejecutar(cmd)
+        except Exception:
+            continue
+        if getattr(p, "returncode", 1) != 0:
+            continue
+        return [l for l in (p.stdout or "").splitlines() if "amdgpu" in l.lower()]
+    return None
+
+
 class ServidorBanco:
     """Un llama-server de laboratorio en `puerto`, con la vida atada al `with`.
 
@@ -410,6 +562,14 @@ class ServidorBanco:
         self.ultimo_fichero_clave = None
         self._fichero_clave = None
         self._flog = None
+        # El log del hijo es una MEDIDA mas: H-034 confirma que la especulacion
+        # esta activa leyendo `draft acceptance = ...` del propio servidor. Por
+        # eso se guarda siempre la ruta y el desplazamiento donde empieza ESTE
+        # arranque (el fichero se abre en modo anadir y puede traer la cola de
+        # una ejecucion anterior con la misma etiqueta).
+        self.ruta_log = None
+        self._log_temporal = False
+        self._offset_log = 0
 
     # -- ciclo de vida ----------------------------------------------------
     @property
@@ -422,6 +582,51 @@ class ServidorBanco:
 
     def rss_mb(self) -> float | None:
         return rss_mb(self.pid) if self.pid else None
+
+    def esta_vivo(self) -> bool:
+        """¿Sigue en pie el proceso? Sondeo suelto, sin esperas ni reintentos."""
+        return self.proc is not None and self.proc.poll() is None
+
+    def log_tail(self, n: int = 50) -> list[str]:
+        """Ultimas `n` lineas que ha escrito ESTE arranque, sin la cola previa.
+
+        Devuelve lista vacia si todavia no hay nada escrito. No lanza: quien la
+        llama esta buscando una linea concreta en el log de un servidor que
+        quiza acaba de morirse, y una excepcion aqui taparia el motivo real.
+        """
+        if not self.ruta_log:
+            return []
+        try:
+            if self._flog:
+                self._flog.flush()
+            with open(self.ruta_log, encoding="utf-8", errors="replace") as f:
+                f.seek(self._offset_log)
+                lineas = f.read().splitlines()
+        except OSError:
+            return []
+        return lineas[-n:] if n > 0 else lineas
+
+    def _abre_log(self) -> None:
+        """Abre el fichero al que va el stdout/stderr del hijo.
+
+        Sin `dir_log` se usa un temporal en vez de /dev/null: tirar la salida
+        del servidor deja `log_tail` sin nada que leer, y con ella se pierde la
+        unica prueba de que la especulacion estaba activa. El temporal se borra
+        en `cierra()`.
+        """
+        if self.dir_log:
+            os.makedirs(self.dir_log, exist_ok=True)
+            self.ruta_log = os.path.join(self.dir_log, f"banco-{self.etiqueta}.log")
+            self._flog = open(self.ruta_log, "a", encoding="utf-8", errors="replace")
+        else:
+            fd, ruta = tempfile.mkstemp(prefix=f"banco-{self.etiqueta}-", suffix=".log")
+            self.ruta_log, self._log_temporal = ruta, True
+            self._flog = os.fdopen(fd, "a", encoding="utf-8", errors="replace")
+        # La linea completa va SOLO aqui, no al log de la campana ni al JSON:
+        # ahi no pinta nada y solo aumenta la superficie de fuga.
+        self._flog.write("\n=== " + shlex.join([self.binario, *self.args_finales]) + "\n")
+        self._flog.flush()
+        self._offset_log = self._flog.tell()
 
     def _prepara(self) -> tuple[list[str], dict]:
         finales = con_cambios(self.args, host="127.0.0.1", port=self.puerto)
@@ -446,18 +651,10 @@ class ServidorBanco:
 
     def __enter__(self) -> "ServidorBanco":
         self.args_finales, entorno = self._prepara()
-        if self.dir_log:
-            os.makedirs(self.dir_log, exist_ok=True)
-            ruta = os.path.join(self.dir_log, f"banco-{self.etiqueta}.log")
-            self._flog = open(ruta, "a", encoding="utf-8", errors="replace")
-            # La linea completa va SOLO aqui, no al log de la campana ni al
-            # JSON: ahi no pinta nada y solo aumenta la superficie de fuga.
-            self._flog.write("\n=== " + shlex.join([self.binario, *self.args_finales]) + "\n")
-            self._flog.flush()
+        self._abre_log()
         try:
             self.proc = subprocess.Popen(
-                [self.binario, *self.args_finales],
-                stdout=self._flog or subprocess.DEVNULL,
+                [self.binario, *self.args_finales], stdout=self._flog,
                 stderr=subprocess.STDOUT, env=entorno, start_new_session=True)
         except OSError as e:
             self.cierra()
@@ -519,6 +716,12 @@ class ServidorBanco:
                 except OSError:
                     pass
                 self._flog = None
+            if self._log_temporal and self.ruta_log:
+                try:
+                    os.unlink(self.ruta_log)
+                except OSError:
+                    pass
+                self._log_temporal = False
             if proc is not None:
                 espera_puerto_libre(self.puerto, limite=self.gracia + 10,
                                     traza=self.log)

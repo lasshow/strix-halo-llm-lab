@@ -134,16 +134,45 @@ la hace el runner (`builds.sh promover`) cuando el voto sale `True` y los gates 
 ### H-034 — Cabezas MTP sidecar (la vía que H-031 no llegó a probar)
 
 `MTP/` shared-Q8_0 (2,79 GB) de Unsloth, que necesita una rama con soporte
-qwen4exp-MTP (PR #28243, abierta y draft). **Nada de esto está medido aquí todavía**
-(ver H-031b).
+qwen4exp-MTP (PR #28243, abierta y draft).
 
-- `np=1`, `cache-ram` reducido, `temperature 0`.
-- Escalera de contexto **8k / 32k / 64k / 98k**, vigilando `dmesg` y reset de GPU por
-  **#27306** — ya tuvimos un crash de GPU real por prefill largo (H-014), así que esto
-  se mira en cada escalón, no al final.
-- **Exactitud greedy contra un control** sin especulación: la especulación tiene que
-  ser transparente para la salida. Si cambia el texto, no es más rápida, es otra cosa.
-- Visión cargada (`--mmproj`): es requisito de uso, no variable.
+Implementada en [`../scripts/fases_h034.py`](../scripts/fases_h034.py). Tres fases, todas
+con `np=1` y sin `-kvu` (por #28286: `draft-mtp` con `--parallel > 1` contamina slots;
+eso es H-035). La confirmación de que la especulación está activa es que `timings` traiga
+`draft_n`/`draft_n_accepted` o que el log diga `draft acceptance = ...`: sin eso, la fase
+reporta **error**, no mide "igual de rápido" sobre un servidor que no está especulando.
+
+**Umbrales de H-034, escritos antes de medir** (constantes de `fases_h034.py`).
+
+`mtp_np1_velocidad` — A/B/C alternado `control`/`n-max 2`/`n-max 3` × 2 pasadas × 5
+familias (`prosa`, `codigo`, `json`, `reescritura`, `creativo`), `max_tokens 256`,
+`cache_prompt=false`. Adoptar exige las **cinco** cosas a la vez:
+
+| # | Criterio | Si no se cumple |
+|---|---|---|
+| 1 | mediana `tg` en **prosa+codigo+reescritura** **≥ 1,15×** el control para al menos un `n-max` | `adoptar=False`; si ninguno llega, no se recomienda ningún `n-max` |
+| 2 | **ninguna** familia baja de **0,95×** el control | `adoptar=False`; una mejora de media que hunde una familia no es una mejora |
+| 3 | `pp` **≥ 0,97×** el control | la cabeza ocupa memoria y toca el prefill: se admite un 3 % de peaje, no más |
+| 4 | **igualdad greedy exacta**: el `content` de cada brazo `mtp-*` es idéntico al del control por familia y pasada | `adoptar=False` y `error` lo explica: la verificación de MTP es exacta, un texto distinto no es la misma salida más rápida |
+| 5 | **especulación confirmada activa** en los brazos `mtp-*` | `adoptar=False`; medir dos brazos idénticos y anotar "no mejora" sería publicar una conclusión sobre MTP sin ejecutar MTP |
+
+`mtp_escalera_contexto` — un solo servidor candidato, escalera **8k / 32k / 64k /
+98k**, vigilando `dmesg` y reset de GPU en **cada escalón** (#27306: ya tuvimos un crash
+de GPU real por prefill largo, H-014) y parando en el primero. Adoptar solo si los cuatro
+puntos pasan sin incidente, con el servidor vivo y `/health` 200 después de cada uno, y
+`finish_reason` en `stop`/`length`; donde hay baseline de H-033 (428 t/s @8k, 340 @32k) se
+exige `pp` **≥ 0,90×**; para 64k y 98k no hay baseline y **no se fabrica una** (criterio:
+solo "sin incidente y terminación normal"). Un `dmesg` ilegible es "punto sin vigilancia",
+no "punto sano".
+
+`mtp_vision` — control y candidato responden a la misma imagen PNG (cuadrado rojo, generado
+en la fase con `zlib`+`struct`, sin PIL) con "rojo"/"red" y `finish_reason=stop`. Los dos
+tienen que acertar: la visión es requisito de uso (`--mmproj` está en la línea productiva),
+no una variable que se pueda apagar para que MTP luzca.
+
+Ninguna fase devuelve `aplicar`: H-034 no despliega nada (`np=1` no es la configuración
+productiva). "adoptar" aquí significa "la build MTP es segura y rápida a un slot"; el
+despliegue con `np=2` es H-035.
 
 ### H-035 — MTP con `np=2` + visión
 
