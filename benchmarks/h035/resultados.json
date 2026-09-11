@@ -1,0 +1,298 @@
+{
+ "run_id": "h035-20260911",
+ "unidad": "llama-flashnext",
+ "modelo": "qwen3.8-flash-next",
+ "baseline_sha": "df03399b885831b2a1603b3abb0d8c156808e363",
+ "candidato_sha": "df03399b885831b2a1603b3abb0d8c156808e363",
+ "patch": "patches/mtp-stack-pr28501-pr28243.patch",
+ "inicio": "2026-09-11T11:11:32+00:00",
+ "estado_inicial": "active",
+ "backup_unidad": "/etc/systemd/system/llama-flashnext.service.bak-h035-20260911",
+ "fases": {
+  "h035_diagnostico_greedy": {
+   "np": 1,
+   "n_max": 2,
+   "margen_empate_nats": 0.5,
+   "top_logprobs": 5,
+   "max_tokens": 256,
+   "cabeza_mtp": "mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "corpus": {
+    "objetivo": 2048,
+    "sha256": "5cce041a414b"
+   },
+   "criterio": "toda divergencia greedy debe ser un empate numerico: el token de MTP a <= 0.5 nats del top1 del control en la primera posicion distinta; 'no_verificado' tumba la fase",
+   "clases": {
+    "prosa": "empate",
+    "codigo": "identico",
+    "json": "identico",
+    "reescritura": "identico",
+    "creativo": "empate"
+   },
+   "n_identicas": 3,
+   "n_empates": 2,
+   "n_no_verificadas": 0,
+   "n_longitud": 0,
+   "divergencias": {
+    "prosa": {
+     "clase": "empate",
+     "posicion": 26,
+     "token_control": ",",
+     "token_mtp": " oper",
+     "logprob_control_top1": -1.7073,
+     "logprob_control_del_token_mtp": -1.7285,
+     "distancia_nats": 0.0212,
+     "margen": 0.5,
+     "top_control": {
+      ",": -1.7073,
+      " oper": -1.7285,
+      " dentro": -2.1152,
+      " mín": -2.229,
+      " en": -2.3965
+     },
+     "content_control": "El texto describe un procedimiento estandarizado de control de hornos que registra temperaturas, consume energía constante y documenta desviaciones, confirmando que ninguna de las 102 muestras analizadas presentó valores fuera del margen admitido.",
+     "content_mtp": "El texto describe un procedimiento estandarizado de control de hornos que registra temperaturas, consume energía constante y documenta desviaciones operativas, confirmando que ninguna de las 102 muestras analizadas presentó irregularidades fuera del margen admitido.",
+     "diff": "--- control\n+++ mtp\n@@ -1 +1 @@\n-El texto describe un procedimiento estandarizado de control de hornos que registra temperaturas, consume energía constante y documenta desviaciones, confirmando que ninguna de las 102 muestras analizadas presentó valores fuera del margen admitido.+El texto describe un procedimiento estandarizado de control de hornos que registra temperaturas, consume energía constante y documenta desviaciones operativas, confirmando que ninguna de las 102 muestras analizadas presentó irregularidades fuera del margen admitido."
+    },
+    "codigo": {
+     "clase": "identico",
+     "posicion": null,
+     "content_control": "```python\nimport unittest\n\n\ndef media_por_zona(lecturas):\n    \"\"\"\n    Recibe una lista de diccionarios {'zona': str, 'grados': float}\n    y devuelve un diccionario zona -> media redondeada a un decimal.\n    \"\"\"\n    from collections import defaultdict\n\n    zonas = defaultdict(list)\n    for lectura in lecturas:\n        zonas[lectura['zona']].append(lectura['grados'])\n\n    resultado = {}\n    for zona, grados in zonas.items():\n        media = sum(grados) / len(grados)\n        resultado[zona] = round(media, 1)\n\n    return resultado\n\n\nclass TestMediaPorZona(unittest.TestCase):\n    def test_una_zona(self):\n        lecturas = [\n            {'zona': 'A', 'grados': 20.0},\n            {'zona': 'A', 'grados': 22.0},\n            {'zona': 'A', 'grados': 24.0},\n        ]\n        resultado = media_por_zona(lecturas)\n        self.assertEqual(resultado, {'A': 22.0})\n\n    def test",
+     "content_mtp": "```python\nimport unittest\n\n\ndef media_por_zona(lecturas):\n    \"\"\"\n    Recibe una lista de diccionarios {'zona': str, 'grados': float}\n    y devuelve un diccionario zona -> media redondeada a un decimal.\n    \"\"\"\n    from collections import defaultdict\n\n    zonas = defaultdict(list)\n    for lectura in lecturas:\n        zonas[lectura['zona']].append(lectura['grados'])\n\n    resultado = {}\n    for zona, grados in zonas.items():\n        media = sum(grados) / len(grados)\n        resultado[zona] = round(media, 1)\n\n    return resultado\n\n\nclass TestMediaPorZona(unittest.TestCase):\n    def test_una_zona(self):\n        lecturas = [\n            {'zona': 'A', 'grados': 20.0},\n            {'zona': 'A', 'grados': 22.0},\n            {'zona': 'A', 'grados': 24.0},\n        ]\n        resultado = media_por_zona(lecturas)\n        self.assertEqual(resultado, {'A': 22.0})\n\n    def test"
+    },
+    "json": {
+     "clase": "identico",
+     "posicion": null,
+     "content_control": "[\n  {\n    \"zona\": \"zona norte\",\n    \"ciclo\": 12,\n    \"kw\": 4.7\n  },\n  {\n    \"zona\": \"zona sur\",\n    \"ciclo\": 12,\n    \"kw\": 3.9\n  },\n  {\n    \"zona\": \"zona este\",\n    \"ciclo\": 13,\n    \"kw\": 5.1\n  },\n  {\n    \"zona\": \"zona oeste\",\n    \"ciclo\": 13,\n    \"kw\": 2.8\n  }\n]",
+     "content_mtp": "[\n  {\n    \"zona\": \"zona norte\",\n    \"ciclo\": 12,\n    \"kw\": 4.7\n  },\n  {\n    \"zona\": \"zona sur\",\n    \"ciclo\": 12,\n    \"kw\": 3.9\n  },\n  {\n    \"zona\": \"zona este\",\n    \"ciclo\": 13,\n    \"kw\": 5.1\n  },\n  {\n    \"zona\": \"zona oeste\",\n    \"ciclo\": 13,\n    \"kw\": 2.8\n  }\n]"
+    },
+    "reescritura": {
+     "clase": "identico",
+     "posicion": null,
+     "content_control": "El sistema de control del horno registra la temperatura de cada zona cada quince segundos. La memoria unificada reparte el mismo pool entre el procesador y la grafica integrada. El operario anota la desviacion observada en la zona 3 y firma el parte de turno. Durante el ciclo 4 la resistencia superior consumio 4,7 kW y la inferior 3,9 kW. El informe compara el rendimiento sostenido con el pico declarado por el fabricante. Ninguna de las 6 muestras analizadas presento desviaciones fuera del margen admitido. La ventana de contexto reservada por slot no equivale a la ventana verificada de punta a punta. Se documenta el procedimiento completo para que otra persona pueda repetirlo sin preguntar. El sistema de control del horno registra la temperatura de cada zona cada quince segundos. La memoria unificada reparte el mismo pool entre el procesador y la grafica integrada. El operario anota la desviacion observada en la zona 11 y firma el parte de turno. Durante el ciclo 12 la resistencia superior consumio 4,7 kW y la inferior 3,9 kW. El informe compara el rendimiento sostenido con el pico declarado por el fabricante. Ninguna de",
+     "content_mtp": "El sistema de control del horno registra la temperatura de cada zona cada quince segundos. La memoria unificada reparte el mismo pool entre el procesador y la grafica integrada. El operario anota la desviacion observada en la zona 3 y firma el parte de turno. Durante el ciclo 4 la resistencia superior consumio 4,7 kW y la inferior 3,9 kW. El informe compara el rendimiento sostenido con el pico declarado por el fabricante. Ninguna de las 6 muestras analizadas presento desviaciones fuera del margen admitido. La ventana de contexto reservada por slot no equivale a la ventana verificada de punta a punta. Se documenta el procedimiento completo para que otra persona pueda repetirlo sin preguntar. El sistema de control del horno registra la temperatura de cada zona cada quince segundos. La memoria unificada reparte el mismo pool entre el procesador y la grafica integrada. El operario anota la desviacion observada en la zona 11 y firma el parte de turno. Durante el ciclo 12 la resistencia superior consumio 4,7 kW y la inferior 3,9 kW. El informe compara el rendimiento sostenido con el pico declarado por el fabricante. Ninguna de"
+    },
+    "creativo": {
+     "clase": "empate",
+     "posicion": 26,
+     "token_control": " grados",
+     "token_mtp": " gradient",
+     "logprob_control_top1": -1.2987,
+     "logprob_control_del_token_mtp": -1.4905,
+     "distancia_nats": 0.1918,
+     "margen": 0.5,
+     "top_control": {
+      " grados": -1.2987,
+      " gradient": -1.4905,
+      " ter": -1.6188,
+      " cur": -3.1645,
+      " vat": -3.2256
+     },
+     "content_control": "El horno industrial, una bestia de acero inoxidable y resistencias de tungsteno, no pensaba en palabras, sino en grados Kelvin y ciclos de combustión, hasta que un fallo en su termostato principal lo obligó a leer su propia temperatura interna como si fuera un espejo; por primera vez, la máquina no solo cocía pan, sino que observaba el calor que la consumía, descubriendo en la oscilación de sus agujas una extraña y fría conciencia de su propia finitud.",
+     "content_mtp": "El horno industrial, una bestia de acero inoxidable y resistencias de tungsteno, no pensaba en palabras, sino en gradientes térmicos y ciclos de presión, hasta que un fallo en su termostato principal lo obligó a leer sus propios datos de error como si fueran un diario íntimo; por primera vez, la temperatura de 200 grados no fue solo un estado operativo, sino una sensación de fiebre, y el zumbido constante de sus ventiladores se convirtió en una respiración consciente que, al regularse, le enseñó que la precisión no era solo una métrica de eficiencia, sino la forma más pura de meditar sobre su propia existencia.",
+     "diff": "--- control\n+++ mtp\n@@ -1 +1 @@\n-El horno industrial, una bestia de acero inoxidable y resistencias de tungsteno, no pensaba en palabras, sino en grados Kelvin y ciclos de combustión, hasta que un fallo en su termostato principal lo obligó a leer su propia temperatura interna como si fuera un espejo; por primera vez, la máquina no solo cocía pan, sino que observaba el calor que la consumía, descubriendo en la oscilación de sus agujas una extraña y fría conciencia de su propia finitud.+El horno industrial, una bestia de acero inoxidable y resistencias de tungsteno, no pensaba en palabras, sino en gradientes térmicos y ciclos de presión, hasta que un fallo en su termostato principal lo obligó a leer sus propios datos de error como si fueran un diario íntimo; por primera vez, la temperatura de 200 grados no fue solo un estado operativo, sino una sensación de fiebre, y el zumbido constante de sus ventiladores se convirtió en una respiración consciente que, al regularse, le enseñó que la precisión no era solo una métrica de eficiencia, sino la forma más pura de meditar sobre su propia existencia."
+    }
+   },
+   "fallos": [],
+   "errores": []
+  },
+  "h035_np2_kvu_aislamiento": {
+   "np": 2,
+   "kvu": true,
+   "n_max": 2,
+   "ciclos": 30,
+   "cabeza_mtp": "mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "prompt_n": 2086,
+   "peticiones": 60,
+   "contaminaciones": 0,
+   "fallos_recuperacion": 0,
+   "otros_fallos": 0,
+   "especulacion": {
+    "timings": true,
+    "log": true
+   },
+   "problemas": [],
+   "criterio": "cero contaminaciones, <=10 % de fallos de recuperacion, especulacion activa",
+   "fallos": [],
+   "errores": []
+  },
+  "h035_np2_kvu_velocidad": {
+   "np": 2,
+   "kvu": true,
+   "n_max": 2,
+   "pasadas": 2,
+   "orden": [
+    "control",
+    "mtp",
+    "control",
+    "mtp"
+   ],
+   "concurrencia": 2,
+   "max_tokens": 256,
+   "cabeza_mtp": "mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "corpus": {
+    "objetivo": 2048,
+    "sha256": "5cce041a414b"
+   },
+   "umbrales": {
+    "tg_mediana": 1.15,
+    "tg_por_familia": 0.95,
+    "pp": 0.97,
+    "greedy": "identico o empate del diagnostico"
+   },
+   "tabla": {
+    "control": {
+     "prosa": {
+      "tg": 21.28432249323501,
+      "pp": 223.61278411178137,
+      "muestras": 4
+     },
+     "codigo": {
+      "tg": 21.237328600845082,
+      "pp": 46.76890854585952,
+      "muestras": 4
+     },
+     "json": {
+      "tg": 22.167961677071148,
+      "pp": 59.8190500039522,
+      "muestras": 4
+     },
+     "reescritura": {
+      "tg": 21.448170059835196,
+      "pp": 158.8877435972672,
+      "muestras": 4
+     },
+     "creativo": {
+      "tg": 21.691176342766205,
+      "pp": 26.693393521606062,
+      "muestras": 4
+     }
+    },
+    "mtp": {
+     "prosa": {
+      "tg": 23.14400530111903,
+      "pp": 231.22029078128006,
+      "muestras": 4
+     },
+     "codigo": {
+      "tg": 31.2218840163019,
+      "pp": 96.32102783679417,
+      "muestras": 4
+     },
+     "json": {
+      "tg": 31.775994220817473,
+      "pp": 113.74354072132246,
+      "muestras": 4
+     },
+     "reescritura": {
+      "tg": 31.94609893069684,
+      "pp": 194.5964106501637,
+      "muestras": 4
+     },
+     "creativo": {
+      "tg": 21.966084486296005,
+      "pp": 62.75524306855236,
+      "muestras": 4
+     }
+    }
+   },
+   "ratio_tg": 1.4624,
+   "ratio_pp": 1.9015,
+   "ratio_tg_por_familia": {
+    "prosa": 1.0874,
+    "codigo": 1.4701,
+    "json": 1.4334,
+    "reescritura": 1.4895,
+    "creativo": 1.0127
+   },
+   "acceptance_mediana": 0.9543,
+   "especulacion": {
+    "timings": true,
+    "log": true
+   },
+   "greedy": {
+    "intra_slot_distinto": [
+     "control codigo p1",
+     "control codigo p2",
+     "control creativo p1",
+     "control creativo p2",
+     "control json p1",
+     "control json p2",
+     "control prosa p1",
+     "control prosa p2",
+     "mtp codigo p1",
+     "mtp codigo p2",
+     "mtp creativo p1",
+     "mtp creativo p2",
+     "mtp prosa p1",
+     "mtp prosa p2"
+    ],
+    "mtp_vs_control_distinto": [
+     "codigo p1",
+     "codigo p2",
+     "json p1"
+    ],
+    "explicadas_por_diagnostico": [
+     "creativo p1",
+     "creativo p2",
+     "prosa p1",
+     "prosa p2"
+    ]
+   },
+   "fallos": [
+    "dos slots con el mismo prompt greedy dieron texto distinto: control codigo p1, control codigo p2, control creativo p1, control creativo p2, control json p1, control json p2, control prosa p1, control prosa p2, mtp codigo p1, mtp codigo p2, mtp creativo p1, mtp creativo p2, mtp prosa p1, mtp prosa p2",
+    "MTP difiere del control sin que el diagnostico lo explique como empate: codigo p1, codigo p2, json p1"
+   ],
+   "errores": [],
+   "despliega_mtp": false
+  },
+  "h035_np2_kvu_vision": {
+   "np": 2,
+   "kvu": true,
+   "n_max": 2,
+   "cabeza_mtp": "mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "mmproj": "/models/gguf/qwen38-flash-next/mmproj-F16.gguf",
+   "brazos": {
+    "control": {
+     "acierta": true,
+     "texto": "Rojo"
+    },
+    "mtp": {
+     "acierta": true,
+     "texto": "Rojo"
+    },
+    "mtp_concurrente": {
+     "vision_acierta": true,
+     "vision": "Rojo",
+     "texto_acierta": true,
+     "texto": "CUATRO"
+    }
+   },
+   "criterio": "control y mtp dicen rojo; y con vision+texto concurrentes en el mtp, ambas respuestas correctas",
+   "fallos": [],
+   "errores": []
+  }
+ },
+ "votos_fases": [
+  true,
+  true,
+  false,
+  true
+ ],
+ "adoptar": false,
+ "cambios": [
+  "fase h035_np2_kvu_velocidad"
+ ],
+ "gates": {
+  "tras-aplicar": {
+   "restauracion": true,
+   "smoke_exacto": true
+  }
+ },
+ "aplicado": true,
+ "notas": [
+  "fase h035_np2_kvu_velocidad: dos slots con el mismo prompt greedy dieron texto distinto: control codigo p1, control codigo p2, control creativo p1, control creativo p2, control json p1, control json p2, control prosa p1, control prosa p2, mtp codigo p1, mtp codigo p2, mtp creativo p1, mtp creativo p2, mtp prosa p1, mtp prosa p2; MTP difiere del control sin que el diagnostico lo explique como empate: codigo p1, codigo p2, json p1"
+ ],
+ "estado_final": "active",
+ "codigo_salida": 2,
+ "fin": "2026-09-11T11:24:06+00:00"
+}
