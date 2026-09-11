@@ -174,7 +174,7 @@ Ninguna fase devuelve `aplicar`: H-034 no despliega nada (`np=1` no es la config
 productiva). "adoptar" aquí significa "la build MTP es segura y rápida a un slot"; el
 despliegue con `np=2` es H-035.
 
-### H-035 — MTP con `np=2` + visión (aquí sí se despliega)
+### H-035 — MTP con `np=2` + visión (aquí sí se despliega) — ✔ DESPLEGADO 11-09-2026 16:56 (h035c)
 
 **Solo si H-034 sale limpio.** Es la combinación que toca #28286; meterla antes de
 tener H-034 en verde sería mover dos variables y no saber cuál rompió.

@@ -1598,3 +1598,54 @@ ofrece. El smoke exacto (`391`) es corto y sobrevivió; se mantiene.
 `campana.py --patch-baseline` (la baseline también lleva parche),
 `fases_h035.py` (4 fases), 30 pruebas nuevas que fallan todas contra el
 commit anterior.
+
+
+### H-035b / H-035c — Dos falsos rojos del instrumento y el despliegue de la cabeza MTP en producción (2026-09-11, 16:27–16:57)
+
+**H-035b (16:27–16:40, no desplegó).** Con el gate greedy ya por logprobs, la
+fase 3 dio ×1,61 de tg, 0 fugas, visión OK y 3 `no_verificado`. Las tres eran
+comparaciones **entre los dos slots del brazo MTP**: llama.cpp devuelve los
+tokens **aceptados del borrador con `logprob: 0` y `top_logprobs: []`**, así que
+la "referencia" no tenía distribución y el clasificador contaba el otro token
+como "fuera del top". Un cuarto caso, ` horn`+`o` frente a ` horno`, era la
+misma cadena con distinta tokenización. Las 17 divergencias restantes eran
+empates a 0,003–0,42 nats. **Ningún fallo del MTP: dos fallos del
+instrumento**, que las pruebas con dobles no cazaron porque el doble devolvía
+logprobs completos también en el brazo MTP. Corregido en `94592e7`: la
+referencia es siempre el control (no especula, trae distribución en todo), cada
+slot del MTP se juzga contra él, misma cadena = idéntico, y el doble imita ahora
+los `logprob 0` de los tokens aceptados (los 3 tests nuevos fallan contra el
+commit anterior).
+
+**H-035c (16:43–16:57, DESPLEGADO).** Las cuatro fases adoptan:
+
+| fase | resultado |
+|---|---|
+| diagnóstico greedy (np=1) | código/json/reescritura idénticos; prosa y creativo empate (mismo token 26 que en H-035) |
+| aislamiento np=2 -kvu | 60/60, 0 contaminaciones |
+| velocidad np=2 -kvu, 2 concurrentes | tg mediana **×1,615**, pp **×1,88**, aceptación 0,954; 30 comparaciones: 6 idénticas, **24 empates (máx 0,478 nats)**, 0 no verificadas |
+| visión np=2 | Rojo / Rojo / Rojo+CUATRO |
+
+Velocidad por familia (tg por slot con dos peticiones a la vez): código
+19,25 → **31,09** (×1,62), json 20,60 → **31,64** (×1,54), reescritura
+19,24 → **31,73** (×1,65), prosa 20,52 → 23,55 (×1,15), creativo 19,57 →
+21,92 (×1,12).
+
+El runner escribió los cuatro flags en la unidad tras `--mmproj`
+(`banco.pon_mtp`), promovió la build `df03399+6e8170fb` (`builds.sh
+promover`; `ANTERIOR` = `+14eebc61`) y reinició. Gates **verdes**:
+`restauracion.sh` 8/8 y `smoke_exacto` (391). Verificado sobre el proceso
+vivo: `/proc/<pid>/exe` apunta a la build `+6e8170fb`; la línea lleva
+`--spec-type draft-mtp -md …/MTP/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf
+--spec-draft-n-max 2 --spec-draft-p-min 0 -np 2 -kvu --mmproj …`; una petición
+de código de 120 tokens a un slot: **48,9 t/s, draft 46/43** (antes 27).
+
+**Producción hoy**: Qwen3.8-Flash-Next UD-IQ4_XS + mmproj + cabeza MTP Q8_0,
+`np=2 -kvu`, build `df03399` + PR #28501 + PR #28243. Volver atrás =
+`builds.sh volver` + restaurar `llama-flashnext.service.bak-h035c-20260911` +
+`systemctl restart`.
+
+**Acumulado vs el arranque del M5 (8-sep, 225 pp / 25,4 tg)**: generación de
+código/JSON ×1,9 a un slot (49 t/s) y ×1,6 por slot con dos; prosa/creativo
+×1,1–1,3; prefill 8k ×1,9 (431) y prompts cortos hasta ×4. Lo que queda
+(H-036): la cabeza propia de drluoto para prosa, donde MTP casi no ayuda.
