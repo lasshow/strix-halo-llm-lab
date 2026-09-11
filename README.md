@@ -156,7 +156,15 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
 └── scripts/
     ├── bench-ubatch.py          Mide pp/tg contra llama-server con prompt real
     ├── bench-context.py         Barrido de longitud de contexto + prueba de aguja
-    ├── smoke-test.sh            Comprobación rápida de carga y coherencia
+    ├── bench-calidad.py         Lanza la batería de calidad y guarda respuestas crudas
+    ├── verifica-codigo.py       Compila y ejecuta el código que genera el modelo
+    ├── campana.py               Runner de campañas A/B: gates, rollback y fases enchufables
+    ├── builds.sh                Builds por SHA en /models/llama-builds + symlink de promoción
+    ├── prompts.py               Corpus medido con el tokenizador real y congelado con su sha256
+    ├── salud.py                 La única espera: unidad activa + /health + modelo correcto
+    ├── validacion.py            Contratos de respuesta, un contrato por tipo de prueba
+    ├── credencial.sh            Deriva la clave de API del ExecStart efectivo de la unidad
+    ├── smoke-test.sh            Comprobación rápida de carga y coherencia (17×23 exacto)
     └── restauracion.sh          ¿Quedó producción como estaba tras un barrido?
 ```
 

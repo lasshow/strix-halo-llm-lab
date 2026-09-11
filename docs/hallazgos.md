@@ -1222,20 +1222,41 @@ de la ficha, no del fichero, y aqui se cae. `ngram-simple` arranca y da lo
 esperado de un metodo sin modelo: acceptance 29,6 % solo en codigo (26,31 vs
 27,65 t/s del control = **peor**, porque cada borrador rechazado cuesta un
 paso de verificacion), 0 % en prosa/json/creativo (identico al control).
-Ganancia prosa+codigo 0,976x → no adoptable. Con tg ya limitado por ancho de
-banda a ~27 t/s y ~3B activos, el margen de la especulacion es escaso salvo
-con un borrador que acepte >60 %.
+Ganancia prosa+codigo 0,976x → no adoptable.
+
+**Lo que este resultado SI dice sobre MTP, con precision** (corregido, la
+redaccion anterior daba a entender que la via estaba cerrada): MTP embebido no
+disponible en el GGUF/build productivo. Unsloth publica cabezas sidecar en
+`MTP/` (shared-Q8_0 = 2,79 GB); requieren una rama con soporte qwen4exp-MTP
+(PR #28243, abierta y draft) y **no han sido evaluadas aqui**. Lo medido es
+que el fichero que tenemos cargado no las lleva, no que el modelo no las
+tenga.
+
+**Y sobre el techo:** la ruta no especulativa se estabiliza en ~27 t/s y
+parece limitada por ancho de banda. **No es el techo de throughput efectivo:**
+la especulacion amortiza varias salidas por lectura de pesos, asi que un
+borrador que acepte de verdad rompe ese ~27 t/s en lugar de rozarlo. El
+`0,976x` de `ngram-simple` mide un borrador malo, no un limite fisico.
 
 **F3 · DPM `auto` vs `high`** (3 peticiones cortas tras 45 s de reposo, ciclo
-auto→high→auto): prompt_ms 820 / 816 / 821 — **identico**. Idle 6,6 W → 14,4 W
-(+7,8 W a cambio de nada). El reloj sube en cuanto entra trabajo; el arranque
-"frio" que se sospechaba no existe a escala de una peticion. No adoptado.
+auto→high→auto): prompt_ms 820 / 816 / 821. Idle 6,6 W → 14,4 W (+7,8 W a
+cambio de nada). Enunciado con el alcance que tiene: **no se detecto
+penalizacion de prompt_ms atribuible al escalado DPM tras 45 s de reposo en
+este ensayo.** No es "el escalado no existe": es que a escala de una peticion
+y con este reposo no se vio, y por eso no se adopta (se pagaria la potencia
+sin contrapartida medida).
 
 **F4 · aplicado:** rebuild del arbol productivo a df03399 (restorecon
-incluido) y `--cache-ram 4096 → 12288` (17 GB libres medidos; caben ~4
-conversaciones de 33k en cache en vez de 1). Smoke: respuesta no vacia con
+incluido) y `--cache-ram 4096 → 12288`. Smoke: respuesta no vacia con
 `finish_reason=stop` ('391' a 17·23), control negativo 401, `/props`
 `modalities.vision=true`. Produccion final: pp 336,2 · tg 26,86.
+
+**cache-ram, dicho como toca:** unica palanca de capacidad adoptada; **su
+beneficio no esta cuantificado**. Provisional hasta H-032 (issue #27148 y fix
+#27624 abiertos). Los 17 GB libres medidos y las "~4 conversaciones de 33k en
+cache en vez de 1" son aritmetica de capacidad, no una medida de ganancia. Y
+un aviso de metodo: la ausencia de lineas de prompt-cache en el journal **NO
+prueba inactividad**; lo que se mide es `cache_n`, TTFT y memoria.
 
 **Lecciones:**
 - Una capacidad declarada en la ficha del modelo (MTP) hay que comprobarla
@@ -1247,3 +1268,83 @@ conversaciones de 33k en cache en vez de 1). Smoke: respuesta no vacia con
   el `prompt_n` real en tablas.
 - Con umbrales escritos de antemano, tres de cuatro palancas quedaron en "no"
   y el informe lo dice sin que nadie tenga que defender la noche de trabajo.
+
+#### Fallos de ingenieria de la campana
+
+Las medidas de arriba se sostienen. El **instrumento** que las tomo, no: una
+auditoria externa encontro seis defectos, todos verificados en el codigo, y
+tres de ellos habrian pasado inadvertidos precisamente porque la campana salio
+bien. Corregidos en `37ddb36` (instrumental) con pruebas en `d3b6cbe`.
+
+| | Fallo | Por que importa | Donde se cierra |
+|---|---|---|---|
+| **A** | `restauracion.sh` l.48 leia la clave de `LLAMA_API_KEY=` en `/etc/llama-server/*.env`, pero la unidad arranca con `--api-key-file`. Coincidian por un `.env` residual. | El gate comprobaba el servicio con una credencial que el servicio no usa. Tras una rotacion daria falso rojo o **falso verde** segun que fichero se hubiera tocado. | `scripts/credencial.sh`: la credencial se deriva del `ExecStart` efectivo (`systemctl cat`) y viaja por el entorno; solo se imprime enmascarada. |
+| **B** | `campana-nocturna.py::espera_prod` (l.433) devolvia True con `/health`=200 y consultaba `is-active` despues. | Cualquier proceso escuchando en el puerto daba verde a "produccion restaurada". `bench-ubatch.py::espera_salud` ya lo hacia bien: habia dos esperas y una estaba mal. | `scripts/salud.py::espera_servicio`, unica: unidad activa **y** `/health` 200 **y** modelo correcto en `/v1/models`. |
+| **C** | `smoke_prod` (l.448) aceptaba contenido no vacio + `stop`; no comprobaba que 17×23 fuera `391`. | Gate de promocion insuficiente: un backend roto responde, pero mal (es el fallo de H-021 otra vez, en otro sitio). | Los gates son `restauracion.sh` (generico) + `smoke-test.sh` (exacto), llamados como procesos. El exacto fija ademas `enable_thinking:false`. |
+| **D** | Al adoptar la build se compilo **encima** de `/models/llama.cpp`; el rollback restauraba solo la unidad. | La unidad restaurada seguia apuntando al mismo path, ya con el binario nuevo dentro. **Restaurar la unidad no es restaurar la build:** el rollback existia sobre el papel. | `scripts/builds.sh`: build por sha en `/models/llama-builds/<sha>/`, promocion por symlink y `volver`. El runner revierte las dos cosas. |
+| **E** | Script de un solo uso: worktree reutilizado sin comprobar a que apuntaba, `bak-campana-20260910` cableado, baseline `311d421` a mano, produccion **arrancada siempre** al final aunque empezara parada, y sin pruebas. | Cambiar el estado de la maquina por tu cuenta no es restaurar. Y sin pruebas, cada campana reestrena los fallos de la anterior. | `scripts/campana.py`: todo parametrizado, `estado_inicial` registrado y respetado, backup `.bak-<run-id>`, fases enchufables. |
+| **F** | `TOKENS_POR_PALABRA = 1,78` estimaba un **24 % corto** (2.294 reales vs 3.000 pedidos). | Las etiquetas "3k/24k" de las tablas eran falsas. No invalida la comparacion, pero si la lectura. | `scripts/prompts.py`: corpus medido con el tokenizador real, congelado con su sha256 y verificado antes de cada A/B. |
+
+La leccion que engloba a las seis: **una campana que sale bien no valida su
+propio instrumental.** A, C y D solo se habrian manifestado en el camino de
+fallo, que esa noche no se recorrio.
+
+### H-031b — Lo que queda abierto de H-031, y una referencia externa que no hemos medido
+
+**Fecha:** 2026-09-11 · sin medidas propias nuevas · **todo lo de aqui esta
+marcado como no medido aqui**
+
+Cinco cosas que H-031 dejo enunciadas con mas seguridad de la que tenian. Se
+separan en una entrada propia para que no se citen como resultado:
+
+1. **MTP.** MTP embebido no disponible en el GGUF/build productivo. Unsloth
+   publica cabezas sidecar en `MTP/` (shared-Q8_0 = 2,79 GB); requieren una
+   rama con soporte qwen4exp-MTP (PR #28243, abierta y draft) y **no han sido
+   evaluadas aqui**. Pendiente en H-034.
+2. **Techo.** La ruta no especulativa se estabiliza en ~27 t/s y parece
+   limitada por ancho de banda. **No es el techo de throughput efectivo:** la
+   especulacion amortiza varias salidas por lectura de pesos.
+3. **cache-ram.** Unica palanca de capacidad adoptada; **su beneficio no esta
+   cuantificado**. Provisional hasta H-032 (issue #27148 y fix #27624
+   abiertos). La ausencia de lineas de prompt-cache en el journal **no prueba
+   inactividad**: se mide `cache_n`, TTFT y memoria.
+4. **DPM.** No se detecto penalizacion de `prompt_ms` atribuible al escalado
+   DPM tras 45 s de reposo en este ensayo.
+5. **Instrumental.** Los seis fallos A-F de la tabla anterior, cerrados en
+   `37ddb36`/`d3b6cbe`, pero **sin ejecutar todavia una campana completa con
+   el runner nuevo contra el M5**. El mecanismo esta probado contra un M5 de
+   mentira; la primera campana real sera H-032.
+
+#### Referencia externa: `drluoto/llama.cpp`, rama `strix-halo-vulkan`
+
+**No medido aqui. Ninguna cifra de este bloque es nuestra.** Se anota porque
+es el mismo hardware —Bosgame M5, Radeon 8060S, RADV— y porque su punto de
+partida coincide con el nuestro: **sin especulacion, 27 t/s**. Commit
+`ba5354d`, documentado en su `docs/strix-halo-flash-next-vulkan.md`.
+
+Su pila combina requant de los densos a Q5_K con routers en Q8_0, una cabeza
+de borrador `frspec-65k` propia, `GGML_VK_DISABLE_GDN_CACHE_FUSION=1`, y
+`-np 3 --ctx-checkpoints 8`. Con eso reportan (repito: **cifras suyas, no
+verificadas por nosotros**):
+
+| Magnitud | Cifra reportada |
+|---|---|
+| decode, warm | 33,1 t/s |
+| decode, codigo @8k | 41,6 t/s |
+| decode, reescritura @8k | 55,4 – 63,2 t/s |
+| prefill @8k | 340 → 510 t/s |
+| prefill @32k | 280 → 390 t/s |
+
+(En su tabla de agentes esos dos ultimos aparecen como 517 y 391.)
+
+Dos avisos antes de que a nadie se le ocurra clonarlo:
+
+- **No documentan `--mmproj`.** La vision es requisito de uso aqui, no
+  variable, asi que una pila sin ella no es sustituible por la nuestra
+  aunque sus numeros sean mejores.
+- **Cantera de parches, no checkout.** Lo util es evaluar sus cambios **uno a
+  uno** contra nuestra linea base (eso es H-036), no adoptar un arbol entero
+  cuyo comportamiento con nuestro GGUF, nuestra cuantizacion y nuestra
+  configuracion de vision no conocemos. Cambiar diez cosas a la vez y medir
+  una mejora no dice cual de las diez la produjo — y es justo el error que
+  H-022 nos costo desmontar.
