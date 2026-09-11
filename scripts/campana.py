@@ -468,14 +468,20 @@ def main(argv=None) -> int:
             cambios.append(f"fase {nombre}")
         texto, hechos = aplica_cambios_texto(texto, a.cambio_unidad)
         cambios += hechos
-        if texto != unidad_original:
+        unidad_cambia = texto != unidad_original
+        if unidad_cambia:
             escribe_unidad(a.unidad, texto, a.salida)
-            sh(_sudo(f"{SYSTEMCTL} restart {a.unidad}"))
         if adoptar and a.candidato_sha:
             sh(f"bash {shlex.quote(os.path.join(AQUI, 'builds.sh'))} promover "
                f"{shlex.quote(ids['candidato'])}", check=True)
             promovido = True
             cambios.append(f"build promovida {a.candidato_sha[:12]}")
+        # Reiniciar si cambio la unidad O la build: promover mueve el symlink
+        # pero el proceso vivo sigue con el binario viejo hasta el restart. En
+        # H-036 D se promovio sin reiniciar y el gate dio verde sobre el
+        # binario anterior: symlink y proceso quedaron incoherentes.
+        if unidad_cambia or promovido:
+            sh(_sudo(f"{SYSTEMCTL} restart {a.unidad}"))
     except Exception as e:
         ctx.nota(f"no pude aplicar los cambios: {type(e).__name__}: {e}")
         return _rollback(ctx, resultados, backup, promovido, SALIDA_GATE)

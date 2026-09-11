@@ -70,6 +70,7 @@ SYSTEMCTL_FALSO = r"""#!/usr/bin/env bash
 BASE="__BASE__"
 UNIT="$BASE/systemd/__UNIDAD__.service"
 EST="$BASE/estado"
+echo "$*" >> "$BASE/systemctl.log"
 case "${1:-}" in
   cat)            cat "$UNIT" ;;
   is-active)      cat "$EST" ;;
@@ -553,6 +554,20 @@ class RollbackDeUnidadYDeBuild(CampanaBase):
         p = self.corre_campana("--forzar-adopcion", "--cambio-unidad",
                                "--cache-ram 4096=>--cache-ram 12288")
         self.assertEqual(p.returncode, 3, p.stdout[-2000:])
+
+    def test_promover_la_build_reinicia_aunque_la_unidad_no_cambie(self):
+        """H-036 D: se promovio la build (symlink) sin tocar la unidad y el
+        runner NO reinicio; el gate dio verde sobre el binario VIEJO y el
+        proceso vivo quedo incoherente con el symlink. Promover exige restart."""
+        p = self.corre_campana("--forzar-adopcion")
+        self.assertEqual(p.returncode, 0, p.stdout[-1500:])
+        self.assertEqual(self.apunta_a(), "cand1111")
+        with open(os.path.join(self.m5.base, "systemctl.log")) as f:
+            llamadas = [l.split()[0] for l in f if l.strip()]
+        # tras la parada inicial y el start de fin de fases, tiene que haber un
+        # restart posterior a la promocion
+        self.assertIn("restart", llamadas, llamadas)
+        self.assertGreater(llamadas.index("restart"), llamadas.index("start"), llamadas)
 
     def test_gate_verde_deja_el_cambio_y_la_build_puestos(self):
         GUION["marca_roja"] = "no-aparece-en-la-unidad"
