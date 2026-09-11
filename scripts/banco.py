@@ -320,6 +320,46 @@ def pon_cache_ram(texto_unidad: str, valor: int) -> str:
     return nuevo
 
 
+_RE_LINEA_SPEC = re.compile(
+    r"[ \t]*(?:--spec-type|-md|--model-draft|--spec-draft-n-max|--spec-draft-p-min)"
+    r"[= \t]+\S+[ \t]*\\?\n")
+
+
+def pon_mtp(texto_unidad: str, cabeza: str, n_max: int, p_min: float = 0.0) -> str:
+    """Deja la cabeza MTP sidecar en el texto de la unidad (H-035).
+
+    Inserta `--spec-type draft-mtp`, `-md <cabeza>`, `--spec-draft-n-max` y
+    `--spec-draft-p-min` justo despues de la linea `--mmproj` (la vision es
+    requisito y asi quedan juntas las dos piezas que dependen del modelo). Si
+    la unidad ya trae flags de especulacion se sustituyen, no se duplican: dos
+    `--spec-type` en una linea de arranque es exactamente el tipo de error que
+    un `daemon-reload` no avisa y un `restart` convierte en produccion caida.
+
+    Sin `--mmproj` es ERROR: no hay ancla y la unidad no es la que se probo.
+    """
+    if not os.path.isabs(cabeza) or not cabeza.endswith(".gguf"):
+        raise RuntimeError(f"cabeza MTP no es una ruta absoluta a un .gguf: {cabeza!r}")
+    if not isinstance(n_max, int) or isinstance(n_max, bool) or n_max < 1:
+        raise RuntimeError(f"n_max invalido: {n_max!r}")
+    limpio = _RE_LINEA_SPEC.sub("", texto_unidad)
+    ancla = re.search(r"^([ \t]*)--mmproj[ \t=]+\S+[ \t]*\\\n", limpio, re.M)
+    if not ancla:
+        raise RuntimeError(
+            "la unidad no trae --mmproj en su propia linea: sin ese ancla no se "
+            "inserta la cabeza MTP (la vision es requisito, no se despliega sin ella)")
+    sangria = ancla.group(1)
+    bloque = (f"{sangria}--spec-type draft-mtp \\\n"
+              f"{sangria}-md {cabeza} \\\n"
+              f"{sangria}--spec-draft-n-max {n_max} \\\n"
+              f"{sangria}--spec-draft-p-min {p_min:g} \\\n")
+    return limpio[:ancla.end()] + bloque + limpio[ancla.end():]
+
+
+def quita_mtp(texto_unidad: str) -> str:
+    """Deja la unidad sin cabeza MTP (el `aplicar` cuando H-035 NO adopta)."""
+    return _RE_LINEA_SPEC.sub("", texto_unidad)
+
+
 # ================================================================== peticiones
 def peticion_chat(url: str, clave: str | None, messages: list[dict],
                   timeout: float = 900, **params) -> dict:

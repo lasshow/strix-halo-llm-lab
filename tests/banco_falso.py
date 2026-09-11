@@ -150,6 +150,41 @@ def familia_de(texto: str) -> str | None:
     return None
 
 
+# H-035: texto largo determinista (mismo en control y MTP), tokenizado por
+# palabras, y una divergencia colocable en una posicion concreta.
+def _texto_largo(fam: str) -> str:
+    return " ".join(f"{fam}{i}" for i in range(40))
+
+
+def _tokens_logprobs(contenido: str, divergencia: dict | None) -> list[dict]:
+    """Un token por palabra (con su espacio). El control da top1 -0,1 y un
+    segundo -0,4 ("alt"). Con `divergencia` = {"posicion": i, "clase": ...}
+    el brazo MTP cambia el token i:
+      clase "empate":        el token pasa a ser el segundo del top del control
+                             (que esta a 0,3 nats: dentro de un margen de 0,5)
+      clase "no_verificado": el token es uno que NO esta en el top del control
+      clase "lejano":        el token es el ultimo del top, a 3 nats
+    """
+    palabras = contenido.split(" ")
+    salida = []
+    pos = int(divergencia.get("posicion", -1)) if divergencia else -1
+    clase = (divergencia or {}).get("clase")
+    for i, p in enumerate(palabras):
+        tok = (" " if i else "") + p
+        top = {tok: -0.1, tok + "_alt": -0.4, tok + "_lejos": -3.1}
+        elegido, lp = tok, -0.1
+        if i == pos:
+            if clase == "empate":
+                elegido, lp = tok + "_alt", -0.4
+            elif clase == "lejano":
+                elegido, lp = tok + "_lejos", -3.1
+            elif clase == "no_verificado":
+                elegido, lp = tok + "_fuera", -0.2
+        salida.append({"token": elegido, "logprob": lp,
+                       "top_logprobs": [{"token": k, "logprob": v} for k, v in top.items()]})
+    return salida
+
+
 def anota(reg: dict) -> None:
     ruta = os.environ.get("BANCO_FALSO_REGISTRO")
     if not ruta:
@@ -275,16 +310,32 @@ def responde(cuerpo: dict) -> dict:
         if "¿Cuál era el CÓDIGO?" in ultimo and codigos:
             etiqueta_propia, nonce_propio = codigos[-1]
             contenido = nonce_propio
-            if CONF.get("contamina"):
+            # H-035: la contaminacion puede depender de la cabeza MTP (#28286):
+            # `contamina_con_mtp` solo fuga cuando el arranque lleva borrador.
+            if CONF.get("contamina") or (mtp and CONF.get("contamina_con_mtp")):
                 ajenos = [v for k, v in vistos.items() if k != etiqueta_propia]
                 if ajenos:
                     contenido = ajenos[orden % len(ajenos)]
+        elif "palabra CUATRO" in ultimo:
+            contenido = "CUATRO"
         elif cuerpo.get("seed") is not None:
             contenido = f"{por_brazo('greedy_prefijo', 'G')}{len(ultimo)}"
         else:
             contenido = "OK"
         if mtp and CONF.get("mtp_greedy_distinto"):
             contenido = contenido + "!"
+
+    # H-035: texto largo determinista por familia para poder localizar una
+    # divergencia en una posicion concreta con logprobs.
+    fam = familia_de(texto)
+    if cuerpo.get("logprobs") and fam:
+        contenido = _texto_largo(fam)
+    lp_conf = CONF.get("divergencia") or {}
+    tokens = None
+    if cuerpo.get("logprobs"):
+        tokens = _tokens_logprobs(contenido, lp_conf.get(fam) if (mtp and fam) else None)
+        if mtp and fam in lp_conf:
+            contenido = "".join(t["token"] for t in tokens)
 
     predicted = max(1, min(int(cuerpo.get("max_tokens") or 16), len(contenido) // 2 + 1))
     timings = {
@@ -298,8 +349,11 @@ def responde(cuerpo: dict) -> dict:
         draft_n = int(CONF.get("draft_n", 50))
         timings["draft_n"] = draft_n
         timings["draft_n_accepted"] = int(round(draft_n * acceptance))
+    eleccion = {"message": {"content": contenido}, "finish_reason": "stop"}
+    if tokens is not None and not CONF.get("sin_logprobs"):
+        eleccion["logprobs"] = {"content": tokens}
     return {
-        "choices": [{"message": {"content": contenido}, "finish_reason": "stop"}],
+        "choices": [eleccion],
         "timings": timings,
     }
 

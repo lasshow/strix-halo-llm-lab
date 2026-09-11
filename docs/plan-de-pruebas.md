@@ -174,10 +174,37 @@ Ninguna fase devuelve `aplicar`: H-034 no despliega nada (`np=1` no es la config
 productiva). "adoptar" aquí significa "la build MTP es segura y rápida a un slot"; el
 despliegue con `np=2` es H-035.
 
-### H-035 — MTP con `np=2` + visión
+### H-035 — MTP con `np=2` + visión (aquí sí se despliega)
 
 **Solo si H-034 sale limpio.** Es la combinación que toca #28286; meterla antes de
 tener H-034 en verde sería mover dos variables y no saber cuál rompió.
+
+H-034 dejó una cosa sin cerrar: 10/20 divergencias greedy con solo 80 chars
+guardados. `scripts/fases_h035.py`, lanzado con `scripts/cadena-h035.sh`
+(baseline = `df03399+PR28501` = producción; candidato = +PR28243):
+
+1. **`diagnostico_greedy`** (`np=1`): control y MTP con `logprobs: true,
+   top_logprobs: 5`, content COMPLETO. En la primera posición distinta se mira
+   la distribución del CONTROL: si el token que eligió MTP está a ≤ 0,5 nats del
+   top1 → **empate numérico** (deriva del lote de verificación, benigno); si no
+   está en el top-5 o está más lejos → **no_verificado** (la PR aceptó un token
+   que el objetivo no elegía) y la fase tumba la adopción.
+2. **`np2_kvu_aislamiento`**: MTP con la línea productiva, 4 conversaciones con
+   nonce, 30 ciclos de pares concurrentes (contrato H-032). Una contaminación =
+   #28286 nos toca = no se despliega.
+3. **`np2_kvu_velocidad`**: A/B alternado control/MTP a `np=2 -kvu`, 5 familias,
+   2 pasadas, **dos peticiones concurrentes** por familia. Umbrales: tg mediana
+   ≥ 1,15x, familia ≥ 0,95x, pp ≥ 0,97x, greedy idéntico o empate explicado por
+   la fase 1. Devuelve `aplicar`: si adopta, `banco.pon_mtp` escribe los 4 flags
+   tras `--mmproj`; si no, `banco.quita_mtp` (idempotente con la unidad de hoy).
+4. **`np2_kvu_vision`**: cuadrado rojo en ambos brazos y, en el MTP, visión y
+   texto a la vez (los dos slots).
+
+Despliegue: solo si las 4 adoptan, el runner escribe la unidad, promueve la
+build y pasa `restauracion.sh` + `smoke-test.sh`; rojo = rollback de unidad y
+build. Nota: el smoke exige `content == "391"` literal; con MTP una divergencia
+tipo empate sobre ese prompt haría rollback — es el comportamiento seguro, no
+un fallo del gate. `n-max = 2` (no pierde en ninguna familia en H-034).
 
 ### H-036 — Parches de `drluoto/llama.cpp`, uno a uno
 

@@ -186,6 +186,41 @@ def generacion_medida(d: dict, max_tokens: int) -> dict:
     }
 
 
+def tokens_con_logprobs(d: dict) -> list[dict]:
+    """Contrato de DIAGNOSTICO (H-035): la lista de tokens generados con su
+    logprob y sus alternativas (`logprobs: true, top_logprobs: N`).
+
+    Devuelve `[{"token", "logprob", "top": {token: logprob}}...]`. Su AUSENCIA
+    es fallo de medida: sin logprobs no se puede decidir si una divergencia
+    greedy es un empate numerico o un token que el objetivo nunca eligio, y una
+    lista vacia lo daria por 'identico' en falso.
+    """
+    ch = d.get("choices")
+    if not isinstance(ch, list) or not ch or not isinstance(ch[0], dict):
+        raise ErrorInfraestructura("respuesta sin 'choices': no es una respuesta de la API")
+    lp = ch[0].get("logprobs")
+    cont = lp.get("content") if isinstance(lp, dict) else None
+    if not isinstance(cont, list) or not cont:
+        raise ErrorInfraestructura(
+            "la respuesta no trae 'logprobs.content': se pidieron logprobs y el "
+            "servidor no los devolvio; sin ellos el diagnostico greedy no es posible")
+    salida = []
+    for i, e in enumerate(cont):
+        if not isinstance(e, dict) or not isinstance(e.get("token"), str):
+            raise ErrorInfraestructura(f"logprobs.content[{i}] sin 'token'")
+        v = e.get("logprob")
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(float(v)):
+            raise ErrorInfraestructura(f"logprobs.content[{i}].logprob invalido ({v!r})")
+        top = {}
+        for a in e.get("top_logprobs") or []:
+            if (isinstance(a, dict) and isinstance(a.get("token"), str)
+                    and isinstance(a.get("logprob"), (int, float))
+                    and not isinstance(a.get("logprob"), bool)):
+                top[a["token"]] = float(a["logprob"])
+        salida.append({"token": e["token"], "logprob": float(v), "top": top})
+    return salida
+
+
 def llamada_herramienta(d: dict, nombre: str | None = None) -> dict:
     """Contrato de HERRAMIENTAS: vale una llamada valida, sin exigir texto.
 

@@ -278,6 +278,9 @@ def main(argv=None) -> int:
     ap.add_argument("--repo", default="https://github.com/ggml-org/llama.cpp",
                     help="origen para builds.sh construir")
     ap.add_argument("--patch", default=None, help="parche a aplicar al candidato")
+    ap.add_argument("--patch-baseline", default=None,
+                    help="parche que YA lleva la baseline (H-035: produccion es "
+                         "df03399+PR28501, y el candidato apila mas encima)")
     ap.add_argument("--puerto-prod", type=int, default=8080)
     ap.add_argument("--puerto-banco", type=int, default=8081)
     ap.add_argument("--fase", action="append", default=[],
@@ -346,7 +349,11 @@ def main(argv=None) -> int:
         for cual, sha_ in (("baseline", a.baseline_sha), ("candidato", a.candidato_sha)):
             if not sha_:
                 continue
-            extra = f" --patch {shlex.quote(a.patch)}" if (a.patch and cual == "candidato") else ""
+            extra = ""
+            if cual == "candidato" and a.patch:
+                extra = f" --patch {shlex.quote(a.patch)}"
+            elif cual == "baseline" and a.patch_baseline:
+                extra = f" --patch {shlex.quote(a.patch_baseline)}"
             ctx.log(f"construyo {cual} {sha_[:12]}")
             try:
                 sh(f"bash {shlex.quote(os.path.join(AQUI, 'builds.sh'))} construir "
@@ -359,7 +366,8 @@ def main(argv=None) -> int:
     # El identificador de build de builds.sh es <sha> o <sha>+<sha256(parche)[:8]>
     # cuando el candidato lleva parche: dos builds del mismo sha con y sin
     # parche NO comparten directorio.
-    ids = {"baseline": a.baseline_sha,
+    ids = {"baseline": (id_build(a.baseline_sha, a.patch_baseline)
+                        if a.baseline_sha else None),
            "candidato": id_build(a.candidato_sha, a.patch) if a.candidato_sha else None}
     for cual, id_ in ids.items():
         if id_:
