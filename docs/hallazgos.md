@@ -1776,5 +1776,25 @@ fortuito habría convertido en despliegue sin gate. Revertido con
 `builds.sh volver` (verificado `/proc/<pid>/exe` = symlink). Corregido en
 `3e31b10`: promover exige `restart` aunque la unidad no cambie; el systemctl
 de mentira registra ahora sus llamadas y el test nuevo falla contra el commit
-anterior (`'restart' not found in [...]`). D se relanza con el runner
-corregido para que el despliegue sea real.
+anterior (`'restart' not found in [...]`).
+
+### H-036 D (relanzado, runner corregido) — despliegue real y verificado (2026-09-11, 19:16–19:23)
+
+Segunda pasada `h036-kvzero-b-20260911` con el runner ya arreglado. Mismo
+candidato (build `df03399+76f2f360`, `patches/mtp-stack-kvzero.patch`) medido
+de nuevo contra producción:
+
+| familia | prod. | kvzero | ratio |
+|---|---|---|---|
+| código | 31,41 | 30,86 | 0,983 |
+| json | 31,77 | 31,47 | 0,990 |
+| reescritura | 31,98 | 31,45 | 0,984 |
+| prosa | 23,31 | 23,20 | 0,995 |
+| creativo | 22,13 | 21,78 | 0,984 |
+
+tg ×0,983, pp ×0,997, aceptación idéntica (0,954), greedy 16 idénticas + 24
+empates + 0 no verificadas → **adopta**. Gates de despliegue en VERDE
+(`restauracion` + `smoke_exacto`), unidad `active`. Verificación del proceso
+vivo coherente: `/models/llama-current → +76f2f360` **y** `/proc/86383/exe →
++76f2f360`; `ANTERIOR = +6e8170fb`. Producción del M5 queda con el parche
+KV-zero apilado sobre la base MTP. Evidencia: `benchmarks/h036/resultados-kvzero-b.json`.
