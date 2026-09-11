@@ -64,7 +64,10 @@ def ask(url, api_key, prompt, max_tokens, temp, sin_razonamiento=False):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", default="http://100.95.250.45:8080")
+    # Sin direcciones de la red privada en el repo: por defecto localhost y,
+    # si hace falta apuntar a otra maquina, LLAMA_URL en el entorno.
+    ap.add_argument("--url", default=os.environ.get("LLAMA_URL",
+                                                    "http://localhost:8080"))
     ap.add_argument("--etiqueta", required=True, help="p.ej. flashnext-v2")
     ap.add_argument("--keyfile", default="~/.secrets/m5-llama-api.key")
     ap.add_argument("--max-tokens", type=int, default=4096,

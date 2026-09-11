@@ -8,14 +8,24 @@
 # sano. Una comprobacion que da falsos rojos acaba ignorandose, que es peor que
 # no tenerla.
 #
+# Correccion P0 (auditoria de H-031, fallo A): la clave ya NO se lee de
+# /etc/llama-server/*.env. Se deriva del ExecStart EFECTIVO de la unidad
+# (scripts/credencial.sh). Comprobar el servicio con una credencial que el
+# servicio no usa no comprueba el servicio: hoy coincidian por casualidad.
+#
 # Uso:  restauracion.sh [unidad] [puerto] [modelo_esperado]
 # Sale 0 si todo pasa, 1 a la primera comprobacion que falle.
 set -uo pipefail
+
+AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=credencial.sh
+. "${AQUI}/credencial.sh"
 
 UNIDAD="${1:-llama-flashnext}"
 PUERTO="${2:-8080}"
 MODELO="${3:-qwen3.8-flash-next}"
 BENCH="${UNIDAD}-bench"
+SYSTEMCTL="${SYSTEMCTL:-systemctl}"
 FALLOS=0
 
 ok()    { echo "  [OK] $*"; }
@@ -24,14 +34,14 @@ fallo() { echo "  [X]  $*"; FALLOS=$((FALLOS+1)); }
 echo "== Restauracion de ${UNIDAD} =="
 
 # 1. unidad activa y habilitada
-[ "$(systemctl is-active "$UNIDAD")" = active ] \
+[ "$("$SYSTEMCTL" is-active "$UNIDAD")" = active ] \
   && ok "unidad activa" || fallo "unidad NO activa"
-[ "$(systemctl is-enabled "$UNIDAD" 2>/dev/null)" = enabled ] \
+[ "$("$SYSTEMCTL" is-enabled "$UNIDAD" 2>/dev/null)" = enabled ] \
   && ok "unidad habilitada (arranca sola tras reinicio)" \
   || fallo "unidad NO habilitada"
 
 # 2. sin residuos del banco
-if systemctl list-unit-files 2>/dev/null | grep -q "^${BENCH}.service"; then
+if "$SYSTEMCTL" list-unit-files 2>/dev/null | grep -q "^${BENCH}.service"; then
   fallo "queda la unidad de banco ${BENCH}"
 else
   ok "unidad de banco eliminada"
@@ -41,16 +51,25 @@ fi
   || ok "sin fichero de unidad de banco"
 
 # 3. endpoint sano
-COD=$(curl -s -m 15 -o /dev/null -w "%{http_code}" "localhost:${PUERTO}/health")
+# 127.0.0.1 y no 'localhost': el servidor escucha en IPv4 y resolver el nombre
+# mete un intento por ::1 que solo anade latencia y un modo de fallo.
+COD=$(curl -s -m 15 -o /dev/null -w "%{http_code}" "127.0.0.1:${PUERTO}/health")
 [ "$COD" = 200 ] && ok "/health responde 200" || fallo "/health devuelve ${COD}"
 
 # 4. clave y modelo
-K=$(sudo -n sed -n "s/^LLAMA_API_KEY=//p" /etc/llama-server/*.env 2>/dev/null | head -1)
-if [ -z "$K" ]; then
-  fallo "no pude leer la clave de API"
+# La credencial sale del ExecStart efectivo, NO de un fichero secundario: si
+# la unidad arranca con --api-key-file, se lee ESE fichero. Un .env residual
+# con otra clave ya no puede dar ni falso verde ni falso rojo.
+K=""
+if credencial_de_unidad "$UNIDAD"; then
+  K="$CREDENCIAL"
+  ok "credencial derivada del ExecStart (${CREDENCIAL_ORIGEN}, $(enmascara "$K"))"
 else
+  fallo "no pude derivar la credencial del ExecStart de ${UNIDAD}"
+fi
+if [ -n "$K" ]; then
   ACTUAL=$(curl -s -m 15 -H "Authorization: Bearer $K" \
-    "localhost:${PUERTO}/v1/models" \
+    "127.0.0.1:${PUERTO}/v1/models" \
     | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"][0]["id"])' 2>/dev/null)
   [ "$ACTUAL" = "$MODELO" ] \
     && ok "modelo servido: ${ACTUAL}" \
@@ -62,7 +81,7 @@ else
   #    verifica que el servicio atiende de verdad.
   R=$(curl -s -m 90 -H "Authorization: Bearer $K" -H "Content-Type: application/json" \
     -d "{\"model\":\"${MODELO}\",\"messages\":[{\"role\":\"user\",\"content\":\"Responde con una palabra.\"}],\"max_tokens\":64,\"chat_template_kwargs\":{\"enable_thinking\":false}}" \
-    "localhost:${PUERTO}/v1/chat/completions")
+    "127.0.0.1:${PUERTO}/v1/chat/completions")
   VEREDICTO=$(printf '%s' "$R" | python3 -c '
 import sys, json
 try:
@@ -91,7 +110,7 @@ else:
 
   # 6. control negativo: sin clave debe rechazar
   SIN=$(curl -s -m 15 -o /dev/null -w "%{http_code}" -H "Content-Type: application/json" \
-    -d '{"model":"x","messages":[]}' "localhost:${PUERTO}/v1/chat/completions")
+    -d '{"model":"x","messages":[]}' "127.0.0.1:${PUERTO}/v1/chat/completions")
   [ "$SIN" = 401 ] \
     && ok "sin clave devuelve 401 (la autenticacion sigue puesta)" \
     || fallo "sin clave devuelve ${SIN}, esperaba 401"

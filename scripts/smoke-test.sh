@@ -68,8 +68,16 @@ echo "== 3. Prueba de coherencia (aritmetica + seguir instruccion)"
 # Los modelos con razonamiento (Qwen3.8-Flash-Next, GLM-5.x) emiten primero
 # reasoning_content y solo despues content. Con presupuesto corto se agota
 # razonando y content llega vacio (H-019): eso es FALLO, no aprobado.
+#
+# P0: la peticion fija ademas chat_template_kwargs.enable_thinking=false. El
+# resto del instrumental (restauracion.sh, bench-ubatch.py, bench-context.py)
+# ya lo hacia y este no, asi que el gate exacto era el unico que seguia
+# expuesto al bucle de razonamiento de H-019: con el pensamiento activo, un
+# servidor sano puede gastar el presupuesto razonando y devolver content vacio.
+# Eso es un rojo del gate por una variable que el gate no controla. El contrato
+# ESTRICTO no se toca: sigue exigiendo content == "391" y finalizacion normal.
 RESP=$(curl -s --max-time 300 -H "$AUTH" -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"Cuanto es 17*23? Responde solo el numero."}],"max_tokens":2048,"temperature":0}' \
+  -d '{"messages":[{"role":"user","content":"Cuanto es 17*23? Responde solo el numero."}],"max_tokens":2048,"temperature":0,"chat_template_kwargs":{"enable_thinking":false}}' \
   "$URL/v1/chat/completions")
 
 VEREDICTO=$(echo "$RESP" | python3 -c '
