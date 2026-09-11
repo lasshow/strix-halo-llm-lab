@@ -111,9 +111,6 @@ sudo systemctl restart llama-flashnext
 nueva; el symlink hereda la etiqueta del destino. Si se compila a mano fuera de
 `/models/llama-builds`, hay que repetir esto sobre ese directorio.
 
-```
-```
-
 Diagnóstico rápido: `ls -Z` sobre el binario, y `sudo ausearch -m avc -ts recent`.
 
 ## ⚠️ El OOM que mata la maquina entera
