@@ -52,8 +52,12 @@ import banco  # noqa: E402
 import fases_h034 as h034  # noqa: E402
 import fases_h035 as h035  # noqa: E402
 
+# Cabeza FR-Spec construida AQUI (scripts/construir-cabeza-frspec.py) a partir de
+# la cabeza Unsloth de produccion + output.weight recortado + d2t de drluoto. La
+# cabeza publicada por drluoto es otra conversion (fc_embd/fc_hidden, hc_*) y
+# nuestra build no la carga: usarla habria cambiado dos cosas a la vez.
 FRSPEC_HEAD = ("/models/gguf/qwen38-flash-next/MTP/"
-               "mtp-Qwen3.8-Flash-Next-Q8_0-frspec-65k.gguf")
+               "mtp-Qwen3.8-Flash-Next-shared-Q8_0-frspec65k-unsloth.gguf")
 REQUANT_GGUF = ("/models/gguf/qwen38-flash-next/Q5K-router-Q8/"
                 "Qwen3.8-Flash-Next-Q5K-routerQ8-00001-of-00003.gguf")
 

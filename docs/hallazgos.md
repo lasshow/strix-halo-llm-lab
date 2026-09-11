@@ -1681,3 +1681,35 @@ borrador extra se paga y se tira. drluoto lo documenta para n-max 6 ("halves
 prose speed"); en este M5 con dos slots el punto de corte ya está en 3. Para
 un servidor de uso mixto **n-max 2 es el correcto**; n-max 3 solo tendría
 sentido en un endpoint dedicado a código/reescritura.
+
+
+### H-036 B — `--spec-draft-n-max 3` frente al 2 desplegado: gana 5-9 % donde ya vamos rápido y pierde 6-17 % en texto abierto → NO se adopta (2026-09-11, 18:23–18:29)
+
+Primer brazo de H-036 (cambios de drluoto uno a uno; ver plan). Misma build y
+misma cabeza que producción, solo cambia `--spec-draft-n-max` 2→3.
+`fases_h036.nmax3` vía `cadena-h036.sh nmax3`; A/B a `np=2 -kvu`, dos
+peticiones concurrentes por familia, 2 pasadas. **Referencia greedy**: la
+línea productiva sin especulación (con `draft-mtp` el servidor devuelve
+logprobs solo del primer token, medido 39/40 a cero, así que ni control ni
+candidato sirven de referencia). Ventana 6 min. Crudo en
+`benchmarks/h036/resultados-nmax3.json`.
+
+| familia | n-max 2 (prod.) | n-max 3 | ratio |
+|---|---|---|---|
+| código | 31,31 | 32,93 | 1,052 |
+| json | 32,00 | 34,13 | 1,066 |
+| reescritura | 31,79 | 34,60 | 1,088 |
+| prosa | 23,01 | 21,64 | **0,941** |
+| creativo | 22,02 | 18,38 | **0,835** |
+
+tg mediana ×1,052 (umbral 1,08), pp ×0,982, aceptación 0,954 → 0,928. Greedy:
+40 comparaciones, 18 idénticas, 22 empates, **0 no verificadas** — el juez con
+referencia sin especulación funcionó a la primera. `aplicar` dejó la unidad
+tal cual; gates verdes; producción `active` con n-max 2.
+
+**Lectura**: un tercer token de borrador solo compensa cuando la aceptación es
+≥0,95 (código/JSON/reescritura); en prosa y creativo (aceptación ~0,5) el
+borrador extra se paga y se tira. drluoto lo documenta para n-max 6 ("halves
+prose speed"); en este M5 con dos slots el punto de corte ya está en 3. Para
+un servidor de uso mixto **n-max 2 es el correcto**; n-max 3 solo tendría
+sentido en un endpoint dedicado a código/reescritura.

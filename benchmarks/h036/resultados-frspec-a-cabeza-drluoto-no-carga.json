@@ -1,0 +1,296 @@
+{
+ "run_id": "h036-frspec-20260911",
+ "unidad": "llama-flashnext",
+ "modelo": "qwen3.8-flash-next",
+ "baseline_sha": "df03399b885831b2a1603b3abb0d8c156808e363",
+ "candidato_sha": "df03399b885831b2a1603b3abb0d8c156808e363",
+ "patch": "patches/mtp-stack-frspec.patch",
+ "inicio": "2026-09-11T16:43:01+00:00",
+ "estado_inicial": "active",
+ "backup_unidad": "/etc/systemd/system/llama-flashnext.service.bak-h036-frspec-20260911",
+ "fases": {
+  "h036_frspec": {
+   "np": 2,
+   "kvu": true,
+   "pasadas": 2,
+   "orden": [
+    "control",
+    "frspec",
+    "control",
+    "frspec"
+   ],
+   "concurrencia": 2,
+   "max_tokens": 256,
+   "candidato": "frspec",
+   "corpus": {
+    "objetivo": 2048,
+    "sha256": "5cce041a414b"
+   },
+   "umbrales": {
+    "tg_mediana": 1.08,
+    "tg_por_familia": 0.95,
+    "pp": 0.97,
+    "greedy": "toda divergencia (intra-slot del control y candidato/control) es empate <= 0.5 nats o longitud; no_verificado = fallo"
+   },
+   "tabla": {
+    "control": {
+     "prosa": {
+      "tg": 23.52849570587143,
+      "pp": 231.7894062179377,
+      "muestras": 4
+     },
+     "codigo": {
+      "tg": 31.14796712608768,
+      "pp": 95.86349463874973,
+      "muestras": 4
+     },
+     "json": {
+      "tg": 31.70615314017924,
+      "pp": 113.77967621321886,
+      "muestras": 4
+     },
+     "reescritura": {
+      "tg": 31.78354994799102,
+      "pp": 195.16741159323834,
+      "muestras": 4
+     },
+     "creativo": {
+      "tg": 21.97496156682748,
+      "pp": 62.20383373065158,
+      "muestras": 4
+     }
+    },
+    "frspec": {
+     "prosa": {
+      "tg": null,
+      "pp": null,
+      "muestras": 0
+     },
+     "codigo": {
+      "tg": null,
+      "pp": null,
+      "muestras": 0
+     },
+     "json": {
+      "tg": null,
+      "pp": null,
+      "muestras": 0
+     },
+     "reescritura": {
+      "tg": null,
+      "pp": null,
+      "muestras": 0
+     },
+     "creativo": {
+      "tg": null,
+      "pp": null,
+      "muestras": 0
+     }
+    }
+   },
+   "ratio_tg": null,
+   "ratio_pp": null,
+   "ratio_tg_por_familia": {
+    "prosa": null,
+    "codigo": null,
+    "json": null,
+    "reescritura": null,
+    "creativo": null
+   },
+   "acceptance_mediana": {
+    "control": 0.9543,
+    "frspec": null
+   },
+   "especulacion": {
+    "control": {
+     "timings": true,
+     "log": true
+    },
+    "frspec": {
+     "timings": false,
+     "log": false
+    }
+   },
+   "greedy": {
+    "margen_nats": 0.5,
+    "comparaciones": 20,
+    "identicas": 8,
+    "empates": [
+     "control-vs-referencia codigo p1 slot0",
+     "control-vs-referencia codigo p1 slot1",
+     "control-vs-referencia codigo p2 slot0",
+     "control-vs-referencia codigo p2 slot1",
+     "control-vs-referencia creativo p1 slot0",
+     "control-vs-referencia creativo p1 slot1",
+     "control-vs-referencia creativo p2 slot0",
+     "control-vs-referencia creativo p2 slot1",
+     "control-vs-referencia prosa p1 slot0",
+     "control-vs-referencia prosa p1 slot1",
+     "control-vs-referencia prosa p2 slot0",
+     "control-vs-referencia prosa p2 slot1"
+    ],
+    "longitud": [],
+    "sin_distribucion": [],
+    "no_verificadas": [],
+    "detalle": {
+     "control-vs-referencia codigo p1 slot0": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "control-vs-referencia codigo p1 slot1": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "control-vs-referencia codigo p2 slot0": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "control-vs-referencia codigo p2 slot1": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "control-vs-referencia creativo p1 slot0": {
+      "clase": "empate",
+      "posicion": 4,
+      "token_control": " una",
+      "token_mtp": " sum",
+      "logprob_control_top1": -1.3534,
+      "logprob_control_del_token_mtp": -1.4825,
+      "distancia_nats": 0.1291,
+      "margen": 0.5
+     },
+     "control-vs-referencia creativo p1 slot1": {
+      "clase": "empate",
+      "posicion": 0,
+      "token_control": "El",
+      "token_mtp": "La",
+      "logprob_control_top1": -1.0218,
+      "logprob_control_del_token_mtp": -1.4577,
+      "distancia_nats": 0.4359,
+      "margen": 0.5
+     },
+     "control-vs-referencia creativo p2 slot0": {
+      "clase": "empate",
+      "posicion": 0,
+      "token_control": "El",
+      "token_mtp": "La",
+      "logprob_control_top1": -1.0218,
+      "logprob_control_del_token_mtp": -1.4577,
+      "distancia_nats": 0.4359,
+      "margen": 0.5
+     },
+     "control-vs-referencia creativo p2 slot1": {
+      "clase": "empate",
+      "posicion": 4,
+      "token_control": " una",
+      "token_mtp": " sum",
+      "logprob_control_top1": -1.3534,
+      "logprob_control_del_token_mtp": -1.4825,
+      "distancia_nats": 0.1291,
+      "margen": 0.5
+     },
+     "control-vs-referencia prosa p1 slot0": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "control-vs-referencia prosa p1 slot1": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "control-vs-referencia prosa p2 slot0": {
+      "clase": "empate",
+      "posicion": 26,
+      "token_control": ",",
+      "token_mtp": " oper",
+      "logprob_control_top1": -1.7073,
+      "logprob_control_del_token_mtp": -1.7285,
+      "distancia_nats": 0.0212,
+      "margen": 0.5
+     },
+     "control-vs-referencia prosa p2 slot1": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     }
+    },
+    "referencia": "linea productiva sin especulacion (una pasada)"
+   },
+   "fallos": [
+    "prosa: falta la medida de algun brazo",
+    "codigo: falta la medida de algun brazo",
+    "json: falta la medida de algun brazo",
+    "reescritura: falta la medida de algun brazo",
+    "creativo: falta la medida de algun brazo",
+    "sin mediana de tg comparable",
+    "sin mediana de pp comparable"
+   ],
+   "errores": [
+    "frspec pasada 1: el servidor de banco (pid 75763) murio con codigo 1 antes de servir: no es una espera pendiente, es un arranque fallido",
+    "frspec pasada 2: el servidor de banco (pid 75867) murio con codigo 1 antes de servir: no es una espera pendiente, es un arranque fallido"
+   ],
+   "cabeza_control": "mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "cabeza_candidato": "mtp-Qwen3.8-Flash-Next-Q8_0-frspec-65k.gguf"
+  }
+ },
+ "votos_fases": [
+  false
+ ],
+ "adoptar": false,
+ "cambios": [
+  "fase h036_frspec"
+ ],
+ "gates": {
+  "tras-aplicar": {
+   "restauracion": true,
+   "smoke_exacto": true
+  }
+ },
+ "aplicado": true,
+ "notas": [
+  "fase h036_frspec: prosa: falta la medida de algun brazo; codigo: falta la medida de algun brazo; json: falta la medida de algun brazo; reescritura: falta la medida de algun brazo; creativo: falta la medida de algun brazo; sin mediana de tg comparable; sin mediana de pp comparable; frspec pasada 1: el servidor de banco (pid 75763) murio con codigo 1 antes de servir: no es una espera pendiente, es un arranque fallido; frspec pasada 2: el servidor de banco (pid 75867) murio con codigo 1 antes de servir: no es una espera pendiente, es un arranque fallido"
+ ],
+ "estado_final": "active",
+ "codigo_salida": 2,
+ "fin": "2026-09-11T16:47:19+00:00"
+}

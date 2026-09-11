@@ -1,0 +1,380 @@
+{
+ "run_id": "h036-frspec-b-20260911",
+ "unidad": "llama-flashnext",
+ "modelo": "qwen3.8-flash-next",
+ "baseline_sha": "df03399b885831b2a1603b3abb0d8c156808e363",
+ "candidato_sha": "df03399b885831b2a1603b3abb0d8c156808e363",
+ "patch": "patches/mtp-stack-frspec.patch",
+ "inicio": "2026-09-11T16:51:29+00:00",
+ "estado_inicial": "active",
+ "backup_unidad": "/etc/systemd/system/llama-flashnext.service.bak-h036-frspec-b-20260911",
+ "fases": {
+  "h036_frspec": {
+   "np": 2,
+   "kvu": true,
+   "pasadas": 2,
+   "orden": [
+    "control",
+    "frspec",
+    "control",
+    "frspec"
+   ],
+   "concurrencia": 2,
+   "max_tokens": 256,
+   "candidato": "frspec",
+   "corpus": {
+    "objetivo": 2048,
+    "sha256": "5cce041a414b"
+   },
+   "umbrales": {
+    "tg_mediana": 1.08,
+    "tg_por_familia": 0.95,
+    "pp": 0.97,
+    "greedy": "toda divergencia (intra-slot del control y candidato/control) es empate <= 0.5 nats o longitud; no_verificado = fallo"
+   },
+   "tabla": {
+    "control": {
+     "prosa": {
+      "tg": 23.66955996057642,
+      "pp": 233.04012961551558,
+      "muestras": 4
+     },
+     "codigo": {
+      "tg": 31.188168435535705,
+      "pp": 95.9833221062408,
+      "muestras": 4
+     },
+     "json": {
+      "tg": 31.72807684374412,
+      "pp": 113.6010325708763,
+      "muestras": 4
+     },
+     "reescritura": {
+      "tg": 31.813022309348348,
+      "pp": 195.5883999281648,
+      "muestras": 4
+     },
+     "creativo": {
+      "tg": 22.00018055172795,
+      "pp": 62.63127159267956,
+      "muestras": 4
+     }
+    },
+    "frspec": {
+     "prosa": {
+      "tg": 20.622222043420216,
+      "pp": 232.51440892128835,
+      "muestras": 4
+     },
+     "codigo": {
+      "tg": 29.569101270537296,
+      "pp": 97.31616098139133,
+      "muestras": 4
+     },
+     "json": {
+      "tg": 30.509900232478856,
+      "pp": 109.79085053502811,
+      "muestras": 4
+     },
+     "reescritura": {
+      "tg": 25.846894236499885,
+      "pp": 195.3989998810781,
+      "muestras": 4
+     },
+     "creativo": {
+      "tg": 20.10024737410491,
+      "pp": 62.216993064901246,
+      "muestras": 4
+     }
+    }
+   },
+   "ratio_tg": 0.8287,
+   "ratio_pp": 0.9665,
+   "ratio_tg_por_familia": {
+    "prosa": 0.8713,
+    "codigo": 0.9481,
+    "json": 0.9616,
+    "reescritura": 0.8125,
+    "creativo": 0.9136
+   },
+   "acceptance_mediana": {
+    "control": 0.9543,
+    "frspec": 0.6728
+   },
+   "especulacion": {
+    "control": {
+     "timings": true,
+     "log": true
+    },
+    "frspec": {
+     "timings": true,
+     "log": true
+    }
+   },
+   "greedy": {
+    "margen_nats": 0.5,
+    "comparaciones": 40,
+    "identicas": 20,
+    "empates": [
+     "control-vs-referencia codigo p1 slot0",
+     "control-vs-referencia codigo p1 slot1",
+     "control-vs-referencia codigo p2 slot0",
+     "control-vs-referencia codigo p2 slot1",
+     "control-vs-referencia creativo p1 slot0",
+     "control-vs-referencia creativo p1 slot1",
+     "control-vs-referencia creativo p2 slot0",
+     "control-vs-referencia creativo p2 slot1",
+     "control-vs-referencia prosa p1 slot0",
+     "control-vs-referencia prosa p1 slot1",
+     "control-vs-referencia prosa p2 slot0",
+     "control-vs-referencia prosa p2 slot1",
+     "frspec-vs-referencia creativo p1 slot0",
+     "frspec-vs-referencia creativo p1 slot1",
+     "frspec-vs-referencia creativo p2 slot0",
+     "frspec-vs-referencia creativo p2 slot1",
+     "frspec-vs-referencia prosa p1 slot0",
+     "frspec-vs-referencia prosa p1 slot1",
+     "frspec-vs-referencia prosa p2 slot0",
+     "frspec-vs-referencia prosa p2 slot1"
+    ],
+    "longitud": [],
+    "sin_distribucion": [],
+    "no_verificadas": [],
+    "detalle": {
+     "control-vs-referencia codigo p1 slot0": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "control-vs-referencia codigo p1 slot1": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "control-vs-referencia codigo p2 slot0": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "control-vs-referencia codigo p2 slot1": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "control-vs-referencia creativo p1 slot0": {
+      "clase": "empate",
+      "posicion": 0,
+      "token_control": "El",
+      "token_mtp": "La",
+      "logprob_control_top1": -1.0218,
+      "logprob_control_del_token_mtp": -1.4577,
+      "distancia_nats": 0.4359,
+      "margen": 0.5
+     },
+     "control-vs-referencia creativo p1 slot1": {
+      "clase": "empate",
+      "posicion": 4,
+      "token_control": " una",
+      "token_mtp": " sum",
+      "logprob_control_top1": -1.3534,
+      "logprob_control_del_token_mtp": -1.4825,
+      "distancia_nats": 0.1291,
+      "margen": 0.5
+     },
+     "control-vs-referencia creativo p2 slot0": {
+      "clase": "empate",
+      "posicion": 0,
+      "token_control": "El",
+      "token_mtp": "La",
+      "logprob_control_top1": -1.0218,
+      "logprob_control_del_token_mtp": -1.4577,
+      "distancia_nats": 0.4359,
+      "margen": 0.5
+     },
+     "control-vs-referencia creativo p2 slot1": {
+      "clase": "empate",
+      "posicion": 4,
+      "token_control": " una",
+      "token_mtp": " sum",
+      "logprob_control_top1": -1.3534,
+      "logprob_control_del_token_mtp": -1.4825,
+      "distancia_nats": 0.1291,
+      "margen": 0.5
+     },
+     "control-vs-referencia prosa p1 slot0": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "control-vs-referencia prosa p1 slot1": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "control-vs-referencia prosa p2 slot0": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "control-vs-referencia prosa p2 slot1": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "frspec-vs-referencia creativo p1 slot0": {
+      "clase": "empate",
+      "posicion": 0,
+      "token_control": "El",
+      "token_mtp": "La",
+      "logprob_control_top1": -1.0218,
+      "logprob_control_del_token_mtp": -1.4577,
+      "distancia_nats": 0.4359,
+      "margen": 0.5
+     },
+     "frspec-vs-referencia creativo p1 slot1": {
+      "clase": "empate",
+      "posicion": 2,
+      "token_control": " industrial",
+      "token_mtp": " de",
+      "logprob_control_top1": -1.1956,
+      "logprob_control_del_token_mtp": -1.4677,
+      "distancia_nats": 0.272,
+      "margen": 0.5
+     },
+     "frspec-vs-referencia creativo p2 slot0": {
+      "clase": "empate",
+      "posicion": 2,
+      "token_control": " industrial",
+      "token_mtp": " de",
+      "logprob_control_top1": -1.1956,
+      "logprob_control_del_token_mtp": -1.4677,
+      "distancia_nats": 0.272,
+      "margen": 0.5
+     },
+     "frspec-vs-referencia creativo p2 slot1": {
+      "clase": "empate",
+      "posicion": 0,
+      "token_control": "El",
+      "token_mtp": "La",
+      "logprob_control_top1": -1.0218,
+      "logprob_control_del_token_mtp": -1.4577,
+      "distancia_nats": 0.4359,
+      "margen": 0.5
+     },
+     "frspec-vs-referencia prosa p1 slot0": {
+      "clase": "empate",
+      "posicion": 26,
+      "token_control": ",",
+      "token_mtp": " oper",
+      "logprob_control_top1": -1.7073,
+      "logprob_control_del_token_mtp": -1.7285,
+      "distancia_nats": 0.0212,
+      "margen": 0.5
+     },
+     "frspec-vs-referencia prosa p1 slot1": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "frspec-vs-referencia prosa p2 slot0": {
+      "clase": "empate",
+      "posicion": 26,
+      "token_control": ",",
+      "token_mtp": " oper",
+      "logprob_control_top1": -1.7073,
+      "logprob_control_del_token_mtp": -1.7285,
+      "distancia_nats": 0.0212,
+      "margen": 0.5
+     },
+     "frspec-vs-referencia prosa p2 slot1": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     }
+    },
+    "referencia": "linea productiva sin especulacion (una pasada)"
+   },
+   "fallos": [
+    "prosa: tg 0.871x, por debajo de 0.95",
+    "codigo: tg 0.948x, por debajo de 0.95",
+    "reescritura: tg 0.812x, por debajo de 0.95",
+    "creativo: tg 0.914x, por debajo de 0.95",
+    "tg mediana 0.829x, por debajo de 1.08",
+    "pp 0.967x, por debajo de 0.97"
+   ],
+   "errores": [],
+   "cabeza_control": "mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "cabeza_candidato": "mtp-Qwen3.8-Flash-Next-shared-Q8_0-frspec65k-unsloth.gguf"
+  }
+ },
+ "votos_fases": [
+  false
+ ],
+ "adoptar": false,
+ "cambios": [
+  "fase h036_frspec"
+ ],
+ "gates": {
+  "tras-aplicar": {
+   "restauracion": true,
+   "smoke_exacto": true
+  }
+ },
+ "aplicado": true,
+ "notas": [
+  "fase h036_frspec: prosa: tg 0.871x, por debajo de 0.95; codigo: tg 0.948x, por debajo de 0.95; reescritura: tg 0.812x, por debajo de 0.95; creativo: tg 0.914x, por debajo de 0.95; tg mediana 0.829x, por debajo de 1.08; pp 0.967x, por debajo de 0.97"
+ ],
+ "estado_final": "active",
+ "codigo_salida": 2,
+ "fin": "2026-09-11T16:57:24+00:00"
+}
