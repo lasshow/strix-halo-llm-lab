@@ -1437,3 +1437,86 @@ verifica con la peticion fria (con cache caliente `prompt_n` cuenta solo lo
 recomputado); SIGTERM pasa por los `finally`. Los tres fallos estaban en verde
 con dobles y salieron a la primera contra la maquina real: los dobles se
 corrigieron para que imiten al servidor de verdad.
+
+
+### H-034 — Cabeza MTP sidecar a `np=1`: ×1,9 en codigo/JSON, 98k de contexto sin incidente, vision intacta; la igualdad greedy NO se cumple (2026-09-11)
+
+**Pregunta**: la cabeza de borrador `MTP/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf`
+(Unsloth, 2,79 GB) sobre la rama con PR #28243 (qwen4exp-MTP) apilada a la build
+productiva (`df03399` + PR #28501), ¿acelera la generacion en un solo slot sin
+romper nada? Nada se despliega en esta fase: `np=1` no es produccion (eso es H-035).
+
+**Metodo** (`scripts/fases_h034.py`, lanzado con `scripts/h034-medir.py`, que
+para y rearranca `llama-flashnext` en un `finally` y NO promueve build): tres
+brazos alternados (control sin MTP / MTP `--spec-draft-n-max 2` / n-max 3),
+5 familias del corpus congelado (prosa 2.043 tok, codigo 77, json 106,
+reescritura 586, creativo 41), 2 pasadas, `max_tokens 256`, greedy (seed 42,
+temperature 0). Umbrales fijados antes de medir: tg mediana ≥1,15x, ninguna
+familia <0,95x, pp ≥0,97x, salida greedy identica al control, y especulacion
+demostrada (`draft_n` en `timings` o `draft acceptance` en el log). Luego
+escalera 8k/32k/64k/98k con n-max 2 vigilando el kernel (DeviceLost RADV,
+#27306) y exigiendo pp ≥0,9x la baseline de H-033 donde la hay; y una pregunta
+de vision (PNG cuadrado rojo, `--mmproj`) en ambos brazos. Ventana de
+produccion parada: 10:59–12:04 (65 min). Crudo en `benchmarks/h034/`.
+
+**Velocidad (tg t/s, media de 2 pasadas; aceptacion del borrador entre parentesis):**
+
+| familia | control | MTP n-max 2 | MTP n-max 3 |
+|---|---|---|---|
+| codigo | 27,65 | 46,41 (0,95) | **51,68** (0,94) |
+| json | 27,68 | 47,22 (0,98) | **53,70** (0,99) |
+| reescritura | 27,45 | 47,39 (1,00) | **53,52** (1,00) |
+| prosa | 26,84 | 35,75 (0,58) | 36,31 (0,51) |
+| creativo | 27,68 | 34,30 (0,56) | 28,96 (0,37) |
+
+El prefill no baja: sube en todas las familias (p. ej. prosa 419 → 436). La
+especulacion esta demostrada por las dos vias (`draft_n`/`draft_n_accepted` en
+`timings` y `draft acceptance` en el log del banco). Donde el texto es
+predecible (codigo, JSON, reescritura) la cabeza acierta el 94–100 % y la
+generacion casi se dobla; en texto abierto (creativo) n-max 3 ya no compensa
+(37 % de aceptacion). `nmax_recomendado = 3` por mediana, pero para un servidor
+de uso mixto n-max 2 es el brazo que no pierde en ninguna familia.
+
+**Escalera de contexto (n-max 2, `np=1`):**
+
+| objetivo | prompt_n | pp | tg | aceptacion | ratio pp vs H-033 |
+|---|---|---|---|---|---|
+| 8.192 | 8.159 | 421,3 | 31,16 | 0,53 | 0,984 |
+| 32.768 | 32.784 | 316,2 | 27,40 | 0,56 | 0,930 |
+| 65.536 | 65.547 | 206,2 | 23,19 | 0,63 | (sin baseline) |
+| 98.304 | 98.310 | 151,8 | 20,34 | 0,56 | (sin baseline) |
+
+Los cuatro escalones terminan con `finish_reason stop`, `/health` 200 y cero
+lineas de amdgpu/DeviceLost en el kernel: **techo probado 98.304 sin incidente**.
+Nota: la baseline de H-033 se midio a `np=2 -kvu` (produccion); aqui es `np=1`,
+asi que el ratio pp es orientativo, no A/B estricto.
+
+**Vision**: control y candidato-MTP responden "Rojo" con `stop`. La cabeza no
+rompe `--mmproj`.
+
+**Lo que no pasa: la igualdad greedy.** En 10 de las 20 comparaciones el
+`content` del brazo MTP difiere del control (2 familias en n-max 2 —creativo y
+prosa— y las mismas mas codigo en n-max 3, en las dos pasadas cada una; la
+repeticion identica entre pasadas indica que es determinista, no ruido). Los
+primeros 80 caracteres coinciden siempre; la divergencia esta mas adentro. Con
+verificacion exacta la salida especulativa deberia ser identica token a token, asi
+que hay dos hipotesis abiertas: (a) deriva numerica del lote de verificacion
+(batch de n+1 tokens vs 1 token) sobre Vulkan/RADV, que cambia el argmax en
+empates cercanos —esperable y benigno—, o (b) la PR draft #28243 acepta tokens
+que no verifica —inaceptable. **Fallo instrumental propio**: la fase guarda del
+texto solo los 80 primeros caracteres, de modo que no se puede localizar el punto
+de divergencia a posteriori; H-035 debe guardar el `content` completo y los
+logprobs del primer token distinto para decidir entre (a) y (b).
+
+**Veredicto**: fases escalera y vision `adoptar=True`; fase velocidad
+`adoptar=False` por el gate greedy (el umbral se fijo antes y se respeta).
+Nada desplegado. Antes de H-035 (MTP a `np=2 -kvu`, donde si se despliega):
+cerrar la igualdad greedy con contenido completo, y decidir n-max 2 vs 3 con
+el mix real de peticiones.
+
+**Instrumental** (commit `af65099`): `fases_h034.py` (3 fases), `banco.py`
+con `--spec-type draft-mtp -md`, `salud.py` con vigilancia del kernel,
+`banco_falso.py` con MTP simulado (aceptacion, factor por familia, greedy
+distinto, vision), 27 pruebas nuevas que fallan todas contra el commit anterior
+(`git worktree --detach 1b7a935`). Bug real cazado por las pruebas antes de
+tocar el M5: `_corpus_de_la_escalera` no devolvia el corpus.

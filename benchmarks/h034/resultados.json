@@ -1,0 +1,402 @@
+{
+ "run_id": "h034-20260911",
+ "unidad": "llama-flashnext",
+ "modelo": "qwen3.8-flash-next",
+ "baseline": "df03399b885831b2a1603b3abb0d8c156808e363+14eebc61",
+ "candidato": "df03399b885831b2a1603b3abb0d8c156808e363+6e8170fb",
+ "modo": "solo-medida (sin promocion, sin cambios en la unidad)",
+ "inicio": "2026-09-11T09:39:53+00:00",
+ "estado_inicial": "active",
+ "fases": {
+  "h034_mtp_np1_velocidad": {
+   "brazos": [
+    "control",
+    "mtp-nmax2",
+    "mtp-nmax3"
+   ],
+   "pasadas": 2,
+   "orden": [
+    "control",
+    "mtp-nmax2",
+    "mtp-nmax3",
+    "control",
+    "mtp-nmax2",
+    "mtp-nmax3"
+   ],
+   "familias": [
+    "prosa",
+    "codigo",
+    "json",
+    "reescritura",
+    "creativo"
+   ],
+   "familias_del_umbral": [
+    "prosa",
+    "codigo",
+    "reescritura"
+   ],
+   "max_tokens": 256,
+   "np": 1,
+   "kvu": false,
+   "cache_ram": 4096,
+   "cabeza_mtp": "mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "corpus": {
+    "objetivo": 2048,
+    "sha256": "5cce041a414b"
+   },
+   "umbrales": {
+    "tg_mediana": 1.15,
+    "tg_por_familia": 0.95,
+    "pp": 0.97,
+    "greedy": "content identico al control",
+    "especulacion": "draft_n en timings o 'draft acceptance' en el log"
+   },
+   "nota": "adoptar = la build MTP es segura y rapida a np=1; el despliegue con np=2 es H-035",
+   "tabla": {
+    "control": {
+     "prosa": {
+      "tg": 26.843716023662573,
+      "pp": 419.34324651413976,
+      "muestras": 2
+     },
+     "codigo": {
+      "tg": 27.653028432721555,
+      "pp": 71.39211260379207,
+      "muestras": 2
+     },
+     "json": {
+      "tg": 27.68328485772071,
+      "pp": 90.64486579655194,
+      "muestras": 2
+     },
+     "reescritura": {
+      "tg": 27.454692276681644,
+      "pp": 262.3623254437837,
+      "muestras": 2
+     },
+     "creativo": {
+      "tg": 27.68424200688455,
+      "pp": 44.92943079790467,
+      "muestras": 2
+     }
+    },
+    "mtp-nmax2": {
+     "prosa": {
+      "tg": 35.75022470101412,
+      "pp": 435.98172313627964,
+      "muestras": 2
+     },
+     "codigo": {
+      "tg": 46.406520467908024,
+      "pp": 115.5748374678482,
+      "muestras": 2
+     },
+     "json": {
+      "tg": 47.21848788274086,
+      "pp": 133.7740253186317,
+      "muestras": 2
+     },
+     "reescritura": {
+      "tg": 47.39370575328407,
+      "pp": 301.7337963876123,
+      "muestras": 2
+     },
+     "creativo": {
+      "tg": 34.29809048461149,
+      "pp": 81.18611467596007,
+      "muestras": 2
+     }
+    },
+    "mtp-nmax3": {
+     "prosa": {
+      "tg": 36.31247119926538,
+      "pp": 432.62552986174353,
+      "muestras": 2
+     },
+     "codigo": {
+      "tg": 51.68300643566628,
+      "pp": 115.15011398397169,
+      "muestras": 2
+     },
+     "json": {
+      "tg": 53.69833246605989,
+      "pp": 134.58296749933487,
+      "muestras": 2
+     },
+     "reescritura": {
+      "tg": 53.52394283956407,
+      "pp": 302.9545370936963,
+      "muestras": 2
+     },
+     "creativo": {
+      "tg": 28.964741734383992,
+      "pp": 80.46661502184963,
+      "muestras": 2
+     }
+    }
+   },
+   "brazos_mtp": {
+    "mtp-nmax2": {
+     "n_max": 2,
+     "especulacion_activa": true,
+     "por_timings": true,
+     "por_log": true,
+     "acceptance_mediana": 0.9543,
+     "acceptance_muestras": 10,
+     "tg_mediana": 46.406520467908024,
+     "ratio_tg": 1.6903,
+     "ratio_pp": 1.4758,
+     "ratio_tg_por_familia": {
+      "prosa": 1.3318,
+      "codigo": 1.6782,
+      "json": 1.7057,
+      "reescritura": 1.7263,
+      "creativo": 1.2389
+     },
+     "motivos": [],
+     "pasa": true
+    },
+    "mtp-nmax3": {
+     "n_max": 3,
+     "especulacion_activa": true,
+     "por_timings": true,
+     "por_log": true,
+     "acceptance_mediana": 0.9447,
+     "acceptance_muestras": 10,
+     "tg_mediana": 51.68300643566628,
+     "ratio_tg": 1.8825,
+     "ratio_pp": 1.4847,
+     "ratio_tg_por_familia": {
+      "prosa": 1.3527,
+      "codigo": 1.869,
+      "json": 1.9397,
+      "reescritura": 1.9495,
+      "creativo": 1.0463
+     },
+     "motivos": [],
+     "pasa": true
+    }
+   },
+   "greedy": {
+    "comparaciones": 20,
+    "identico": false,
+    "diferencias": [
+     {
+      "brazo": "mtp-nmax2",
+      "familia": "creativo",
+      "pasada": 1,
+      "control": "El horno industrial, una bestia de acero inoxidable y resistencias de tungsteno,",
+      "mtp": "El horno industrial, una bestia de acero inoxidable y resistencias de tungsteno,"
+     },
+     {
+      "brazo": "mtp-nmax2",
+      "familia": "creativo",
+      "pasada": 2,
+      "control": "El horno industrial, una bestia de acero inoxidable y resistencias de tungsteno,",
+      "mtp": "El horno industrial, una bestia de acero inoxidable y resistencias de tungsteno,"
+     },
+     {
+      "brazo": "mtp-nmax2",
+      "familia": "prosa",
+      "pasada": 1,
+      "control": "El texto describe un procedimiento estandarizado de control de hornos que regist",
+      "mtp": "El texto describe un procedimiento estandarizado de control de hornos que regist"
+     },
+     {
+      "brazo": "mtp-nmax2",
+      "familia": "prosa",
+      "pasada": 2,
+      "control": "El texto describe un procedimiento estandarizado de control de hornos que regist",
+      "mtp": "El texto describe un procedimiento estandarizado de control de hornos que regist"
+     },
+     {
+      "brazo": "mtp-nmax3",
+      "familia": "codigo",
+      "pasada": 1,
+      "control": "```python\nimport unittest\n\n\ndef media_por_zona(lecturas):\n    \"\"\"\n    Recibe una",
+      "mtp": "```python\nimport unittest\n\n\ndef media_por_zona(lecturas):\n    \"\"\"\n    Recibe una"
+     },
+     {
+      "brazo": "mtp-nmax3",
+      "familia": "codigo",
+      "pasada": 2,
+      "control": "```python\nimport unittest\n\n\ndef media_por_zona(lecturas):\n    \"\"\"\n    Recibe una",
+      "mtp": "```python\nimport unittest\n\n\ndef media_por_zona(lecturas):\n    \"\"\"\n    Recibe una"
+     }
+    ]
+   },
+   "nmax_recomendado": 3,
+   "brazo_recomendado": "mtp-nmax3",
+   "fallos": [
+    "la salida greedy difiere en 10 comparaciones (la primera, mtp-nmax2 familia creativo pasada 1: control 'El horno industrial, una bestia de acero inoxidable y resistencias de tungsteno,' vs mtp 'El horno industrial, una bestia de acero inoxidable y resistencias de tungsteno,'); la verificacion de MTP es exacta, asi que un texto distinto significa que la especulacion no esta verificando"
+   ],
+   "errores": []
+  },
+  "h034_mtp_escalera_contexto": {
+   "puntos": [
+    8192,
+    32768,
+    65536,
+    98304
+   ],
+   "n_max": 2,
+   "np": 1,
+   "kvu": false,
+   "max_tokens": 128,
+   "cabeza_mtp": "mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "marca_kernel": "2026-09-11 11:45:10",
+   "pp_baseline_h033": {
+    "8192": 428.0,
+    "32768": 340.0
+   },
+   "umbral_pp": 0.9,
+   "criterio": "los 4 puntos sin incidente de GPU, con /health 200 y finish_reason stop/length; y pp >= 0.9x la baseline de H-033 donde la hay (8192:428.0, 32768:340.0)",
+   "corpus": {
+    "8192": "e891c5cd7f45",
+    "32768": "179e2944ec35",
+    "65536": "9bd88ad14a83",
+    "98304": "959c43264308"
+   },
+   "escalones": {
+    "8192": {
+     "objetivo": 8192,
+     "prompt_n": 8159,
+     "pp": 421.279820107992,
+     "tg": 31.160786020440433,
+     "predicted_n": 61,
+     "finish_reason": "stop",
+     "borrador": {
+      "draft_n": 58,
+      "draft_n_accepted": 31,
+      "acceptance": 0.5345,
+      "hay_telemetria": true
+     },
+     "vigilancia_kernel": true,
+     "gpu_incidente": false,
+     "gpu_lineas": [],
+     "vivo": true,
+     "health_200": true,
+     "responde_corto": true,
+     "pp_baseline": 428.0,
+     "ratio_pp": 0.9843
+    },
+    "32768": {
+     "objetivo": 32768,
+     "prompt_n": 32784,
+     "pp": 316.1974029336954,
+     "tg": 27.398891504077955,
+     "predicted_n": 53,
+     "finish_reason": "stop",
+     "borrador": {
+      "draft_n": 50,
+      "draft_n_accepted": 28,
+      "acceptance": 0.56,
+      "hay_telemetria": true
+     },
+     "vigilancia_kernel": true,
+     "gpu_incidente": false,
+     "gpu_lineas": [],
+     "vivo": true,
+     "health_200": true,
+     "responde_corto": true,
+     "pp_baseline": 340.0,
+     "ratio_pp": 0.93
+    },
+    "65536": {
+     "objetivo": 65536,
+     "prompt_n": 65547,
+     "pp": 206.17431021793774,
+     "tg": 23.189057575619163,
+     "predicted_n": 67,
+     "finish_reason": "stop",
+     "borrador": {
+      "draft_n": 60,
+      "draft_n_accepted": 38,
+      "acceptance": 0.6333,
+      "hay_telemetria": true
+     },
+     "vigilancia_kernel": true,
+     "gpu_incidente": false,
+     "gpu_lineas": [],
+     "vivo": true,
+     "health_200": true,
+     "responde_corto": true,
+     "ratio_pp": null,
+     "nota_pp": "sin baseline de H-033 a este tamano: solo se exige que no haya incidente y que termine normal"
+    },
+    "98304": {
+     "objetivo": 98304,
+     "prompt_n": 98310,
+     "pp": 151.7611497041864,
+     "tg": 20.335167663457383,
+     "predicted_n": 84,
+     "finish_reason": "stop",
+     "borrador": {
+      "draft_n": 80,
+      "draft_n_accepted": 45,
+      "acceptance": 0.5625,
+      "hay_telemetria": true
+     },
+     "vigilancia_kernel": true,
+     "gpu_incidente": false,
+     "gpu_lineas": [],
+     "vivo": true,
+     "health_200": true,
+     "responde_corto": true,
+     "ratio_pp": null,
+     "nota_pp": "sin baseline de H-033 a este tamano: solo se exige que no haya incidente y que termine normal"
+    }
+   },
+   "techo_ctx": 98304,
+   "especulacion": {
+    "por_timings": true,
+    "por_log": true,
+    "acceptance": 1.0,
+    "activa": true
+   },
+   "fallos": [],
+   "errores": []
+  },
+  "h034_mtp_vision": {
+   "pregunta": "¿De qué color es el cuadrado? Responde una palabra.",
+   "max_tokens": 16,
+   "colores_aceptados": [
+    "rojo",
+    "red"
+   ],
+   "imagen": {
+    "formato": "PNG",
+    "lado": 64,
+    "borde": 16,
+    "bytes": 141
+   },
+   "mmproj": "/models/gguf/qwen38-flash-next/mmproj-F16.gguf",
+   "n_max": 2,
+   "np": 1,
+   "cabeza_mtp": "mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf",
+   "criterio": "control y candidato responden rojo/red con finish_reason=stop",
+   "brazos": {
+    "control": {
+     "acierta": true,
+     "texto": "Rojo"
+    },
+    "candidato-mtp": {
+     "acierta": true,
+     "texto": "Rojo"
+    }
+   }
+  }
+ },
+ "votos_fases": [
+  false,
+  true,
+  true
+ ],
+ "adoptan_todas": false,
+ "nota": "H-034 no despliega: adoptar aqui solo significa que la build MTP es segura y rapida a np=1; el despliegue con np=2 es H-035",
+ "notas": [
+  "fase h034_mtp_np1_velocidad: la salida greedy difiere en 10 comparaciones (la primera, mtp-nmax2 familia creativo pasada 1: control 'El horno industrial, una bestia de acero inoxidable y resistencias de tungsteno,' vs mtp 'El horno industrial, una bestia de acero inoxidable y resistencias de tungsteno,'); la verificacion de MTP es exacta, asi que un texto distinto significa que la especulacion no esta verificando"
+ ],
+ "estado_final": "active",
+ "fin": "2026-09-11T10:04:36+00:00"
+}
