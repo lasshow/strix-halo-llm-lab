@@ -1713,3 +1713,68 @@ borrador extra se paga y se tira. drluoto lo documenta para n-max 6 ("halves
 prose speed"); en este M5 con dos slots el punto de corte ya está en 3. Para
 un servidor de uso mixto **n-max 2 es el correcto**; n-max 3 solo tendría
 sentido en un endpoint dedicado a código/reescritura.
+
+
+### H-036 C — Tronco requantizado (densos Q5_K + routers Q8_0, receta drluoto): +2,5 % y seis divergencias a 0,52–0,55 nats → NO se adopta (2026-09-11, 19:00–19:07)
+
+`LLAMA_QUANT_ALLOW_ROUTER=1 llama-quantize --allow-requantize --tensor-type-file
+patches/tensor-types-q5k-routerq8.txt --keep-split` sobre los tres shards
+UD-IQ4_XS con el parche `patches/quant-allow-router.patch` (levanta el
+candado F32 de `ffn_gate_inp`). 45 s de CPU: solo recuantiza 387 tensores
+densos (Q8_0→Q5_K) y los 48 routers (F32→Q8_0); los expertos IQ3_S/IQ4_NL se
+copian. 86 GB (vs 88). Verificado leyendo el GGUF: `attn_q/qkv/ssm_out/hc_*`
+Q5_K, `ffn_gate_inp` Q8_0, `output` Q6_K. Misma build y misma cabeza que
+producción; cambia solo `--model`.
+
+| familia | UD-IQ4_XS | Q5K+routerQ8 | ratio |
+|---|---|---|---|
+| código | 31,42 | 32,20 | 1,025 |
+| json | 31,80 | 32,67 | 1,027 |
+| reescritura | 31,87 | 32,91 | 1,033 |
+| prosa | 23,18 | 23,36 | 1,008 |
+| creativo | 22,06 | 22,59 | 1,024 |
+
+tg mediana **×1,025** (umbral 1,08), pp ×0,996, aceptación 0,954→0,946. La
+ganancia existe pero es un tercio de la que él reporta: sus 27→33 t/s
+"warm" incluían el requant Y la cabeza FR-Spec Y n-max 3 a la vez; aislado, el
+requant vale un 2-3 %. Además el greedy marca **6 `no_verificado`**: json en
+el token 3 (` {` vs ` {"`, 0,517 nats) y prosa en el 14 (` registra` vs
+` incluye`, 0,545 nats). Están a un pelo del margen de 0,5 y son el mismo
+tipo de empate que los demás, pero **aquí el candidato es otro modelo**
+(pesos distintos), no otra ruta numérica del mismo: una distribución
+ligeramente distinta es lo esperable de una recuantización y no un fallo de
+verificación. El umbral se fijó antes y se respeta: no adopta. Si se quisiera
+reabrir, la pregunta correcta no es "¿es empate?" sino "¿es mejor modelo?"
+(perplejidad o batería de calidad), y eso no es lo que este brazo mide.
+
+### H-036 D — KV cells a cero al liberar (nathanw1014): sin coste medible → adopta; y un fallo del runner que dio verde en falso (2026-09-11, 19:07–19:14)
+
+Parche `patches/kv-zero-freed-cells.patch` (`llama-kv-cache.cpp/.h`, 130
+líneas) apilado sobre la base MTP → `patches/mtp-stack-kvzero.patch`
+(76f2f360), build `df03399+76f2f360` construida dentro de la campaña (5 min).
+Criterio: no perder velocidad (tg ≥ 0,98x) y greedy limpio.
+
+| familia | prod. | kvzero | ratio |
+|---|---|---|---|
+| código | 31,20 | 30,76 | 0,986 |
+| json | 31,71 | 31,32 | 0,988 |
+| reescritura | 31,83 | 31,39 | 0,986 |
+| prosa | 23,21 | 23,38 | 1,007 |
+| creativo | 22,01 | 21,75 | 0,988 |
+
+tg ×0,986, pp ×0,988, aceptación idéntica (0,954), greedy 16 idénticas + 24
+empates + 0 no verificadas. **Adopta** (al límite del umbral: el coste de
+poner a cero las celdas liberadas es ~1 %).
+
+**Fallo del runner, detectado al verificar el proceso vivo**: `campana.py`
+promovió el symlink (`/models/llama-current → +76f2f360`) pero **no
+reinició** la unidad, porque el restart solo se disparaba si cambiaba el
+texto de la unidad — y D no lo cambia. El gate (`restauracion` + `smoke`)
+salió verde **sobre el binario viejo** (`/proc/<pid>/exe → +6e8170fb`): un
+verde en falso, y un estado incoherente symlink/proceso que un reinicio
+fortuito habría convertido en despliegue sin gate. Revertido con
+`builds.sh volver` (verificado `/proc/<pid>/exe` = symlink). Corregido en
+`3e31b10`: promover exige `restart` aunque la unidad no cambie; el systemctl
+de mentira registra ahora sus llamadas y el test nuevo falla contra el commit
+anterior (`'restart' not found in [...]`). D se relanza con el runner
+corregido para que el despliegue sea real.

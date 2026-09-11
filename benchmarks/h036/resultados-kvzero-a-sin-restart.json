@@ -1,0 +1,413 @@
+{
+ "run_id": "h036-kvzero-20260911",
+ "unidad": "llama-flashnext",
+ "modelo": "qwen3.8-flash-next",
+ "baseline_sha": "df03399b885831b2a1603b3abb0d8c156808e363",
+ "candidato_sha": "df03399b885831b2a1603b3abb0d8c156808e363",
+ "patch": "patches/mtp-stack-kvzero.patch",
+ "inicio": "2026-09-11T17:06:49+00:00",
+ "estado_inicial": "active",
+ "backup_unidad": "/etc/systemd/system/llama-flashnext.service.bak-h036-kvzero-20260911",
+ "fases": {
+  "h036_kvzero": {
+   "np": 2,
+   "kvu": true,
+   "pasadas": 2,
+   "orden": [
+    "control",
+    "kvzero",
+    "control",
+    "kvzero"
+   ],
+   "concurrencia": 2,
+   "max_tokens": 256,
+   "candidato": "kvzero",
+   "corpus": {
+    "objetivo": 2048,
+    "sha256": "5cce041a414b"
+   },
+   "umbrales": {
+    "tg_mediana": 0.98,
+    "tg_por_familia": 0.95,
+    "pp": 0.97,
+    "greedy": "toda divergencia (intra-slot del control y candidato/control) es empate <= 0.5 nats o longitud; no_verificado = fallo"
+   },
+   "tabla": {
+    "control": {
+     "prosa": {
+      "tg": 23.20652182369944,
+      "pp": 231.15388456605473,
+      "muestras": 4
+     },
+     "codigo": {
+      "tg": 31.198507739300066,
+      "pp": 96.1677422596676,
+      "muestras": 4
+     },
+     "json": {
+      "tg": 31.714713399868828,
+      "pp": 113.570985411869,
+      "muestras": 4
+     },
+     "reescritura": {
+      "tg": 31.83235435909748,
+      "pp": 195.02280541365184,
+      "muestras": 4
+     },
+     "creativo": {
+      "tg": 22.01325137150553,
+      "pp": 62.41424701468179,
+      "muestras": 4
+     }
+    },
+    "kvzero": {
+     "prosa": {
+      "tg": 23.378963017170765,
+      "pp": 231.34009368665002,
+      "muestras": 4
+     },
+     "codigo": {
+      "tg": 30.75603798066274,
+      "pp": 94.5638208271734,
+      "muestras": 4
+     },
+     "json": {
+      "tg": 31.316925166712714,
+      "pp": 112.21684319752026,
+      "muestras": 4
+     },
+     "reescritura": {
+      "tg": 31.389951084669054,
+      "pp": 194.50851056168554,
+      "muestras": 4
+     },
+     "creativo": {
+      "tg": 21.74673571263334,
+      "pp": 61.799204247705234,
+      "muestras": 4
+     }
+    }
+   },
+   "ratio_tg": 0.9858,
+   "ratio_pp": 0.9881,
+   "ratio_tg_por_familia": {
+    "prosa": 1.0074,
+    "codigo": 0.9858,
+    "json": 0.9875,
+    "reescritura": 0.9861,
+    "creativo": 0.9879
+   },
+   "acceptance_mediana": {
+    "control": 0.9543,
+    "kvzero": 0.9543
+   },
+   "especulacion": {
+    "control": {
+     "timings": true,
+     "log": true
+    },
+    "kvzero": {
+     "timings": true,
+     "log": true
+    }
+   },
+   "greedy": {
+    "margen_nats": 0.5,
+    "comparaciones": 40,
+    "identicas": 16,
+    "empates": [
+     "control-vs-referencia codigo p1 slot0",
+     "control-vs-referencia codigo p1 slot1",
+     "control-vs-referencia codigo p2 slot0",
+     "control-vs-referencia codigo p2 slot1",
+     "control-vs-referencia creativo p1 slot0",
+     "control-vs-referencia creativo p1 slot1",
+     "control-vs-referencia creativo p2 slot0",
+     "control-vs-referencia creativo p2 slot1",
+     "control-vs-referencia prosa p1 slot0",
+     "control-vs-referencia prosa p1 slot1",
+     "control-vs-referencia prosa p2 slot0",
+     "control-vs-referencia prosa p2 slot1",
+     "kvzero-vs-referencia codigo p1 slot0",
+     "kvzero-vs-referencia codigo p1 slot1",
+     "kvzero-vs-referencia codigo p2 slot0",
+     "kvzero-vs-referencia codigo p2 slot1",
+     "kvzero-vs-referencia creativo p1 slot0",
+     "kvzero-vs-referencia creativo p1 slot1",
+     "kvzero-vs-referencia creativo p2 slot0",
+     "kvzero-vs-referencia creativo p2 slot1",
+     "kvzero-vs-referencia prosa p1 slot0",
+     "kvzero-vs-referencia prosa p1 slot1",
+     "kvzero-vs-referencia prosa p2 slot0",
+     "kvzero-vs-referencia prosa p2 slot1"
+    ],
+    "longitud": [],
+    "sin_distribucion": [],
+    "no_verificadas": [],
+    "detalle": {
+     "control-vs-referencia codigo p1 slot0": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "control-vs-referencia codigo p1 slot1": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "control-vs-referencia codigo p2 slot0": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "control-vs-referencia codigo p2 slot1": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "control-vs-referencia creativo p1 slot0": {
+      "clase": "empate",
+      "posicion": 4,
+      "token_control": " una",
+      "token_mtp": " sum",
+      "logprob_control_top1": -1.3534,
+      "logprob_control_del_token_mtp": -1.4825,
+      "distancia_nats": 0.1291,
+      "margen": 0.5
+     },
+     "control-vs-referencia creativo p1 slot1": {
+      "clase": "empate",
+      "posicion": 0,
+      "token_control": "El",
+      "token_mtp": "La",
+      "logprob_control_top1": -1.0218,
+      "logprob_control_del_token_mtp": -1.4577,
+      "distancia_nats": 0.4359,
+      "margen": 0.5
+     },
+     "control-vs-referencia creativo p2 slot0": {
+      "clase": "empate",
+      "posicion": 4,
+      "token_control": " una",
+      "token_mtp": " sum",
+      "logprob_control_top1": -1.3534,
+      "logprob_control_del_token_mtp": -1.4825,
+      "distancia_nats": 0.1291,
+      "margen": 0.5
+     },
+     "control-vs-referencia creativo p2 slot1": {
+      "clase": "empate",
+      "posicion": 0,
+      "token_control": "El",
+      "token_mtp": "La",
+      "logprob_control_top1": -1.0218,
+      "logprob_control_del_token_mtp": -1.4577,
+      "distancia_nats": 0.4359,
+      "margen": 0.5
+     },
+     "control-vs-referencia prosa p1 slot0": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "control-vs-referencia prosa p1 slot1": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "control-vs-referencia prosa p2 slot0": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "control-vs-referencia prosa p2 slot1": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "kvzero-vs-referencia codigo p1 slot0": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "kvzero-vs-referencia codigo p1 slot1": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "kvzero-vs-referencia codigo p2 slot0": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "kvzero-vs-referencia codigo p2 slot1": {
+      "clase": "empate",
+      "posicion": 156,
+      "token_control": "_un",
+      "token_mtp": "_basic",
+      "logprob_control_top1": -1.1219,
+      "logprob_control_del_token_mtp": -1.1833,
+      "distancia_nats": 0.0613,
+      "margen": 0.5
+     },
+     "kvzero-vs-referencia creativo p1 slot0": {
+      "clase": "empate",
+      "posicion": 4,
+      "token_control": " una",
+      "token_mtp": " sum",
+      "logprob_control_top1": -1.3534,
+      "logprob_control_del_token_mtp": -1.4825,
+      "distancia_nats": 0.1291,
+      "margen": 0.5
+     },
+     "kvzero-vs-referencia creativo p1 slot1": {
+      "clase": "empate",
+      "posicion": 0,
+      "token_control": "El",
+      "token_mtp": "La",
+      "logprob_control_top1": -1.0218,
+      "logprob_control_del_token_mtp": -1.4577,
+      "distancia_nats": 0.4359,
+      "margen": 0.5
+     },
+     "kvzero-vs-referencia creativo p2 slot0": {
+      "clase": "empate",
+      "posicion": 0,
+      "token_control": "El",
+      "token_mtp": "La",
+      "logprob_control_top1": -1.0218,
+      "logprob_control_del_token_mtp": -1.4577,
+      "distancia_nats": 0.4359,
+      "margen": 0.5
+     },
+     "kvzero-vs-referencia creativo p2 slot1": {
+      "clase": "empate",
+      "posicion": 4,
+      "token_control": " una",
+      "token_mtp": " sum",
+      "logprob_control_top1": -1.3534,
+      "logprob_control_del_token_mtp": -1.4825,
+      "distancia_nats": 0.1291,
+      "margen": 0.5
+     },
+     "kvzero-vs-referencia prosa p1 slot0": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "kvzero-vs-referencia prosa p1 slot1": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "kvzero-vs-referencia prosa p2 slot0": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     },
+     "kvzero-vs-referencia prosa p2 slot1": {
+      "clase": "empate",
+      "posicion": 11,
+      "token_control": " horn",
+      "token_mtp": " horno",
+      "logprob_control_top1": -0.8562,
+      "logprob_control_del_token_mtp": -1.0121,
+      "distancia_nats": 0.1559,
+      "margen": 0.5
+     }
+    },
+    "referencia": "linea productiva sin especulacion (una pasada)"
+   },
+   "fallos": [],
+   "errores": []
+  }
+ },
+ "votos_fases": [
+  true
+ ],
+ "adoptar": true,
+ "cambios": [
+  "build promovida df03399b8858"
+ ],
+ "gates": {
+  "tras-aplicar": {
+   "restauracion": true,
+   "smoke_exacto": true
+  }
+ },
+ "aplicado": true,
+ "notas": [],
+ "estado_final": "active",
+ "codigo_salida": 0,
+ "fin": "2026-09-11T17:14:13+00:00"
+}
