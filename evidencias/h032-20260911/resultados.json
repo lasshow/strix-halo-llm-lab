@@ -1,0 +1,193 @@
+{
+ "run_id": "h032-20260911",
+ "unidad": "llama-flashnext",
+ "modelo": "qwen3.8-flash-next",
+ "baseline_sha": "df03399b885831b2a1603b3abb0d8c156808e363",
+ "candidato_sha": null,
+ "patch": null,
+ "inicio": "2026-09-11T06:36:50+00:00",
+ "estado_inicial": "active",
+ "backup_unidad": "/etc/systemd/system/llama-flashnext.service.bak-h032-20260911",
+ "fases": {
+  "h032_correccion_cache_ram": {
+   "cache_ram": [
+    0,
+    4096,
+    12288
+   ],
+   "ciclos": 30,
+   "semilla": 32032,
+   "conversaciones": 4,
+   "corpus_siembra": {
+    "objetivo": 2048,
+    "sha256": "5cce041a414b"
+   },
+   "umbral": "adoptar solo con contaminaciones == 0 en todas las configs",
+   "configs": {
+    "0": {
+     "contaminaciones": 0,
+     "fallos_recuperacion": 0,
+     "otros_fallos": 0,
+     "peticiones": 60,
+     "ciclos": 30,
+     "cache_n_medio": 745.9,
+     "ttft_sin_cache_ms": 6127.7845,
+     "ttft_con_cache_ms": 571.892,
+     "rss_mb": 28207.6,
+     "prompt_n": 2051
+    },
+    "4096": {
+     "contaminaciones": 0,
+     "fallos_recuperacion": 0,
+     "otros_fallos": 0,
+     "peticiones": 60,
+     "ciclos": 30,
+     "cache_n_medio": 883.0,
+     "ttft_sin_cache_ms": 6156.1990000000005,
+     "ttft_con_cache_ms": 571.914,
+     "rss_mb": 28334.5,
+     "prompt_n": 2053
+    },
+    "12288": {
+     "contaminaciones": 0,
+     "fallos_recuperacion": 0,
+     "otros_fallos": 0,
+     "peticiones": 60,
+     "ciclos": 30,
+     "cache_n_medio": 1019.0,
+     "ttft_sin_cache_ms": 6131.275,
+     "ttft_con_cache_ms": 574.7145,
+     "rss_mb": 28109.6,
+     "prompt_n": 2050
+    }
+   },
+   "contaminaciones_total": 0,
+   "configs_sin_medir": []
+  },
+  "h032_regresion_28495": {
+   "corpus": {
+    "objetivo": 16384,
+    "sha256": "ecff092262c8"
+   },
+   "peticiones_por_config": 4,
+   "umbral_caida": 0.2,
+   "nota": "hipotesis: #28495 se reporta sobre HIP/ROCm y aqui es Vulkan/RADV",
+   "configs": {
+    "np1": {
+     "cambios": {
+      "parallel": 1,
+      "kvu": false
+     },
+     "prompt_n": 16362,
+     "pp_primera": 350.924896860316,
+     "pp_resto": [
+      349.0594850098983,
+      348.60516706490364,
+      348.9564310983266
+     ],
+     "mediana_pp_2_4": 348.9564310983266,
+     "mediana_tg_2_4": 24.13425402830868,
+     "ratio_2mas_vs_1": 0.9944,
+     "ratio_vs_np1": 1.0
+    },
+    "np2-kvu": {
+     "cambios": {
+      "parallel": 2,
+      "kvu": true
+     },
+     "prompt_n": 16362,
+     "pp_primera": 349.2955627316535,
+     "pp_resto": [
+      348.26095460239026,
+      347.7609937012157,
+      347.9858516379485
+     ],
+     "mediana_pp_2_4": 347.9858516379485,
+     "mediana_tg_2_4": 24.1076357721957,
+     "ratio_2mas_vs_1": 0.9963,
+     "ratio_vs_np1": 0.9972
+    },
+    "np2": {
+     "cambios": {
+      "parallel": 2,
+      "kvu": false
+     },
+     "prompt_n": 16362,
+     "pp_primera": 357.18705566509874,
+     "pp_resto": [
+      355.73573431110725,
+      355.1596699068493,
+      355.43921823183786
+     ],
+     "mediana_pp_2_4": 355.43921823183786,
+     "mediana_tg_2_4": 23.951579486909264,
+     "ratio_2mas_vs_1": 0.9951,
+     "ratio_vs_np1": 1.0186
+    }
+   },
+   "motivos": [],
+   "errores": [],
+   "regresion_detectada": false
+  },
+  "h032_rendimiento_cache_ram": {
+   "corpus": {
+    "objetivo": 8192,
+    "sha256": "e891c5cd7f45"
+   },
+   "repeticiones": 5,
+   "umbral_ttft": 1.05,
+   "criterio": "adoptar si ttft(12288) <= 1.05x ttft(4096)",
+   "configs": {
+    "4096": {
+     "prompt_n": 8159,
+     "ttft_ms": [
+      572.097,
+      571.912,
+      572.252,
+      571.9,
+      572.307
+     ],
+     "ttft_mediano_ms": 572.097,
+     "cache_n_medio": 8155.0,
+     "rss_mb": 28003.0
+    },
+    "12288": {
+     "prompt_n": 8159,
+     "ttft_ms": [
+      572.127,
+      572.057,
+      572.833,
+      571.643,
+      572.481
+     ],
+     "ttft_mediano_ms": 572.127,
+     "cache_n_medio": 8155.0,
+     "rss_mb": 28003.0
+    }
+   },
+   "ratio_12288_sobre_4096": 1.0001,
+   "adoptar": true,
+   "cache_ram_a_aplicar": 12288,
+   "contaminacion_declarada": false
+  }
+ },
+ "votos_fases": [
+  true,
+  true
+ ],
+ "adoptar": true,
+ "cambios": [
+  "fase h032_rendimiento_cache_ram"
+ ],
+ "gates": {
+  "tras-aplicar": {
+   "restauracion": true,
+   "smoke_exacto": true
+  }
+ },
+ "aplicado": true,
+ "notas": [],
+ "estado_final": "active",
+ "codigo_salida": 0,
+ "fin": "2026-09-11T07:06:30+00:00"
+}

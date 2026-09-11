@@ -1348,3 +1348,89 @@ Dos avisos antes de que a nadie se le ocurra clonarlo:
   configuracion de vision no conocemos. Cambiar diez cosas a la vez y medir
   una mejora no dice cual de las diez la produjo — y es justo el error que
   H-022 nos costo desmontar.
+
+### H-032 — La cache de prompt en RAM devuelve lo que guardo (y `-np 2 -kvu` no pierde prefill aqui)
+
+**Fecha:** 2026-09-11 · `scripts/fases_h032.py` vía `scripts/campana.py` · evidencias en `evidencias/h032-20260911/`
+
+Deuda de H-031: `--cache-ram 12288` se adopto sin medir. Tres fases con umbrales
+escritos antes de medir, produccion parada 30 min, corpus congelados contra el
+tokenizador real (`benchmarks/corpus/`, `prompt_n` verificado en la peticion fria).
+
+**Correccion (issue #27148).** 4 conversaciones de ~2k tokens con un codigo de 12
+hex cada una; 30 ciclos de 2 peticiones **concurrentes** preguntando por el codigo,
+con `-np 2 -kvu` y `cache-ram` 0 / 4096 / 12288:
+
+| cache-ram | peticiones | contaminaciones | no recupera | cache_n medio | TTFT frio | TTFT caliente | RSS |
+|---|---|---|---|---|---|---|---|
+| 0 | 60 | **0** | 0 | 746 | 6.128 ms | 572 ms | 28,2 GB |
+| 4096 | 60 | **0** | 0 | 883 | 6.156 ms | 572 ms | 28,3 GB |
+| 12288 | 60 | **0** | 0 | 1.019 | 6.131 ms | 575 ms | 28,1 GB |
+
+180/180 correctas. El bug de #27148 (contexto de otra conversacion bajo carga
+concurrente) **no se reproduce** en esta configuracion. Dos matices: la
+reproduccion publicada es sin `-kvu` y aqui se probo la unidad real (con `-kvu`);
+y `cache-ram 0` tambien acierta cache porque el KV del slot sigue vivo entre
+peticiones (`cache_n` 746), asi que la cache RAM solo aporta cuando el slot se
+reasigna a otra conversacion.
+
+**Regresion #28495 (hipotesis: reportada en HIP/ROCm).** 4 peticiones consecutivas
+de 16.362 tokens, `cache_prompt=false`, mediana de la 2ª-4ª vs la 1ª:
+
+| config | pp 1ª | mediana pp 2ª-4ª | ratio | tg |
+|---|---|---|---|---|
+| np=1 | 350,9 | 349,0 | 0,994 | 24,1 |
+| np=2 -kvu (produccion) | 349,3 | 348,0 | 0,996 | 24,1 |
+| np=2 sin kvu | 357,2 | 355,4 | 0,995 | 24,0 |
+
+**No hay regresion en Vulkan/RADV**: la caida del 42-54 % de #28495 es de los kernels
+FA de CUDA/HIP con KV unificado, como decia el propio issue. Dato colateral:
+`-np 2` sin `-kvu` prefill un 1,9 % mas rapido que con `-kvu`; dentro de lo
+esperable (el KV unificado paga algo en atencion) y no compensa perder la
+comparticion de KV entre slots.
+
+**Rendimiento 4096 vs 12288.** TTFT de la 2ª peticion a un mismo contexto de 8.159
+tokens, 5 repeticiones: 572,10 vs 572,13 ms (ratio 1,0001), `cache_n` 8.155 en
+ambas, RSS identica. **Adoptado 12288** por el criterio escrito (≤1,05x): no cuesta
+nada y admite mas conversaciones calientes. Lo que NO mide esta fase: el
+beneficio con >2 conversaciones largas alternandose (ahi es donde 12 GB frente a
+4 deberia notarse), que es el caso de uso real con varios clientes. Pendiente.
+
+**Correccion a H-031:** la frase "la cache fue la unica palanca que sirvio" pasa a
+"la cache es segura (0 contaminaciones en 180 peticiones concurrentes) y no cuesta
+TTFT; su beneficio de capacidad sigue sin cuantificar".
+
+### H-033 — PR #28501 (row-id hoisting para 512 expertos): +16 % / +13 % de prefill, salida greedy identica
+
+**Fecha:** 2026-09-11 · `scripts/fases_h033.py` · evidencias en `evidencias/h033-20260911/` · parche `evidencias/parches/pr28501-vulkan-266464c8.patch`
+
+A/B alternado baseline, candidato, baseline, candidato (2 rondas), misma linea de
+argumentos productiva, `cache_prompt=false`, 160 tokens generados. Candidato =
+df03399 + los dos ficheros Vulkan de la PR #28501 en su head 266464c8 (el hunk de
+`tests/test-backend-ops.cpp` no aplica sobre df03399 y no afecta al binario). Cada
+build en su directorio `/models/llama-builds/<sha>[+<sha256 parche>[:8]]` con
+`manifest.json` (repo, sha, flags, compilador, hash del parche).
+
+| prompt_n | pp base | pp cand. | ratio pp | tg base | tg cand. | ratio tg |
+|---|---|---|---|---|---|---|
+| 8.159 | 368,6 | **428,0** | **1,161** | 25,45 | 25,45 | 1,000 |
+| 32.784 | 300,8 | **340,3** | **1,131** | 21,48 | 21,49 | 1,000 |
+
+Greedy (3 prompts, seed 42, temperature 0): **contenido identico** entre brazos.
+Umbrales (pp ≥1,05x en ambos tamanos, tg ≥0,98x, greedy identico): **pasa los tres**.
+Coincide con lo que reporta el autor de la PR en Strix Halo (+19 % @8k, +16 % @32k)
+y con la doc de drluoto (H-031b) para el UD-IQ4_XS stock.
+
+**Estado en produccion — OJO:** la campana promovio el symlink
+`/models/llama-current -> …+14eebc61`, pero la unidad `llama-flashnext` sigue
+arrancando `/models/llama.cpp/build/bin/llama-server` (df03399 sin parche), porque
+la migracion del `ExecStart` al symlink se dejo a proposito para una ventana
+aparte (auditoria de P0). **El +16 % esta medido, no desplegado.** Desplegarlo =
+cambiar una linea del ExecStart al symlink + restart + gates; 2 minutos de corte.
+
+**Lo que hizo falta arreglar para poder medir** (commit 4bf6d0d): la credencial
+del gate se lee ahora del argv resuelto por `systemctl show`; el corpus se
+verifica con la peticion fria (con cache caliente `prompt_n` cuenta solo lo
+recomputado); SIGTERM pasa por los `finally`. Los tres fallos estaban en verde
+con dobles y salieron a la primera contra la maquina real: los dobles se
+corrigieron para que imiten al servidor de verdad.
