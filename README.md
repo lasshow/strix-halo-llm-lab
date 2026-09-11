@@ -163,6 +163,7 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
     ├── fases_h032.py            H-032: corrección de la caché de prompt, regresión #28495, TTFT
     ├── fases_h033.py            H-033: A/B de builds alternado + igualdad greedy
     ├── fases_h034.py            H-034: cabeza MTP sidecar (np=1), escalera de contexto y visión
+    ├── fases_h035.py            H-035: MTP en la línea productiva (np=2 -kvu): diagnóstico greedy con logprobs, aislamiento, velocidad, visión; despliega
     ├── builds.sh                Builds por SHA en /models/llama-builds + symlink de promoción
     ├── prompts.py               Corpus medido con el tokenizador real y congelado con su sha256
     ├── salud.py                 La única espera: unidad activa + /health + modelo correcto

@@ -770,6 +770,22 @@ class BuildConParcheTieneSuPropioDirectorio(unittest.TestCase):
         self.assertEqual(campana.id_build(self.sha, self.parche), esperado)
         self.assertEqual(campana.id_build(self.sha, None), self.sha)
 
+    def test_patch_baseline_da_a_la_baseline_su_propio_directorio(self):
+        """H-035: produccion es df03399+PR28501, un directorio CON parche. Sin
+        `--patch-baseline` el runner buscaria la baseline en <sha> a secas, que
+        es otra build (la sin parche) o no existe."""
+        import hashlib
+        campana = carga("campana_p0", os.path.join(SCRIPTS, "campana.py"))
+        ap_src = open(os.path.join(SCRIPTS, "campana.py"), encoding="utf-8").read()
+        self.assertIn("--patch-baseline", ap_src)
+        base_id = campana.id_build(self.sha, self.parche)
+        self.assertIn("+", base_id)
+        # y el candidato con OTRO parche no comparte directorio con la baseline
+        otro = os.path.join(self.base, "q.diff")
+        with open(otro, "w") as f:
+            f.write("--- a\n+++ b\n+x\n")
+        self.assertNotEqual(campana.id_build(self.sha, otro), base_id)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
