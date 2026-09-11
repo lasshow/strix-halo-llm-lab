@@ -51,6 +51,7 @@ import urllib.request
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import salud  # noqa: E402
 from validacion import (ErrorInfraestructura, FalloContrato,  # noqa: E402
                         cuerpo_json, generacion_medida)
 
@@ -145,43 +146,30 @@ def batch_efectivo(unidad, desde, esperado):
     return efectivo, efectivo == esperado
 
 
-def espera_salud(unidad, puerto, limite=600):
-    """Espera a que ESA unidad sirva /health en ESE puerto.
+def espera_salud(unidad, puerto, limite=600, modelo=None):
+    """Envoltura booleana sobre la espera unica de `salud.espera_servicio`.
 
-    Recibe las dos cosas a proposito: consultar una unidad distinta de la que
-    escucha en el puerto fue el fallo de encaminamiento que corrige H-024.
-    Corta antes de tiempo si la unidad entra en 'failed' o si desaparece.
+    P0 (fallo B de la auditoria de H-031): habia DOS esperas, y la de
+    campana-nocturna.py daba verde con solo /health=200. Ahora la logica vive
+    en un unico sitio (scripts/salud.py) y aqui solo queda la adaptacion:
 
-    Exige AMBAS condiciones a la vez, y ese orden importa: comprobar el HTTP
-    primero y devolver True con un 200 permitia que "algo responde en este
-    puerto" se confundiera con "he restaurado esta unidad" -- la unidad podia
-    estar 'failed' y la funcion no consultaba systemd ni una vez. Primero la
-    unidad activa, y solo entonces /health.
+      - se pasan `sh` y `abrir` como lambdas que resuelven los globales de ESTE
+        modulo en cada llamada, para que las pruebas puedan seguir sustituyendo
+        `bench.sh` y `bench.urllib.request.urlopen`;
+      - una unidad en 'failed' lanza ErrorInfraestructura en la funcion
+        compartida; el barrido la trata como False, que es el contrato que
+        esperan sus llamadores (el codigo de salida 3 ya distingue el caso).
     """
-    t0 = time.time()
-    visto_activo = False
-    while time.time() - t0 < limite:
-        estado = sh(f"systemctl is-active {unidad}", check=False)
-        if estado == "active":
-            visto_activo = True
-            try:
-                with urllib.request.urlopen(f"http://127.0.0.1:{puerto}/health", timeout=5) as r:
-                    if r.status == 200:
-                        return True
-            except Exception:
-                pass
-        elif estado in ("failed", "inactive"):
-            arrancando = sh(f"systemctl show -p ActiveState --value {unidad}",
-                            check=False) == "activating"
-            if not arrancando:
-                print(f"    [!] {unidad} en estado {estado!r}, dejo de esperar")
-                return False
-        time.sleep(5)
-    if visto_activo:
-        print(f"    [!] {unidad} activa pero /health no respondio 200 en {limite} s")
-    else:
-        print(f"    [!] {unidad} no llego a 'active' en {limite} s")
-    return False
+    try:
+        return salud.espera_servicio(
+            unidad, puerto, modelo=modelo, limite=limite,
+            clave=CLAVE or None,
+            sh=lambda cmd: sh(cmd, check=False),
+            abrir=lambda url, timeout, cab: urllib.request.urlopen(
+                urllib.request.Request(url, headers=cab), timeout=timeout))
+    except ErrorInfraestructura as e:
+        print(f"    [!] {e}")
+        return False
 
 
 def una_peticion(puerto, prompt, max_tokens, timeout=1200):
