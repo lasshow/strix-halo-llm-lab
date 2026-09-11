@@ -27,6 +27,12 @@ Por que existe (auditoria externa de la campana H-031, fallo B):
 Una unidad en `failed` NO es "todavia no": es instrumental caido, y por eso
 lanza `ErrorInfraestructura` en lugar de devolver False tras agotar el limite.
 Quien prefiera el booleano de siempre que capture la excepcion.
+
+`espera_proceso` es la misma espera para un servidor de BANCO, que no es una
+unidad de systemd sino un proceso hijo nuestro: ahi la condicion (1) no puede
+ser `systemctl is-active` y pasa a ser "el proceso sigue vivo". Las otras dos
+son identicas, y por el mismo motivo: sin comprobar el modelo, un servidor de
+banco que cargo otro GGUF pasaria por bueno.
 """
 from __future__ import annotations
 
@@ -129,4 +135,61 @@ def espera_servicio(unidad: str, puerto: int, modelo: str | None = None,
     else:
         traza(f"    [!] {unidad} sirve, pero no el modelo {modelo!r}: "
               f"{ultimo_modelos or '<no pude leer /v1/models>'}")
+    return False
+
+
+def espera_proceso(proc, puerto: int, modelo: str | None = None,
+                   clave: str | None = None, limite: float = 600,
+                   pausa: float = 2, abrir=None, traza=print) -> bool:
+    """La misma espera, para un servidor de banco lanzado como proceso hijo.
+
+    Las tres condiciones simultaneas de `espera_servicio`, con la primera
+    traducida al unico dueno que hay aqui:
+
+        1. `proc.poll() is None` -- el proceso sigue vivo
+        2. `/health` responde 200
+        3. `/v1/models` (con la clave) sirve el modelo esperado
+
+    Un proceso que ya ha MUERTO lanza ErrorInfraestructura en el acto, por el
+    mismo motivo que una unidad en `failed`: no es "todavia no ha arrancado",
+    es un arranque que ya ha fallado, y tratarlo como espera cuesta el limite
+    entero antes de reportar lo que se sabia en el primer sondeo. En H-031 eso
+    fue real: cuatro brazos de MTP murieron al arrancar y el runner los espero
+    uno a uno.
+
+    Sin `modelo` la espera se queda en (1) y (2), igual que la de servicio.
+    """
+    abrir = abrir or _abrir
+    t0 = time.time()
+    visto_health = False
+    ultimo_modelos: list[str] = []
+    while True:
+        rc = proc.poll()
+        if rc is not None:
+            raise ErrorInfraestructura(
+                f"el servidor de banco (pid {getattr(proc, 'pid', '?')}) murio "
+                f"con codigo {rc} antes de servir: no es una espera pendiente, "
+                "es un arranque fallido")
+        try:
+            with abrir(f"http://127.0.0.1:{puerto}/health", 5, {}) as r:
+                salud_ok = getattr(r, "status", 200) == 200
+        except Exception:
+            salud_ok = False
+        if salud_ok:
+            visto_health = True
+            if not modelo:
+                return True
+            ultimo_modelos = modelos_servidos(puerto, clave, abrir=abrir)
+            if modelo in ultimo_modelos:
+                return True
+        if time.time() - t0 >= limite:
+            break
+        time.sleep(pausa)
+
+    if not visto_health:
+        traza(f"    [!] el banco del puerto {puerto} sigue vivo pero /health no "
+              f"respondio 200 en {limite} s")
+    else:
+        traza(f"    [!] el banco del puerto {puerto} sirve, pero no el modelo "
+              f"{modelo!r}: {ultimo_modelos or '<no pude leer /v1/models>'}")
     return False
