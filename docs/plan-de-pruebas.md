@@ -30,6 +30,84 @@
 sensiblemente mejor, se convierte en candidato a producción y libera ~45 GB para la Fase B
 sin parar el servicio. Ese es el premio real de la prueba.
 
+---
+
+## Fase A2 — Cola de campañas sobre el modelo en producción (H-032 … H-036)
+
+Todas se ejecutan con el runner versionado [`../scripts/campana.py`](../scripts/campana.py),
+una por ventana, con los umbrales escritos **antes** de medir y los dos gates
+(`restauracion.sh` genérico + `smoke-test.sh` exacto) como condición de promoción.
+El corpus sale de [`../scripts/prompts.py`](../scripts/prompts.py): **el mismo fichero
+congelado para todos los brazos**, verificado contra `timings.prompt_n` antes de cada A/B.
+
+Van en este orden a propósito: H-032 cierra la deuda que dejó H-031 (se adoptó
+`cache-ram 12288` sin cuantificar su beneficio), y H-034/H-035 dependen de que
+H-032 no haya encontrado corrupción de caché.
+
+### H-032 — ¿La caché de prompt en RAM devuelve lo que guardó?
+
+Primero **corrección**, después rendimiento: una caché que acelera y contesta con el
+contexto de otra conversación no es una optimización, es un fallo de datos servido
+rápido. Es la deuda directa de H-031, que adoptó `--cache-ram 12288` con el beneficio
+sin cuantificar (issue #27148, fix #27624, ambos abiertos).
+
+- **Correctness:** *nonces* distintos sembrados en 4 conversaciones y recuperados
+  después; además **pares concurrentes**, que es donde una caché compartida entre slots
+  puede cruzar contextos. Decenas de ciclos, no tres.
+- **Barrido:** `cache-ram` 0 / 4096 / 12288, con `-kvu`.
+- **Qué se mide, y no "si aparecen líneas en el journal":** `cache_n`, TTFT y memoria.
+  La ausencia de líneas de prompt-cache en el journal **no prueba** inactividad.
+- **Regresión #28495, como HIPÓTESIS y no como fallo demostrado.** El reporte fuerte
+  es sobre HIP/ROCm y nosotros somos Vulkan/RADV: puede no aplicarnos en absoluto.
+  Contraste `np=1` vs `np=2 +kvu` vs `np=2` sin `kvu`, con peticiones largas
+  consecutivas, `cache_prompt=false`, **midiendo pp desde la 2ª** (la 1ª paga el
+  arranque en frío y contamina la comparación).
+
+### H-033 — df03399 vs df03399 + PR #28501
+
+A/B mínimo: el candidato es la baseline **más el parche de esa PR y nada más**, fijada
+por **SHA exacto** (una PR es una rama móvil; "la PR #28501" sin SHA no es una
+configuración reproducible). El `patch_sha256` queda en el `manifest.json` de la build.
+Cualquier otra diferencia entre brazos invalida el punto.
+
+### H-034 — Cabezas MTP sidecar (la vía que H-031 no llegó a probar)
+
+`MTP/` shared-Q8_0 (2,79 GB) de Unsloth, que necesita una rama con soporte
+qwen4exp-MTP (PR #28243, abierta y draft). **Nada de esto está medido aquí todavía**
+(ver H-031b).
+
+- `np=1`, `cache-ram` reducido, `temperature 0`.
+- Escalera de contexto **8k / 32k / 64k / 98k**, vigilando `dmesg` y reset de GPU por
+  **#27306** — ya tuvimos un crash de GPU real por prefill largo (H-014), así que esto
+  se mira en cada escalón, no al final.
+- **Exactitud greedy contra un control** sin especulación: la especulación tiene que
+  ser transparente para la salida. Si cambia el texto, no es más rápida, es otra cosa.
+- Visión cargada (`--mmproj`): es requisito de uso, no variable.
+
+### H-035 — MTP con `np=2` + visión
+
+**Solo si H-034 sale limpio.** Es la combinación que toca #28286; meterla antes de
+tener H-034 en verde sería mover dos variables y no saber cuál rompió.
+
+### H-036 — Parches de `drluoto/llama.cpp`, uno a uno
+
+Su rama `strix-halo-vulkan` es **cantera de parches, no checkout** (ver H-031b: mismo
+M5 y mismo punto de partida de 27 t/s, pero sin `--mmproj` documentado y con la pila
+entera cambiada a la vez). Se evalúa **un cambio por brazo** contra nuestra línea base:
+requant Q5_K denso + routers Q8_0, cabeza de borrador propia,
+`GGML_VK_DISABLE_GDN_CACHE_FUSION=1`, `-np 3 --ctx-checkpoints 8`. Adoptar diez cambios
+juntos y medir una mejora no dice cuál la produjo — ese error ya costó desmontar H-011
+en H-022.
+
+### Y al final, el ubatch definitivo
+
+`ubatch` **el último**, no el primero: el punto óptimo depende de la build, del
+`batch`, de `cache-ram` y de si hay especulación. Rehacerlo antes de cerrar H-032…H-036
+es medir una curva que va a moverse. Queda pendiente desde H-022 la comparación firme
+1024 ↔ 2048 con calentamiento separado, 5 pasadas y orden equilibrado.
+
+---
+
 ## Fase B — Imagen local (siguiente gran bloque)
 
 Objetivo: generación/edición de imagen en el M5 sin nube. Aquí ya no es llama.cpp:
