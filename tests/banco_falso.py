@@ -21,6 +21,25 @@ por `BANCO_FALSO_CONF`:
     prompt_ms_cache       {"por_defecto": x, "<cache-ram>": y} TTFT con cache
     greedy_prefijo        {"por_defecto": "G", "<sha>": "H"} salida greedy
 
+H-034 (MTP sidecar y vision). El modo MTP se ACTIVA SOLO cuando los args del
+servidor traen `--spec-type draft-mtp` Y `-md`/`--model-draft`:
+
+    acceptance            acceptance del borrador (0,66): draft_n_accepted =
+                          round(draft_n * acceptance) en timings, y el log del
+                          proceso imprime "draft acceptance = 0.6600"
+    mtp_factor            multiplica `tg` del brazo MTP (1,0 = igual)
+    mtp_tg_por_familia   {"<familia>": factor} sobre el de MTP: una familia
+                         concreta (prosa/codigo/json/reescritura/creativo)
+                         puede hundirse por debajo del suelo aunque el resto
+                         mejore
+    mtp_greedy_distinto   el content del brazo MTP difiere en un caracter
+    mtp_sin_efecto        args MTP pero SIN draft_n ni linea de log: la fase
+                          tiene que marcar "especulacion NO activa" como error
+    caida_en_ctx          os._exit(1) cuando prompt_n >= este umbral (simula el
+                          DeviceLost de #27306)
+    vision_mtp_rompe      con imagen y brazo MTP responde HTTP 500 en vez del
+                          color; sin imagen responde el color ("Rojo")
+
 Cada peticion recibida y el arranque se anotan en el JSONL de
 `BANCO_FALSO_REGISTRO`, para que una prueba pueda comprobar QUE se pidio
 (`cache_prompt`, `enable_thinking`, `seed`, `max_tokens`) y no solo que la fase
@@ -96,8 +115,39 @@ def parsea(argv: list[str]) -> dict:
             d["parallel"] = int(valor); i += consume; continue
         if base in ("-kvu", "--kv-unified"):
             d["kvu"] = True; i += 1; continue
+        if base in ("--spec-type",):
+            d["spec_type"] = valor; i += consume; continue
+        if base in ("-md", "--model-draft"):
+            d["draft_model"] = valor; i += consume; continue
+        if base in ("--spec-draft-n-max",):
+            d["spec_draft_n_max"] = int(valor); i += consume; continue
+        if base in ("--spec-draft-p-min",):
+            d["spec_draft_p_min"] = float(valor); i += consume; continue
         i += 1
     return d
+
+
+def mtp_activo() -> bool:
+    """¿Este arranque lleva la cabeza de borrador? Solo con los dos flags."""
+    return ARGS.get("spec_type") == "draft-mtp" and bool(ARGS.get("draft_model"))
+
+
+# H-034: para poder simular "una familia se hunde", el fake reconoce a que
+# familia pertenece el prompt por una marca distintiva de cada texto.
+_FAMILIAS = (
+    ("prosa", "Resume en tres frases"),
+    ("codigo", "media_por_zona"),
+    ("json", "Transforma esta lista en JSON"),
+    ("reescritura", "Devuelve el bloque siguiente"),
+    ("creativo", "horno industrial"),
+)
+
+
+def familia_de(texto: str) -> str | None:
+    for nombre, marca in _FAMILIAS:
+        if marca in texto:
+            return nombre
+    return None
 
 
 def anota(reg: dict) -> None:
@@ -149,7 +199,19 @@ class Manejador(BaseHTTPRequestHandler):
         anota({"evento": "peticion", "ruta": self.path, "cuerpo": cuerpo})
         if not self.path.endswith("/chat/completions"):
             return self._envia(404, {})
-        return self._envia(200, responde(cuerpo))
+        r = responde(cuerpo)
+        codigo = r.pop("_http", 200)
+        return self._envia(codigo, r)
+
+
+def _tiene_imagen(mensajes) -> bool:
+    for m in mensajes or []:
+        c = m.get("content")
+        if isinstance(c, list):
+            for parte in c:
+                if isinstance(parte, dict) and parte.get("type") == "image_url":
+                    return True
+    return False
 
 
 def responde(cuerpo: dict) -> dict:
@@ -172,10 +234,24 @@ def responde(cuerpo: dict) -> dict:
     m = RE_PN.search(texto)
     prompt_n = int(m.group(1)) if m else max(1, len(texto) // 4)
 
+    # H-034: caida de la GPU simulada en el prefill largo (#27306).
+    umbral = CONF.get("caida_en_ctx")
+    if umbral is not None and prompt_n >= int(umbral):
+        os._exit(1)
+
     pp = float(por_brazo("pp", 300.0))
     if orden >= 2:
         pp *= float(CONF.get("pp_factor_desde_2", 1.0))
     tg = float(por_brazo("tg", 25.0))
+
+    mtp = mtp_activo() and not CONF.get("mtp_sin_efecto")
+    if mtp:
+        tg *= float(CONF.get("mtp_factor", 1.0))
+        # H-034: "una familia se hunde" — factor por familia, sobre el de MTP.
+        por_familia = CONF.get("mtp_tg_por_familia") or {}
+        fam = familia_de(texto)
+        if fam and fam in por_familia:
+            tg *= float(por_familia[fam])
 
     if acierto:
         cache = CONF.get("prompt_ms_cache", 120.0)
@@ -183,40 +259,48 @@ def responde(cuerpo: dict) -> dict:
             cache = cache.get(str(ARGS.get("cache_ram")), cache.get("por_defecto", 120.0))
         prompt_ms = float(cache)
         cache_n = prompt_n
-        # Como el llama-server real: con acierto de cache, `prompt_n` cuenta
-        # SOLO lo que se tuvo que procesar (el sufijo nuevo), no el prompt
-        # entero. El doble antiguo devolvia el total y por eso la bateria
-        # estaba en verde mientras la fase abortaba en el M5 real
-        # ("el corpus de 2048 tokens mide 4").
         prompt_n = max(1, prompt_n - cache_n) if cache_n < prompt_n else 4
     else:
         prompt_ms = float(CONF.get("prompt_ms_frio", 900.0))
         cache_n = 0
 
-    codigos = RE_CODIGO.findall(texto)
-    if "¿Cuál era el CÓDIGO?" in ultimo and codigos:
-        etiqueta_propia, nonce_propio = codigos[-1]
-        contenido = nonce_propio
-        if CONF.get("contamina"):
-            ajenos = [v for k, v in vistos.items() if k != etiqueta_propia]
-            if ajenos:
-                # La fuga que busca H-032: la cache devuelve el contexto de
-                # otra conversacion, y lo hace con toda la naturalidad.
-                contenido = ajenos[orden % len(ajenos)]
-    elif cuerpo.get("seed") is not None:
-        contenido = f"{por_brazo('greedy_prefijo', 'G')}{len(ultimo)}"
+    # H-034 vision: la imagen manda sobre cualquier otra logica de contenido.
+    if _tiene_imagen(mensajes):
+        if mtp and CONF.get("vision_mtp_rompe"):
+            return {"_http": 500,
+                    "error": {"message": "vision rota con la cabeza MTP"}}
+        contenido = "Rojo"
     else:
-        contenido = "OK"
+        codigos = RE_CODIGO.findall(texto)
+        if "¿Cuál era el CÓDIGO?" in ultimo and codigos:
+            etiqueta_propia, nonce_propio = codigos[-1]
+            contenido = nonce_propio
+            if CONF.get("contamina"):
+                ajenos = [v for k, v in vistos.items() if k != etiqueta_propia]
+                if ajenos:
+                    contenido = ajenos[orden % len(ajenos)]
+        elif cuerpo.get("seed") is not None:
+            contenido = f"{por_brazo('greedy_prefijo', 'G')}{len(ultimo)}"
+        else:
+            contenido = "OK"
+        if mtp and CONF.get("mtp_greedy_distinto"):
+            contenido = contenido + "!"
 
     predicted = max(1, min(int(cuerpo.get("max_tokens") or 16), len(contenido) // 2 + 1))
+    timings = {
+        "prompt_n": prompt_n, "prompt_ms": prompt_ms,
+        "prompt_per_second": pp, "predicted_n": predicted,
+        "predicted_ms": round(predicted / tg * 1000, 3),
+        "predicted_per_second": tg, "cache_n": cache_n,
+    }
+    if mtp:
+        acceptance = float(CONF.get("acceptance", 0.66))
+        draft_n = int(CONF.get("draft_n", 50))
+        timings["draft_n"] = draft_n
+        timings["draft_n_accepted"] = int(round(draft_n * acceptance))
     return {
         "choices": [{"message": {"content": contenido}, "finish_reason": "stop"}],
-        "timings": {
-            "prompt_n": prompt_n, "prompt_ms": prompt_ms,
-            "prompt_per_second": pp, "predicted_n": predicted,
-            "predicted_ms": round(predicted / tg * 1000, 3),
-            "predicted_per_second": tg, "cache_n": cache_n,
-        },
+        "timings": timings,
     }
 
 
@@ -244,10 +328,18 @@ def main(argv: list[str]) -> int:
     anota({"evento": "arranque", "args": resto, "origen_clave": origen,
            "cache_ram": ARGS.get("cache_ram"), "parallel": ARGS.get("parallel"),
            "kvu": ARGS.get("kvu"), "host": ARGS.get("host"),
-           "port": ARGS.get("port")})
+           "port": ARGS.get("port"),
+           "spec_type": ARGS.get("spec_type"),
+           "draft_model": ARGS.get("draft_model"),
+           "spec_draft_n_max": ARGS.get("spec_draft_n_max")})
 
     if CONF.get("morir"):
         return int(CONF["morir"])
+
+    # H-034: la telemetria de borrador que la fase busca en el log del proceso.
+    if mtp_activo() and not CONF.get("mtp_sin_efecto"):
+        print(f"draft acceptance = {float(CONF.get('acceptance', 0.66)):.4f}",
+              flush=True)
 
     srv = ThreadingHTTPServer(("127.0.0.1", ARGS.get("port", 0)), Manejador)
     srv.serve_forever()

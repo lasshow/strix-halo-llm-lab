@@ -77,6 +77,24 @@ def modelos_servidos(puerto: int, clave: str | None = None, timeout: float = 10,
     return [m.get("id") for m in datos if isinstance(m, dict) and m.get("id")]
 
 
+def health_ok(puerto: int, timeout: float = 5, abrir=None) -> bool:
+    """¿/health devuelve 200 AHORA? Sondeo suelto, sin espera ni reintentos.
+
+    No sustituye a `espera_proceso` ni a `espera_servicio` y no se debe usar
+    para dar por bueno un arranque: un 200 en el puerto no acredita ni la
+    unidad ni el modelo (fallo B de H-031). Existe para lo contrario -- para
+    preguntar si un servidor que YA habia pasado la espera completa sigue en
+    pie despues de una peticion que ha podido llevarselo por delante, que es lo
+    que hace la escalera de contexto de H-034 en cada escalon.
+    """
+    abrir = abrir or _abrir
+    try:
+        with abrir(f"http://127.0.0.1:{puerto}/health", timeout, {}) as r:
+            return getattr(r, "status", 200) == 200
+    except Exception:
+        return False
+
+
 def espera_servicio(unidad: str, puerto: int, modelo: str | None = None,
                     limite: float = 600, clave: str | None = None,
                     sh=None, abrir=None, pausa: float = 5,
