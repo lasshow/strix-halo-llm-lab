@@ -1798,3 +1798,35 @@ empates + 0 no verificadas → **adopta**. Gates de despliegue en VERDE
 vivo coherente: `/models/llama-current → +76f2f360` **y** `/proc/86383/exe →
 +76f2f360`; `ANTERIOR = +6e8170fb`. Producción del M5 queda con el parche
 KV-zero apilado sobre la base MTP. Evidencia: `benchmarks/h036/resultados-kvzero-b.json`.
+
+## H-038 — El MTP sí compensa: +45% de generación con carga real
+
+**Pregunta:** H-037 midió que el MTP (`--spec-type draft-mtp`) costaba −31/−40% de
+generación y contradecía a H-035, que había medido ×1,9 a favor. ¿Cuál vale?
+
+**Método:** mismo binario (`df03399…+76f2f360`), misma máquina, mismo día, única
+variable el MTP. Se descarta `bench-context.py` porque construye el prompt
+repitiendo una frase sintética; se escribe `scripts/bench-real.py`, que usa
+ficheros reales del repo (3.738–36.415 tokens) con seis tareas reales: explicar
+código, proponer cambios, resumir prosa técnica y extraer JSON. 2 pasadas + 1
+calentamiento por tarea, mediana de tg.
+
+**Resultado (tg, MTP vs sin MTP):** código +48,7% (mediana), prosa +37,2%,
+JSON +69,6%, **total +45,5%**. Ninguna tarea sale perdiendo. El prefill queda
+igual en ambos brazos (396–413 t/s), es decir el MTP no lo penaliza.
+
+**Veredicto:** el −40% de H-037 es un **artefacto del prompt sintético**: sobre
+texto de relleno el borrador no acierta y sólo se paga la verificación. Con
+contenido real acierta y acelera. Se mantiene el MTP en producción y **queda
+invalidada** la recomendación de H-037 de arrancar `/tmp/nospec.sh` para prosa larga.
+
+**Lección de método:** un banco cuyo prompt no se parece a la carga real puede
+invertir el signo de la conclusión, no sólo su magnitud. Para medir aceptación
+de borrador, el prompt debe ser contenido real.
+
+**Trampa medida:** con `--cache-reuse 256`, tras el calentamiento las pasadas
+reportan `prompt_n=4` y su `pp` mide un prefill de 4 tokens. El prefill válido es
+el del calentamiento; `bench-real.py` arrastra `prompt_n_real`/`pp_real` por eso.
+
+Datos: `benchmarks/h038-carga-real-mtp.csv`, crudos `benchmarks/real-mtp-*.jsonl`
+y `benchmarks/real-sin-mtp-*.jsonl`.
