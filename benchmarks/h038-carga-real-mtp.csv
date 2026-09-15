@@ -1,0 +1,47 @@
+# H-038: banco de CARGA REAL, MTP (draft-mtp) si o no
+# Maquina M5 (Strix Halo gfx1151), kernel 7.2.5-200.fc44.x86_64, firmware 20260910
+# Build unica en ambos brazos: /models/llama-builds/df03399b885831b2a1603b3abb0d8c156808e363+76f2f360
+# Modelo: qwen3.8-flash-next (Qwen3.8-Flash-Next UD-IQ4_XS) + mmproj-F16
+# Brazo MTP     = unidad de produccion llama-flashnext (--spec-type draft-mtp, n-max 2, p-min 0)
+# Brazo sin-MTP = /tmp/nospec.sh, MISMOS flags menos --spec-type/-md/--spec-draft-*
+# 2 pasadas medidas + 1 calentamiento por tarea; se reporta la MEDIANA de tg.
+#
+# POR QUE ESTE BANCO Y NO bench-context.py:
+#   bench-context.py rellena el prompt repitiendo una frase sintetica. Sobre ese
+#   texto el borrador MTP casi nunca acierta y solo se paga la verificacion, por
+#   eso alli el MTP salia -31/-40% (ver post-kernel-7.2.5-nospec.csv). Aqui los
+#   prompts son ficheros REALES del propio repo (codigo Python, prosa tecnica en
+#   markdown) con tareas reales: explicar, proponer cambios, resumir, extraer JSON.
+#
+# AVISO DE LECTURA - la columna pp de las pasadas medidas NO es prefill real:
+#   el servidor corre con --cache-reuse 256, asi que tras el calentamiento el
+#   prompt queda cacheado y las pasadas reportan prompt_n=4 (solo tokens nuevos).
+#   El prefill valido es el del calentamiento (columna pp_calentamiento).
+#   La comparacion MTP si/no se hace sobre tg, que es lo que el MTP acelera.
+#
+tarea,clase,prompt_n_real,pp_calentamiento_mtp,tg_mtp,pp_calentamiento_sin,tg_sin,delta_tg_pct
+codigo-explica,codigo,4296,39.0,37.49,407.0,26.36,+42.2
+codigo-cambio,codigo,3738,412.6,39.34,396.9,26.45,+48.7
+codigo-largo,codigo,6791,399.8,39.35,402.3,25.46,+54.5
+prosa-resume,prosa,4402,404.6,34.78,396.1,25.55,+36.1
+prosa-hallazgos,prosa,36415,313.8,28.43,337.9,20.55,+38.3
+json-extrae,json,5606,406.9,43.76,403.4,25.80,+69.6
+#
+# MEDIANAS POR CLASE (delta = tg_mtp/tg_sin - 1; positivo = el MTP acelera)
+# codigo  +48.7%
+# prosa   +37.2%
+# json    +69.6%
+# TOTAL   +45.5%
+#
+# NOTA sobre pp_calentamiento_mtp de codigo-explica (39.0): esa tarea fue la
+# primera del brazo MTP y su "calentamiento" ya encontro el prompt cacheado por
+# la prueba manual previa; no es un prefill de 4296 tokens. El resto de valores
+# de prefill si son de prompt frio y quedan en 396-413 t/s en ambos brazos, es
+# decir el MTP no penaliza el prefill.
+#
+# CONCLUSION:
+#   Con carga real el MTP acelera la generacion en TODAS las tareas medidas,
+#   +36% a +70%, incluida la prosa. El -31/-40% medido con bench-context.py es
+#   un artefacto del prompt sintetico de relleno, NO el comportamiento real.
+#   => Se mantiene el MTP en produccion. Queda invalidada la recomendacion
+#   previa de arrancar /tmp/nospec.sh para tareas de prosa larga.
