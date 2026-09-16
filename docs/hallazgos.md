@@ -1830,3 +1830,76 @@ el del calentamiento; `bench-real.py` arrastra `prompt_n_real`/`pp_real` por eso
 
 Datos: `benchmarks/h038-carga-real-mtp.csv`, crudos `benchmarks/real-mtp-*.jsonl`
 y `benchmarks/real-sin-mtp-*.jsonl`.
+
+## H-039 — Ornith-1.5-35B-A3B frente a Flash-Next: más rápido, no más listo
+
+**Pregunta:** ¿hay un modelo mejor que `qwen3.8-flash-next` para el rol de principal
+en el M5?
+
+**Método:** batería de 14 prompts idénticos (`scripts/modelos/bateria.py`) contra los
+dos servidores con el mismo muestreo (`temperature 0`, `seed 1234`,
+`enable_thinking: false`) y verificación automática y objetiva
+(`scripts/modelos/verifica.py`): el código se **compila y ejecuta** con aserciones
+(Python, Rust, TypeScript `--strict`, SQLite), el JSON se parsea y se comparan claves
+y valores, y las instrucciones se comprueban con reglas medibles (conteo exacto de
+palabras, palabras prohibidas, formato de una sola línea).
+
+**Resultado:**
+
+| | Flash-Next (125B, ~3B act.) | Ornith-1.5-35B-A3B |
+|---|---|---|
+| verificables OK | **11 / 12** | 10 / 12 |
+| media tg (t/s) | 32,4 | **47,1** |
+| fallos | `instr_conteo` | `instr_conteo`, `json_ficha` |
+| no verificables | `es_tecnico`, `es_redaccion` | `es_tecnico`, `es_redaccion` |
+
+Los 5 ejercicios de código compilan y pasan las aserciones en **ambos** modelos.
+Ornith es ~45% más rápido generando y falla además el JSON de claves exactas.
+`instr_conteo` (responder con exactamente cinco palabras) lo falla todo el mundo.
+
+**Veredicto:** Ornith es un modelo **lateral**, no un sucesor: gana velocidad y pierde
+una prueba de formato. No justifica cambiar el principal.
+
+**Trampa de lectura (error cometido y corregido):** el verificador devuelve tres
+estados — `True`, `False` y `None` (no verificable automáticamente). Contar los `None`
+como fallos daba «11/14 vs 10/14» y sugería, falsamente, que Ornith se degradaba en
+castellano. Los dos casos de castellano **no se midieron**, no se suspendieron. Los
+recuentos deben ser siempre sobre verificables.
+
+Datos: `benchmarks/h039/*.verificado.jsonl`.
+
+## H-040 — Dos modelos coresidentes: caben, y el que está en reposo no cuesta nada
+
+**Pregunta:** ¿se puede tener cargado a la vez un modelo principal y uno auxiliar en
+los 124 GiB de memoria unificada, y cuánto cuesta?
+
+**Método:** `scripts/modelos/coexistencia.py` levanta Flash-Next (`-c 32768 -np 1`) en
+:8080 y Ornith en :8081 y mide tres fases con los mismos tres prompts: **A** sólo
+Flash-Next, **B** ambos cargados pero generando de uno en uno, **C** ambos generando
+a la vez en hilos paralelos. Cada fila registra memoria del sistema, GTT y VRAM.
+
+**Resultado (mediana de tg, t/s):**
+
+| fase | Flash-Next | Ornith | memoria |
+|---|---|---|---|
+| A — solo Flash-Next | 43,96 | — | 96,4 GB |
+| B — coresidentes, uno activo | **44,15** | 53,51 | 121,5 GB |
+| C — los dos generando | 30,90 | 29,76 | 122,1 GB |
+
+**Lecturas:**
+
+1. **El modelo en reposo es gratis.** 43,96 → 44,15 t/s con 24 GiB extra cargados: la
+   diferencia está dentro del ruido. Los pesos que no se leen no consumen ancho de
+   banda, que es el recurso escaso de esta máquina.
+2. **Caben, pero justo:** 122,1 GB de 124 con el contexto recortado a 32k. Con el
+   contexto de producción (262k) no cabrían.
+3. **En paralelo cada uno pierde ~30%, pero el agregado sube:** 30,9 + 29,8 = **60,7
+   t/s** frente a 44-54 de uno solo. Si la carga es de dos peticiones simultáneas,
+   dos motores rinden más que uno.
+
+**Aplicación:** un auxiliar pequeño coresidente (clasificación, embeddings, borrador)
+no penaliza al principal mientras no generen a la vez. Es una vía barata de ampliar
+capacidades sin tocar el modelo de producción.
+
+Datos: `benchmarks/h040/coexistencia.jsonl`. Producción se restauró y verificó al
+terminar la ventana.
