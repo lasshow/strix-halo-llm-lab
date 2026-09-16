@@ -1903,3 +1903,44 @@ capacidades sin tocar el modelo de producción.
 
 Datos: `benchmarks/h040/coexistencia.jsonl`. Producción se restauró y verificó al
 terminar la ventana.
+
+## H-041 — Nemotron-3.5-Lightning-30B-A3B Q8 vs Flash-Next: no supera al titular
+
+Fecha: 2026-09-16. Modelo: NVIDIA-Nemotron-3.5-Lightning-30B-A3B UD-Q8_K_XL (38,6 GB,
+36 GiB en memoria). Misma bateria de 14 prompts y mismo verificador que H-039,
+ejecutados DENTRO del M5 (ver trampa 2). Produccion parada durante la ventana y
+restaurada al terminar (health 200 verificado).
+
+Marcador sobre los 12 prompts verificables automaticamente:
+
+| modelo | aciertos | media t/s |
+|---|---|---|
+| qwen3.8-flash-next (produccion, con MTP) | 11/12 | 32,4 |
+| Ornith-1.5-35B-A3B Q5_K_M | 10/12 | 47,1 |
+| Nemotron-3.5-Lightning-30B-A3B Q8 | 10/12 | 31,8 |
+
+Los dos fallos de Nemotron:
+- `instr_conteo`: responde con mas palabras de las pedidas. Fallan los TRES modelos
+  en este prompt, asi que mide dificultad del prompt, no del modelo.
+- `raz_tasas`: la aritmetica es CORRECTA (35,7 s de ahorro) pero incumple el formato
+  pedido: suelta tres pantallas de LaTeX y repite el resumen dos veces. Es fallo de
+  seguimiento de instruccion, no de razonamiento.
+
+Conclusion: Nemotron no aporta nada frente al titular. Misma calidad que Ornith,
+un acierto por debajo de Flash-Next, y en velocidad queda IGUAL que produccion
+(31,8 vs 32,4) pese a ser un 30B A3B, porque Q8 pesa el doble por peso que el Q5
+de Ornith y el ancho de banda de memoria es el cuello de botella en esta maquina.
+Ornith sigue siendo el unico retador con ventaja medida (+45% t/s a igual calidad).
+=> Se mantiene qwen3.8-flash-next como principal. Carta agotada.
+
+Trampas encontradas (dos, ambas costaron falsos rojos):
+1. `systemd-run` con un script en /tmp o /root da 203/EXEC por SELinux en Fedora:
+   hay que invocar `/bin/bash /tmp/script.sh`, no el script directo. Es la misma
+   trampa del contexto bin_t ya documentada, pero por la via del interprete.
+2. Un tunel SSH -L contra el puerto del servidor resetea TODAS las conexiones
+   (ConnectionResetError en los 14 prompts) mientras el journal del servidor no
+   registra ni una peticion: sintoma inequivoco de que el corte es del tunel, no
+   del modelo. Las baterias se lanzan DENTRO del M5.
+3. `verifica.py` necesita node_modules/.bin/tsc junto al script; sin el, ts_debounce
+   sale FAIL por FileNotFoundError y no por codigo malo. Comprobar que un FAIL trae
+   salida del compilador antes de apuntarlo como fallo del modelo.
