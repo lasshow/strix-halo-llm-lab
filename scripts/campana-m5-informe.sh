@@ -3,7 +3,7 @@
 # Si la campana lleva >10 h sin terminar o el proceso murio sin informe, avisa.
 H=${M5_HOST:?define M5_HOST}
 EST=$(ssh -o BatchMode=yes -o ConnectTimeout=15 $H 'test -f ~/campana/INFORME.md && echo INFORME; pgrep -af campana-nocturna | grep -v pgrep | wc -l; tail -3 ~/campana/campana.log 2>/dev/null; systemctl is-active llama-flashnext' 2>/dev/null) || { echo "M5 inalcanzable por tailnet al comprobar la campana nocturna."; exit 0; }
-STATE=/home/<usuario>/.hermes/scripts/state/campana-m5.entregado
+STATE="$HOME"/.hermes/scripts/state/campana-m5.entregado
 if grep -q '^INFORME$' <<<"$EST"; then
   [ -f "$STATE" ] && exit 0
   ssh -o BatchMode=yes $H 'cat ~/campana/INFORME.md'

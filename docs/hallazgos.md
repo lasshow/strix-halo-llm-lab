@@ -635,7 +635,7 @@ igual que antes de la actualizacion.
 
 ## H-021 — El instrumental daba falsos verdes: smoke-test que no fallaba y barrido de ubatch que movia dos variables (2026-09-10)
 
-Origen: auditoria externa del repositorio fijada en el commit `23cb014`. Tres de sus
+Origen: auditoria externa del repositorio fijada en el commit `5a7dd0a`. Tres de sus
 objeciones sobre los scripts se comprobaron **ciertas leyendo el codigo y el proceso
 en ejecucion**, no de oido. Se corrigen aqui.
 
@@ -799,7 +799,7 @@ que ahora se puede afirmar sobre ejecucion real es solo lo de la tabla de arriba
 ## H-024 — El banco de pruebas daba por buenas respuestas invalidas y salia 0 siempre (2026-09-10)
 
 **Estado:** corregido y verificado con 52 pruebas automaticas · origen: auditoria externa
-del corte `35a2f26`, reproducida punto por punto en la maquina.
+del corte `ebfa66e`, reproducida punto por punto en la maquina.
 
 El instrumental tenia cinco defectos que hacian que **un fallo se registrase como exito**.
 Ninguno era teorico: todos se reprodujeron antes de arreglarlos.
@@ -845,8 +845,8 @@ comparacion.
 
 ## H-025 — Segunda auditoria: los contratos no cerraban los caminos que anunciaban
 
-**Fecha:** 2026-09-10 · **Corte auditado:** `0c06767` · **Estado:** corregido, 95 pruebas
-automaticas (37 de ellas fallan contra `0c06767` y pasan aqui)
+**Fecha:** 2026-09-10 · **Corte auditado:** `2ddf311` · **Estado:** corregido, 95 pruebas
+automaticas (37 de ellas fallan contra `2ddf311` y pasan aqui)
 
 La correccion de H-024 fue real pero incompleta: las 52 pruebas cubrian las regresiones
 conocidas y no tocaban el verificador de codigo ni los errores de la aguja, asi que podian
@@ -891,12 +891,12 @@ del M5 no se ha reiniciado. El orden sigue siendo el acordado: primero el instru
 **simuladas**: no se ha certificado el aislamiento real en el M5, solo que la comprobacion
 ya no aprueba lo que no pudo comprobar. TypeScript, Node y SQLite se ejercitan con las
 herramientas reales del equipo de trabajo, no con las del M5. Que 37 pruebas nuevas fallen
-contra `0c06767` demuestra que detectan estos fallos concretos; no demuestra que no queden
+contra `2ddf311` demuestra que detectan estos fallos concretos; no demuestra que no queden
 otros.
 
 ## H-026 — El banco suspendia codigo correcto y contaba mal los fallos
 
-**Fecha:** 2026-09-10 · **Corte auditado:** `2919da9` · **Estado:** corregido
+**Fecha:** 2026-09-10 · **Corte auditado:** `9716a2a` · **Estado:** corregido
 
 Tercera revision externa. Los tres bloqueos del barrido de ubatch (calentamiento
 obligatorio, salud conjunta, validacion de metricas) quedaron confirmados como
@@ -941,7 +941,7 @@ fase e identificador. Un timeout es fallo de infraestructura, nunca del modelo.
 
 ### Verificacion
 
-10 pruebas nuevas (105 en total). Contrastadas contra `2919da9`: **8 fallan con
+10 pruebas nuevas (105 en total). Contrastadas contra `9716a2a`: **8 fallan con
 el codigo viejo** y pasan con los arreglos. Las de codigo se ejecutan con `tsc`,
 `node` y `sqlite3` reales.
 
@@ -952,7 +952,7 @@ real y el ciclo parada/arranque/restauracion del M5 solo se pueden certificar
 ejecutando el piloto. No hay CI en GitHub Actions para estos commits, asi que los
 resultados son locales y reproducibles, pero no visibles como ejecucion publica.
 
-### H-026b — Tres ajustes tras el informe de cierre de `12c93ba`
+### H-026b — Tres ajustes tras el informe de cierre de `fe2817f`
 
 **Fecha:** 2026-09-10 · **Estado:** corregido · Ninguno bloquea el piloto.
 
@@ -978,7 +978,7 @@ resultados son locales y reproducibles, pero no visibles como ejecucion publica.
    unificados al final y `LaSuiteNoPuedeOcultarPruebas` comprueba que en cada
    fichero hay exactamente un bloque `__main__` y que no queda codigo despues.
 
-107 pruebas. Las dos nuevas fallan contra `12c93ba` y pasan con el arreglo.
+107 pruebas. Las dos nuevas fallan contra `fe2817f` y pasan con el arreglo.
 
 **Sobre el alcance de las puntuaciones**, se adopta la redaccion del auditor por
 ser mas precisa que la propia: *las puntuaciones obtenidas mediante las rutas
@@ -996,7 +996,7 @@ El revisor objeta que *"diez pruebas no satisfactorias no equivalen a diez
 defectos independientes"* y que la cifra debe quedar respaldada por el registro
 de ejecucion. Tiene razon en lo primero y **la cifra que comunique era
 imprecisa**. Ejecucion diferencial completa, registro en
-`evidencias/diferencial-2919da9.txt`:
+`evidencias/diferencial-9716a2a.txt`:
 
 | Magnitud | Valor |
 |---|---|
@@ -1074,7 +1074,7 @@ uso `pgrep -af "[b]ench-ubatch"`. Vigilar procesos remotos asi da falsos vivos.
 
 ### H-028 — Repeticion del punto ubatch=1024 con el batch productivo
 
-**Fecha:** 2026-09-10 · Instrumental: `13114f7` · Autorizado por el propietario
+**Fecha:** 2026-09-10 · Instrumental: `9cc65af` · Autorizado por el propietario
 
 Repeticion del piloto de H-027 con el defecto ya corregido: `--batch` omitido,
 leido de la unidad productiva. El log lo confirma en la maquina real:
@@ -1128,7 +1128,7 @@ los 180 s y el piloto sobrevivio, con toda la salida en `piloto2.log`.
 
 ### H-029 — La duda del batch, resuelta: los dos pilotos SI aplicaron su batch
 
-**Fecha:** 2026-09-10 · Instrumental: sobre `b9d7be4`
+**Fecha:** 2026-09-10 · Instrumental: sobre `0ee64c3`
 
 H-028 dejo abierto si el `--batch-size` de la unidad de banco llegaba a
 aplicarse. Resuelto leyendo el journal de los dos pilotos: el progreso de
@@ -1163,7 +1163,7 @@ contra los journals de las dos ventanas del M5 y devolvio 2048 y 4096
 respectivamente, ambos coincidentes.
 
 7 pruebas nuevas en `tests/test_batch_efectivo.py`, las 7 fallan contra
-`b9d7be4`. Suite: **121 OK**.
+`0ee64c3`. Suite: **121 OK**.
 
 ### H-030 — La comprobacion de restauracion, como script versionado
 
@@ -1274,7 +1274,7 @@ prueba inactividad**; lo que se mide es `cache_n`, TTFT y memoria.
 Las medidas de arriba se sostienen. El **instrumento** que las tomo, no: una
 auditoria externa encontro seis defectos, todos verificados en el codigo, y
 tres de ellos habrian pasado inadvertidos precisamente porque la campana salio
-bien. Corregidos en `37ddb36` (instrumental) con pruebas en `d3b6cbe`.
+bien. Corregidos en `fa7daf5` (instrumental) con pruebas en `449a8e3`.
 
 | | Fallo | Por que importa | Donde se cierra |
 |---|---|---|---|
@@ -1311,7 +1311,7 @@ separan en una entrada propia para que no se citen como resultado:
 4. **DPM.** No se detecto penalizacion de `prompt_ms` atribuible al escalado
    DPM tras 45 s de reposo en este ensayo.
 5. **Instrumental.** Los seis fallos A-F de la tabla anterior, cerrados en
-   `37ddb36`/`d3b6cbe`, pero **sin ejecutar todavia una campana completa con
+   `fa7daf5`/`449a8e3`, pero **sin ejecutar todavia una campana completa con
    el runner nuevo contra el M5**. El mecanismo esta probado contra un M5 de
    mentira; la primera campana real sera H-032.
 
@@ -1431,7 +1431,7 @@ Verificado sobre el proceso vivo: `/proc/<pid>/exe` apunta a la build
 o revertir una build es `builds.sh promover|volver` + `systemctl restart`, sin
 tocar la unidad.
 
-**Lo que hizo falta arreglar para poder medir** (commit 4bf6d0d): la credencial
+**Lo que hizo falta arreglar para poder medir** (commit b9f1167): la credencial
 del gate se lee ahora del argv resuelto por `systemctl show`; el corpus se
 verifica con la peticion fria (con cache caliente `prompt_n` cuenta solo lo
 recomputado); SIGTERM pasa por los `finally`. Los tres fallos estaban en verde
@@ -1514,11 +1514,11 @@ Nada desplegado. Antes de H-035 (MTP a `np=2 -kvu`, donde si se despliega):
 cerrar la igualdad greedy con contenido completo, y decidir n-max 2 vs 3 con
 el mix real de peticiones.
 
-**Instrumental** (commit `af65099`): `fases_h034.py` (3 fases), `banco.py`
+**Instrumental** (commit `96c8ca1`): `fases_h034.py` (3 fases), `banco.py`
 con `--spec-type draft-mtp -md`, `salud.py` con vigilancia del kernel,
 `banco_falso.py` con MTP simulado (aceptacion, factor por familia, greedy
 distinto, vision), 27 pruebas nuevas que fallan todas contra el commit anterior
-(`git worktree --detach 1b7a935`). Bug real cazado por las pruebas antes de
+(`git worktree --detach 7ef2887`). Bug real cazado por las pruebas antes de
 tocar el M5: `_corpus_de_la_escalera` no devolvia el corpus.
 
 
@@ -1593,7 +1593,7 @@ sea empate ≤ 0,5 nats. Con eso el gate mide lo que importa (que no se acepte
 un token que el objetivo no elegiría) y no un determinismo que `-np 2` ya no
 ofrece. El smoke exacto (`391`) es corto y sobrevivió; se mantiene.
 
-**Instrumental** (commit `86378d3`): `validacion.tokens_con_logprobs`,
+**Instrumental** (commit `f90a25f`): `validacion.tokens_con_logprobs`,
 `banco.pon_mtp/quita_mtp` (idempotentes, anclados a `--mmproj`),
 `campana.py --patch-baseline` (la baseline también lleva parche),
 `fases_h035.py` (4 fases), 30 pruebas nuevas que fallan todas contra el
@@ -1611,7 +1611,7 @@ como "fuera del top". Un cuarto caso, ` horn`+`o` frente a ` horno`, era la
 misma cadena con distinta tokenización. Las 17 divergencias restantes eran
 empates a 0,003–0,42 nats. **Ningún fallo del MTP: dos fallos del
 instrumento**, que las pruebas con dobles no cazaron porque el doble devolvía
-logprobs completos también en el brazo MTP. Corregido en `94592e7`: la
+logprobs completos también en el brazo MTP. Corregido en `2879797`: la
 referencia es siempre el control (no especula, trae distribución en todo), cada
 slot del MTP se juzga contra él, misma cadena = idéntico, y el doble imita ahora
 los `logprob 0` de los tokens aceptados (los 3 tests nuevos fallan contra el
@@ -1774,7 +1774,7 @@ salió verde **sobre el binario viejo** (`/proc/<pid>/exe → +6e8170fb`): un
 verde en falso, y un estado incoherente symlink/proceso que un reinicio
 fortuito habría convertido en despliegue sin gate. Revertido con
 `builds.sh volver` (verificado `/proc/<pid>/exe` = symlink). Corregido en
-`3e31b10`: promover exige `restart` aunque la unidad no cambie; el systemctl
+`91c8b7e`: promover exige `restart` aunque la unidad no cambie; el systemctl
 de mentira registra ahora sus llamadas y el test nuevo falla contra el commit
 anterior (`'restart' not found in [...]`).
 

@@ -17,8 +17,8 @@ BIN = "/models/llama-current/build/bin/llama-server"
 FN_MODEL = "/models/gguf/qwen38-flash-next/UD-IQ4_XS/Qwen3.8-Flash-Next-UD-IQ4_XS-00001-of-00003.gguf"
 FN_MTP = "/models/gguf/qwen38-flash-next/MTP/mtp-Qwen3.8-Flash-Next-shared-Q8_0.gguf"
 OR_MODEL = "/models/gguf/ornith15-35b/Ornith-1.5-35B-A3B-Q5_K_M.gguf"
-OUT = "/home/<usuario>/m5-ornith/resultados/coexistencia.jsonl"
-LOGDIR = "/home/<usuario>/m5-ornith/logs"
+OUT = os.path.expanduser("~/m5-ornith/resultados/coexistencia.jsonl")
+LOGDIR = os.path.expanduser("~/m5-ornith/logs")
 CTX = 32768
 
 PROMPTS = [
