@@ -1944,3 +1944,49 @@ Trampas encontradas (dos, ambas costaron falsos rojos):
 3. `verifica.py` necesita node_modules/.bin/tsc junto al script; sin el, ts_debounce
    sale FAIL por FileNotFoundError y no por codigo malo. Comprobar que un FAIL trae
    salida del compilador antes de apuntarlo como fallo del modelo.
+
+---
+
+## H-043 — Kernel 7.2.9 no mueve la aguja frente a 7.2.7: resultado NULO
+
+Fecha: 2026-10-08. **Estado: confirmado (resultado negativo).**
+
+Tras actualizar el M5 a `kernel-7.2.9-200.fc44` (178 paquetes de `dnf upgrade`,
+reinicio limpio, servicio recargado) se repitio el banco de CARGA REAL
+(`bench-real.py --brazo mtp --pasadas 2`) contra el MISMO binario de produccion
+(`81ef10ea5+7fc180de`, MTP n-max 2, `-np 2`, batch 4096 / ubatch 512, ctx 262144).
+Variable unica: la version del kernel.
+
+Referencia: `benchmarks/real-mtp-20260928T081301Z.jsonl` (kernel 7.2.7).
+Medida nueva: `benchmarks/real-mtp-20261008T062423Z.jsonl` (kernel 7.2.9).
+
+| tarea | tg 7.2.7 | tg 7.2.9 | delta |
+|---|---:|---:|---:|
+| codigo-explica | 39,76 | 39,74 | −0,06 % |
+| codigo-cambio | 40,22 | 40,27 | +0,13 % |
+| codigo-largo | 42,13 | 41,60 | −1,27 % |
+| prosa-resume | 36,69 | 37,75 | +2,89 % |
+| prosa-hallazgos | 29,76 | 28,68 | −3,63 % |
+| json-extrae | 45,89 | 45,92 | +0,06 % |
+
+**Mediana de generacion: +0,00 %** (media −0,31 %, rango −3,63 / +2,89).
+**Mediana de prefill: −0,01 %** (ninguna tarea se mueve mas de ±1,1 %).
+
+**Lectura:** el kernel nuevo no aporta ni quita rendimiento en gfx1151 con este
+motor. Los dos extremos (prosa-resume +2,9 %, prosa-hallazgos −3,6 %) estan en la
+dispersion habitual de una tarea con prompt corto y de una con 38.917 tokens, no
+son senal. Actualizar el kernel es una decision de seguridad y de drivers, **no de
+rendimiento**: no esperar ganancias y no justificar una ventana de parada por ello.
+
+**Por que se publica un resultado nulo:** evita que alguien (incluido el futuro yo)
+repita la medida esperando una mejora, y fija la linea base del kernel 7.2.9 para
+comparar contra ella cuando se rebasen los parches de llama.cpp (265 commits por
+detras de upstream a esta fecha).
+
+**Metodo:** el banco se ejecuta desde el A8 contra el puerto del M5 por tailnet
+(no por tunel SSH, ver trampa 2 de H-041), con pasada de calentamiento descartada
+y dos pasadas medidas por tarea. El `prompt_n` que imprime el bucle de pasadas es
+el del mensaje incremental con `cache_prompt`, no el del prompt completo: el valor
+real esta en `prompt_n_real` del JSONL (4.296 / 3.738 / 6.791 / 4.402 / 38.917 /
+5.606). Comparar los `pp` de la linea de pasada entre ficheros seria un error;
+se comparan `pp_real` y `tg`.
