@@ -1990,3 +1990,94 @@ el del mensaje incremental con `cache_prompt`, no el del prompt completo: el val
 real esta en `prompt_n_real` del JSONL (4.296 / 3.738 / 6.791 / 4.402 / 38.917 /
 5.606). Comparar los `pp` de la linea de pasada entre ficheros seria un error;
 se comparan `pp_real` y `tg`.
+
+---
+
+## H-044 — Gufo 0.9.1 vs llama.cpp en calidad verificable: 11/12 vs 9/12 y ×4 en tiempo total
+
+Fecha: 2026-10-08. **Estado: confirmado (una pasada por celda, ver limitaciones).**
+
+Primera comparacion de los dos motores con el MISMO modelo
+(`Qwen3.8-Flash-Next-UD-Q4_K_XL` + cabeza MTP `mtp-...-shared-Q8_0`) y la misma
+bateria de 12 pruebas con verificador objetivo en Python (nada de "suena mejor":
+JSON que parsea, codigo que se ejecuta y pasa asserts, cadenas prohibidas,
+agujas en contexto largo).
+
+- Motor A: `llama-flashnext` de produccion, build `81ef10ea5+7fc180de`,
+  MTP n-max 2, `-np 2`, batch 4096 / ubatch 512, ctx 262144.
+- Motor B: `gufo serve ... llm --speculative mtp --sessions 1 --context 131072`,
+  contenedor `ghcr.io/gufo-org/toolboxes/gufo-runtime` (gufo 0.9.1, `dea22ce`,
+  digest `sha256:79a7046bb5cc`), rootless con `--device /dev/kfd --device /dev/dri`.
+- Las dos tomas se ejecutan DENTRO del M5 y con el otro motor PARADO (la GPU en
+  exclusiva; ver metodologia).
+
+| prueba | llama.cpp | s | gufo | s |
+|---|---|---:|---|---:|
+| `json-estructura` | OK | 2,7 | OK | 1,0 |
+| `json-anidado` | OK | 1,8 | OK | 1,3 |
+| `codigo-python-binaria` | OK | 2,3 | OK | 1,6 |
+| `codigo-python-parser` | OK | 5,7 | OK | 6,5 |
+| `codigo-python-estado` | OK | 2,4 | OK | 1,7 |
+| `instruccion-formato` | OK | 2,8 | OK | 3,3 |
+| `instruccion-negativa` | **NO** | 2,1 | OK | 1,6 |
+| `idioma-castellano` | OK | 4,9 | OK | 4,0 |
+| `razonamiento-aritmetico` | OK | 7,2 | OK | 5,6 |
+| `razonamiento-trampa` | **NO** | 0,5 | **NO** | 0,3 |
+| `aguja-contexto-medio` | **NO** | 133,7 | OK | 30,7 |
+| `aguja-contexto-final` | OK | 132,3 | OK | 15,8 |
+| **total** | **9/12** | **298,4** | **11/12** | **73,6** |
+
+**Donde esta de verdad la diferencia: el contexto largo.** Las dos agujas usan el
+mismo prompt de **42.072 / 42.066 tokens** en ambos motores (campo `prompt_tokens`
+del JSONL, identico en los dos ficheros: la comparacion es limpia). llama.cpp
+tarda 133,7 s y **falla** la aguja del medio (no encuentra `ZX-4417-QD`); Gufo la
+acierta en 30,7 s. En la del final, 132,3 s contra 15,8 s. Las diez celdas de
+prompt corto suman 32,4 s en llama.cpp y 27,9 s en Gufo: **a prompt corto los dos
+motores empatan**. Todo el ×4 del total sale del prefill de contexto largo, lo
+cual es coherente con el dato ya publicado en `motores-alternativos-gfx1151.md`
+(motor vertical = prefill ×3,4, decode empatado).
+
+Dato de apoyo del log del propio Gufo en una peticion manual previa de 108.021
+tokens de prompt: `prefill_tps=1433.9 decode_tps=32.5 acceptance_pct=59.5`
+(`draft_accepted=22 / draft_proposed=37`). No pertenece a esta bateria, se cita
+solo como orden de magnitud del prefill.
+
+### Las dos celdas rojas, una por una
+
+1. `razonamiento-trampa` — **falso rojo, era el test.** Los dos motores responden
+   exactamente `3`, que es la respuesta correcta; el verificador exigia la cadena
+   literal `"3 minutos"` y el prompt pedia "responde con el numero de minutos".
+   Corregido en `scripts/bench-calidad-motores.py`: ahora rechaza el `100` de la
+   trampa y acepta el `3` suelto. **No se puede atribuir a ningun motor.**
+2. `instruccion-negativa` — **rojo real de llama.cpp.** Se pide describir un
+   termopar sin usar la palabra "temperatura" y la respuesta empieza por
+   *"Es un sensor de temperatura compuesto por dos metales..."*. Gufo cumple la
+   restriccion. Es UNA muestra con temperatura de muestreo 1: es sugerente, no
+   concluyente.
+
+### Limitaciones que impiden declarar vencedor
+
+- **Una sola pasada por celda** y muestreo por defecto de cada motor (Gufo arranca
+  con `thinking=on temperature=1 top_k=20 top_p=0.95`). No se igualo el muestreo
+  entre motores, asi que una diferencia de 1 celda en prompts cortos entra en el
+  ruido. Lo unico que esta fuera del ruido es el contexto largo (×4,4 y ×8,4 en
+  tiempo, y un acierto/fallo que se repite en la misma direccion).
+- **Contextos declarados distintos** (262.144 en llama.cpp contra 131.072 en Gufo)
+  y **slots distintos** (`-np 2` contra `--sessions 1`). Para el prompt de 42k no
+  cambia el resultado, pero no es una configuracion espejo.
+- Gufo corrio **sin autenticacion** y en contenedor rootless de pruebas, no como
+  servicio.
+
+### Consecuencia operativa
+
+Gufo pasa de curiosidad a **candidato real** para sustituir a llama.cpp como motor
+de produccion del M5, y la palanca es el **contexto largo**, que es justo el caso
+de uso de un agente con historial. Antes de cambiar hace falta: repetir las celdas
+dudosas con muestreo igualado y 3 pasadas, comprobar `--sessions 2` sin fugas
+entre slots, medir el decode con el banco de carga real (`bench-real.py`), y
+escribir la unit systemd equivalente con su watchdog. **Mientras tanto, produccion
+sigue en llama.cpp** (restaurado al terminar la bateria).
+
+**Evidencias:** `benchmarks/h044/llamacpp.jsonl`, `benchmarks/h044/gufo.jsonl` y
+sus `*.salida.txt` (el `.gitignore` del repo excluye `*.log`, por eso se renombran).
+Banco: `scripts/bench-calidad-motores.py`.

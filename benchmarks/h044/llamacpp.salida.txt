@@ -1,0 +1,14 @@
+[OK ] json-estructura               2.7s  ok (4 claves)
+[OK ] json-anidado                  1.8s  ok (1 claves)
+[OK ] codigo-python-binaria         2.3s  ejecuta y pasa asserts
+[OK ] codigo-python-parser          5.7s  ejecuta y pasa asserts
+[OK ] codigo-python-estado          2.4s  ejecuta y pasa asserts
+[OK ] instruccion-formato           2.8s  ok
+[NO ] instruccion-negativa          2.1s  aparece lo prohibido: temperatura
+[OK ] idioma-castellano             4.9s  ok
+[OK ] razonamiento-aritmetico       7.2s  ok
+[NO ] razonamiento-trampa           0.5s  no aparece ninguna
+[NO ] aguja-contexto-medio        133.7s  faltan: ZX-4417-QD
+[OK ] aguja-contexto-final        132.3s  ok
+
+llamacpp: 9/12 pruebas pasadas
