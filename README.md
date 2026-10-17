@@ -8,11 +8,14 @@
 [![GPU](https://img.shields.io/badge/iGPU-Radeon%208060S%20gfx1151-ED1C24?style=flat-square&logo=amd&logoColor=white)](#hardware)
 [![RAM](https://img.shields.io/badge/Memoria-128%20GB%20unificados-0071C5?style=flat-square)](#hardware)
 [![OS](https://img.shields.io/badge/Fedora-44-51A2DA?style=flat-square&logo=fedora&logoColor=white)](#sistema)
-[![Backend](https://img.shields.io/badge/backend-Vulkan%20%2F%20RADV-A41E22?style=flat-square&logo=vulkan&logoColor=white)](#por-qué-vulkan-y-no-rocm)
+[![Motor](https://img.shields.io/badge/motor-Gufo%200.17%20(HIP)-A41E22?style=flat-square)](docs/hallazgos.md)
+[![Banco](https://img.shields.io/badge/llama.cpp-Vulkan%20%2F%20RADV-A41E22?style=flat-square&logo=vulkan&logoColor=white)](#por-qué-vulkan-y-no-rocm)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-green?style=flat-square)](LICENSE)
 
 *Todo lo que hay aquí está **medido en la máquina**, no copiado de notas de prensa.*
 *Cuando una medición desmiente a la anterior, se corrige y se deja constancia.*
+
+*Estado a **17 de octubre de 2026**: hallazgos H-001…H-051.*
 
 </div>
 
@@ -75,6 +78,7 @@ el resumen de un documento de 38,9k. Kernel 7.2.9, build `81ef10ea5` + parche MT
 | H-048 | **El techo es la potencia, no el reloj** | Fijar el reloj de la GPU da +2,3 % (no el ~20 % que se ve en otras máquinas): el SoC está clavado en **85 W** y el reloj sostenido apenas sube. Cuesta +7,5 W en reposo, 24/7. Cargar sin mmap: 0 %. No se adopta ninguno. |
 | H-049 | **Gufo 0.17.0, apto para producción** | Con 2 sesiones × 262k, visión y MTP: prefill **×3,6**, generación de un usuario **empatada**, **+57 %** agregado con peticiones simultáneas, 0 fugas entre sesiones, salida determinista en paralelo, tool calling y visión OK, calidad 14/14. Exige `mmproj` BF16 y la Q4_K_XL. |
 | H-050 | **Afinidad de sesión: no hace falta** | Tres conversaciones de ~15k intercaladas contra 2 slots: llama.cpp no reprocesa nada (su caché en RAM restaura cada conversación; solo procesa los 24-30 tokens nuevos). Lo que cuesta es el primer turno, y ahí Gufo es **×3,7** (11 s frente a 42 s). Gufo solo admite **una** clave de API (H-050b). |
+| H-051 | **Gufo pasa a producción** | Drop-in que conserva el nombre de la unidad (guard, brush y Hermes sin cambios) y despliegue con vuelta atrás automática. En producción: visión y herramientas OK, **87 t/s agregados** con 2-4 peticiones (antes 38-44), el guard lo rearranca en 18 s. Gufo exige la clave también en `/health`. |
 
 ---
 
@@ -190,6 +194,14 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
     ├── bench-real.py            Banco de carga real: seis tareas con ficheros reales (H-038, H-043)
     ├── bench-calidad-motores.py 12 pruebas con verificador objetivo entre dos servidores (H-044)
     ├── h045-celdas-dudosas.py   Repite las celdas dudosas de H-044 con muestreo greedy y N pasadas
+    ├── h047-mismo-gguf.py       Las 12 pruebas de H-044 + agujas neutras, greedy y N pasadas (H-047, H-049)
+    ├── h048-runner.sh           A/B de reloj de GPU y modo de carga, orden ABCCBA con muestreo de relojes
+    ├── h049-bench-real-gufo.py  bench-real.py contra Gufo (lee prefill/decode del log del servidor)
+    ├── h049-pruebas.py          Aptitud para producción: fugas, concurrencia, visión, tool calling
+    ├── h050-afinidad.py         Tres conversaciones largas intercaladas contra 2 slots
+    ├── h0NN-runner.sh           Runners de cada campaña: paran el guard, restauran producción con trap
+    ├── 60-gufo.conf             Drop-in systemd que pone Gufo como motor de llama-flashnext (H-051)
+    ├── despliega-gufo.sh        Instala el drop-in y revierte solo si no queda sano en 5 min
     ├── modelos/                 Batería de 14 prompts y verificador de H-039/H-041, coexistencia H-040
     ├── bench-calidad.py         Lanza la batería de calidad y guarda respuestas crudas
     ├── verifica-codigo.py       Compila y ejecuta el código que genera el modelo
