@@ -6,7 +6,7 @@
 |---|---|---|---|---|---|---|
 | Qwen3-8B | 8B | 8B | denso | 4,7 GB | 1.286,8 | **45,4** |
 | Qwen3.8-27B | 27B | 27B | denso | ~16 GB | 365,1 | **13,1** |
-| Qwen3.8-Flash-Next | 177B | ~3B | MoE | 87 GB | 299,8 † | **27,4** |
+| Qwen3.8-Flash-Next | 177B | ~6B | MoE | 87 GB | 299,8 † | **27,4** |
 | GLM-5.3-Flash | 313B | ~18B | MoE | 93 GB | 124,8 | **8,3** |
 
 ## Lo contraintuitivo
@@ -20,12 +20,12 @@ Y el de **313B genera a un tercio** que el de 177B, aunque ocupe prácticamente 
 En generación, cada token exige releer de memoria los pesos **activos**. Con memoria unificada (ancho de banda muy por debajo del de una GPU dedicada), ese tráfico es el limitante absoluto — el cómputo sobra.
 
 - El denso de 27B lee **27B de parámetros** por token.
-- El MoE de 177B enruta a unos pocos expertos y lee **~3B** por token.
+- El MoE de 177B enruta a unos pocos expertos y lee **~6B** por token. *(corregido 2026-10-17: antes ~3B, ver H-046)*
 - El MoE de 313B enruta a bastantes más y lee **~18B** por token.
 
-Nueve veces menos tráfico en el segundo caso. Que el modelo pese 87 GB solo significa que necesitas sitio para tenerlo cargado; no que cada token cueste 87 GB de lecturas.
+Unas cuatro veces y media menos tráfico en el segundo caso. Que el modelo pese 87 GB solo significa que necesitas sitio para tenerlo cargado; no que cada token cueste 87 GB de lecturas.
 
-La proporción se sostiene bien en la práctica: 3B activos → 27,4 t/s; 18B activos → 8,3 t/s. Seis veces más parámetros activos, algo más de tres veces más lento (el resto lo amortigua que parte del modelo es común a todos los expertos).
+La proporción se sostiene en la práctica casi de forma lineal: ~6B activos → 27,4 t/s; ~18B activos → 8,3 t/s. El triple de parámetros activos, 3,3 veces más lento.
 
 En **prefill** la relación se invierte parcialmente: ahí se procesan muchos tokens a la vez, hay trabajo suficiente para saturar el cómputo y el denso pequeño arrasa (1.286 t/s del 8B).
 

@@ -26,7 +26,9 @@ Este repositorio es el registro público de esas pruebas: cuantizaciones, tamañ
 
 > **Hallazgo que resume el proyecto:** un MoE de **177B** parámetros genera al **doble de velocidad** que un modelo denso de **27B** en esta máquina. El cuello de botella no es el cómputo, es el ancho de banda de memoria — y eso lo cambia todo a la hora de elegir modelo.
 >
-> **Corolario, medido después:** ese mismo límite castiga a los MoE con *muchos* expertos activos. Un modelo de 313B que activa 18B por token cae a 8,3 t/s — 3,3× más lento que el de 177B que activa 3B. **Lo que importa no es el tamaño del modelo, son los parámetros activos.**
+> **Corolario, medido después:** ese mismo límite castiga a los MoE con *muchos* expertos activos. Un modelo de 313B que activa ~18B por token cae a 8,3 t/s — 3,3× más lento que el de 177B que activa ~6B: el triple de parámetros activos, el triple de lento. **Lo que importa no es el tamaño del modelo, son los parámetros activos.**
+>
+> *Corregido el 2026-10-17: este repo decía "~3B activos" para Flash-Next. La cabecera del GGUF dice otra cosa (10 expertos enrutados + 1 compartido de 512, más una tabla de n-gramas de ~51B que no cuenta como activa): son **~6B**. La ley sale reforzada. Ver [H-046](docs/hallazgos.md).*
 
 ---
 
@@ -36,7 +38,8 @@ Medido con `llama.cpp` sobre Vulkan/RADV. `pp` = prefill (leer el prompt), `tg` 
 
 | Modelo | Params (activos) | Cuant. | Tamaño | pp t/s | tg t/s | Veredicto |
 |---|---|---|---|---|---|---|
-| **Qwen3.8-Flash-Next** | 177B MoE (~3B) | UD-IQ4_XS | 87 GiB | **345,0** ‡ | **22,2** ‡ | ⭐ En producción (`--lazy-mode off`, `ub 2048`) |
+| **Qwen3.8-Flash-Next + MTP** | 177B MoE (~6B) | UD-IQ4_XS | 87 GiB | ~400 § | **28,7–45,9** § | ⭐ En producción (MTP n-max 2, `-np 2`, 262k) |
+| Qwen3.8-Flash-Next sin MTP | 177B MoE (~6B) | UD-IQ4_XS | 87 GiB | 345,0 ‡ | 22,2 ‡ | Configuración anterior |
 | Qwen3.8-27B | 27B denso | Q4 | ~16 GiB | 365,1 | 13,1 | ❌ Inútil aquí |
 | Qwen3-8B | 8B denso | Q4_K_M | 4,7 GiB | 1.286,8 | 45,4 | ✅ Referencia rápida |
 | GLM-5.3-Flash | 313B MoE (~18B) | UD-IQ1_S | 93 GB | 124,8 | 8,3 | ⚠️ Correcto pero 3,3× lento |
@@ -46,7 +49,26 @@ uso de esta máquina. Las demás filas son de `llama-bench` con prompts cortos (
 el KV cache apenas pesa: por eso su `tg` sale más alto. **No compares `tg` entre filas de
 longitud distinta.** El mismo modelo da 27,7 t/s medido a 512 tokens.
 
+§ Banco de **carga real** (`scripts/bench-real.py`): seis tareas con ficheros reales de
+3.738 a 38.917 tokens (explicar y cambiar código, resumir prosa, extraer JSON), mediana de
+dos pasadas tras calentamiento. 45,9 t/s es la extracción de JSON con ~5,6k tokens; 28,7 t/s,
+el resumen de un documento de 38,9k. Kernel 7.2.9, build `81ef10ea5` + parche MTP
+([H-043](docs/hallazgos.md)).
+
 📄 **Detalle completo, metodología y datos crudos:** [`benchmarks/`](benchmarks/) · [`benchmarks/resultados.csv`](benchmarks/resultados.csv)
+
+---
+
+## 🆕 Lo último (septiembre–octubre 2026)
+
+| | Hallazgo | En una línea |
+|---|---|---|
+| H-038 | **El MTP sí compensa** | La cabeza MTP como borrador especulativo da **+45,5 %** de generación (mediana) con carga real: código +48,7 %, prosa +37,2 %, JSON +69,6 %. El −40 % que medí antes era un artefacto del prompt sintético: sobre texto de relleno el borrador no acierta. |
+| H-039 · H-041 | **Retadores descartados con medida** | Ornith-1.5-35B-A3B: +45 % de t/s pero un acierto menos (10/12 vs 11/12). Nemotron-3.5-Lightning-30B-A3B Q8: igual de lento (31,8 vs 32,4 t/s) y un acierto menos. Batería con verificador objetivo: el código se ejecuta, el JSON se parsea. |
+| H-040 | **El modelo en reposo es gratis** | Con un segundo modelo cargado al lado, el principal no pierde nada (43,96 → 44,15 t/s). Generando los dos a la vez, cada uno cae ~30 % pero el agregado sube a 60,7 t/s. |
+| H-043 | **Resultado nulo: el kernel** | Kernel 7.2.9 frente a 7.2.7: tg +0,00 %, pp −0,01 %. Actualizar el kernel es decisión de seguridad, no de rendimiento. |
+| H-044 · H-045 | **Gufo frente a llama.cpp** | Con un prompt de 42k tokens, Gufo hace el prefill a **~1.440 t/s** frente a ~300 de llama.cpp: **×4,5 a ×8,4** hasta el primer token. Con prompts cortos empatan. La ventaja de calidad que parecía tener (11/12 frente a 9/12) **no se sostiene**: con greedy y 3 pasadas los resultados son estables, pero cada motor llevaba una cuantización distinta y el "fallo de contexto" de llama.cpp era el modelo **negándose** a dar un "código de autorización", no perdiéndolo. Candidato real a motor de producción por velocidad; la calidad queda por medir con el mismo GGUF (H-047). |
+| H-046 | **Corrección: ~6B activos, no ~3B** | Leído de la cabecera del GGUF. Ver arriba. |
 
 ---
 
@@ -65,10 +87,10 @@ Y **cuidado**: desactivarla hace los pesos no reclamables, lo que tumbó `ubatch
 👉 [`docs/carga-diferida-y-oom.md`](docs/carga-diferida-y-oom.md)
 
 ### 1. El modelo denso mediano no tiene sitio en esta máquina
-27B denso a 13 t/s vs 177B MoE a 27 t/s. Con memoria unificada lenta comparada con VRAM (~256 GB/s frente a ~1 TB/s de una GPU dedicada), lo que manda es **cuántos bytes de pesos hay que leer por token**. Un MoE que activa 3B lee muchísimo menos que un denso que activa 27B, aunque pese cinco veces más en disco. **Regla práctica: en Strix Halo, MoE grande > denso mediano.**
+27B denso a 13 t/s vs 177B MoE a 27 t/s. Con memoria unificada lenta comparada con VRAM (~256 GB/s frente a ~1 TB/s de una GPU dedicada), lo que manda es **cuántos bytes de pesos hay que leer por token**. Un MoE que activa ~6B lee muchísimo menos que un denso que activa 27B, aunque pese cinco veces más en disco. **Regla práctica: en Strix Halo, MoE grande > denso mediano.**
 
 ### 2. …pero un MoE con muchos expertos activos vuelve a ser lento
-El corolario del punto anterior, comprobado a la mala: un MoE de **313B que activa ~18B** por token rinde **8,3 t/s**, frente a los **27,4 t/s** del MoE de 177B que activa ~3B. Pesa lo mismo en memoria (93 vs 87 GB) y da respuestas correctas, pero va **3,3× más despacio**. La cifra que predice el rendimiento es **parámetros activos**, no parámetros totales ni gigabytes en disco.
+El corolario del punto anterior, comprobado a la mala: un MoE de **313B que activa ~18B** por token rinde **8,3 t/s**, frente a los **27,4 t/s** del MoE de 177B que activa ~6B. Pesa lo mismo en memoria (93 vs 87 GB) y da respuestas correctas, pero va **3,3× más despacio** con el triple de parámetros activos. La cifra que predice el rendimiento es **parámetros activos**, no parámetros totales ni gigabytes en disco.
 👉 [`benchmarks/glm53-flash.md`](benchmarks/glm53-flash.md)
 
 ### 3. `llama-bench` con *otro* modelo te miente
@@ -119,9 +141,9 @@ reservada, no validada de punta a punta. Es viable porque de sus 48 capas solo 1
 | | |
 |---|---|
 | **SO** | Fedora Server 44 |
-| **Kernel** | 7.2.4-200.fc44 |
-| **Driver gráfico** | Mesa 26.1.8 · RADV · Vulkan 1.4.354 |
-| **Runtime** | `llama.cpp` compilado con `-DGGML_VULKAN=ON` |
+| **Kernel** | 7.2.10-200.fc44 (7.2.7 → 7.2.9 medido sin diferencia, H-043) |
+| **Driver gráfico** | Mesa 26.2.3 · RADV |
+| **Runtime** | `llama.cpp` `81ef10ea5` + parche MTP, compilado con `-DGGML_VULKAN=ON` |
 | **Arranque** | `amd_iommu=off` · `amdgpu.gttsize=126976` · `ttm.pages_limit=32505856` |
 | **Perfil** | `tuned accelerator-performance` |
 
@@ -145,6 +167,7 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
 │   ├── metodologia.md           Cómo medimos y por qué así
 │   ├── ventana-de-contexto.md   256k servidos, 98k verificados con aguja
 │   ├── carga-diferida-y-oom.md  La flag que duplicó el prefill y el OOM que mató la máquina
+│   ├── forks-evaluacion.md      Forks y motores alternativos evaluados
 │   ├── hallazgos.md             Bitácora de conclusiones (incluidas las erróneas)
 │   └── plan-de-pruebas.md       Hoja de ruta: texto → imagen → vídeo
 ├── benchmarks/
@@ -156,6 +179,10 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
 └── scripts/
     ├── bench-ubatch.py          Mide pp/tg contra llama-server con prompt real
     ├── bench-context.py         Barrido de longitud de contexto + prueba de aguja
+    ├── bench-real.py            Banco de carga real: seis tareas con ficheros reales (H-038, H-043)
+    ├── bench-calidad-motores.py 12 pruebas con verificador objetivo entre dos servidores (H-044)
+    ├── h045-celdas-dudosas.py   Repite las celdas dudosas de H-044 con muestreo greedy y N pasadas
+    ├── modelos/                 Batería de 14 prompts y verificador de H-039/H-041, coexistencia H-040
     ├── bench-calidad.py         Lanza la batería de calidad y guarda respuestas crudas
     ├── verifica-codigo.py       Compila y ejecuta el código que genera el modelo
     ├── campana.py               Runner de campañas A/B: gates, rollback y fases enchufables
@@ -184,10 +211,12 @@ La hoja de ruta completa (fases: texto → imagen → vídeo, con criterios de d
 ## 🚧 En curso
 
 - [x] **GLM-5.3-Flash UD-IQ1_S (93 GB)** — cargado y medido: coherente a ~1 bit/peso, pero 8,3 t/s. No sustituye al modelo en producción. → [`benchmarks/glm53-flash.md`](benchmarks/glm53-flash.md)
-- [ ] Probar la variante **REAP50-IQ4_XS (88 GB)**: mismo modelo con el 50% de expertos podados y cuantización decente. Hipótesis: menos expertos activos ⇒ más rápido, y mejor precisión por peso.
+- [x] Variante **GLM-5.3-Flash-REAP50-IQ4_XS** (50 % de expertos podados): arranca con un build parcheado, pero no compensa. → [`docs/hallazgos.md`](docs/hallazgos.md) H-018
 - [x] **Contexto largo verificado hasta 98k tokens** con la config de producción: generación −50% (26,3 → 13,0 t/s) por el KV cache, prefill −32%, y **aguja recuperada 6/6** con el dato enterrado a la mitad del texto. ~100k tokens ≈ 8 min de prefill. → [`docs/hallazgos.md`](docs/hallazgos.md) H-012
 - [ ] Empujar la verificación de ventana hasta 131k reales y 262k de punta a punta.
-- [ ] **Qwen3-Next-80B-A3B** (IQ4_XS, 42,6 GB, ya descargado): mismos ~3B activos que Flash-Next en la mitad de memoria. ¿Cuánta calidad compra el doble de expertos totales a igual velocidad teórica?
+- [x] **Qwen3-Next-80B-A3B** (IQ4_XS, 42,6 GB): más rápido (~3B activos frente a ~6B, coherente con la ley), pero 15,5/20 frente a 18,5/20 en calidad, sobre todo en castellano/euskera. → H-016
+- [x] Repetir las celdas dudosas de H-044 con muestreo igualado y 3 pasadas → H-045
+- [ ] **Gufo como motor de producción**: calidad con el mismo `UD-IQ4_XS` y una aguja que no dispare negativas (H-047), `--sessions 2` sin fugas entre sesiones, decode con `bench-real.py` y unit systemd con watchdog.
 - [ ] Repetir GLM cuando el soporte `glm5next` entre en upstream y Vulkan implemente las operaciones fusionadas que hoy se desactivan.
 
 ---

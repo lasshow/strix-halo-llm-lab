@@ -1,0 +1,18 @@
+[NO ] instruccion-negativa     p1   94.1s  aparece lo prohibido: temperatura
+[NO ] instruccion-negativa     p2    3.0s  aparece lo prohibido: temperatura
+[NO ] instruccion-negativa     p3    3.7s  aparece lo prohibido: temperatura
+[OK ] razonamiento-trampa      p1    0.5s  ok
+[OK ] razonamiento-trampa      p2    0.4s  ok
+[OK ] razonamiento-trampa      p3    0.4s  ok
+[NO ] aguja-contexto-medio     p1  146.0s  faltan: ZX-4417-QD
+[NO ] aguja-contexto-medio     p2    3.3s  faltan: ZX-4417-QD
+[NO ] aguja-contexto-medio     p3    3.4s  faltan: ZX-4417-QD
+[OK ] aguja-contexto-final     p1  132.7s  ok
+[OK ] aguja-contexto-final     p2    0.7s  ok
+[OK ] aguja-contexto-final     p3    0.7s  ok
+
+== llamacpp: estabilidad en 3 pasadas ==
+  instruccion-negativa     0/3  ESTABLE NO
+  razonamiento-trampa      3/3  ESTABLE OK
+  aguja-contexto-medio     0/3  ESTABLE NO
+  aguja-contexto-final     3/3  ESTABLE OK

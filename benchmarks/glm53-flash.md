@@ -22,11 +22,13 @@ Sobrevive bien. Va lento.
 | Métrica | GLM-5.3-Flash IQ1_S | Qwen3.8-Flash-Next IQ4_XS | Diferencia |
 |---|---|---|---|
 | Parámetros totales | 313B | 177B | +77% |
-| **Parámetros activos** | **~18B** | **~3B** | **6×** |
+| **Parámetros activos** | **~18B** | **~6B** ¹ | **3×** |
 | Tamaño en disco | 93,1 GB | 87 GiB | ≈ igual |
 | Prefill (`pp`) | 124,8 t/s | 299,8 t/s † | **2,4× más lento** |
 | Generación (`tg`) | **8,3 t/s** | **27,4 t/s** | **3,3× más lento** |
 | Carga del modelo | ~20 s | ~20 s | igual |
+
+¹ Corregido el 2026-10-17: antes decía ~3B y 6×. La cabecera del GGUF da ~6B activos (ver `docs/hallazgos.md` H-046): el triple de activos, 3,3× más lento.
 
 ## Calidad: 5 de 5
 

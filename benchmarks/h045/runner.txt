@@ -1,0 +1,10 @@
+[2026-10-17 13:28:07] guard parado; kernel 7.2.10-200.fc44.x86_64; build /models/llama-builds/81ef10ea58fcc8a591cec50dc4b45e0bb00d9022+7fc180de
+[2026-10-17 13:28:07] toma A: llama.cpp
+[2026-10-17 13:34:36] toma A terminada (rc=0)
+[2026-10-17 13:34:36] parando llama-flashnext para dar la GPU en exclusiva a Gufo
+6148f31b7e0d1284eafbd686ce6000b27558772aec2fb97f830b06f4aac7eddb
+[2026-10-17 13:35:12] toma B: gufo
+[2026-10-17 13:36:03] toma B terminada (rc=0)
+[2026-10-17 13:36:03] restaurando produccion
+[2026-10-17 13:36:28] produccion OK
+[2026-10-17 13:36:28] FIN (salida en ~/campanas/h045-20261017T112807Z)

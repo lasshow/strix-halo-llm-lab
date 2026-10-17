@@ -7,7 +7,7 @@ Modelo en producción en esta máquina.
 | | |
 |---|---|
 | Arquitectura | MoE híbrido, 48 capas (12 de atención + 36 lineales) |
-| Parámetros | ~177B totales · ~3B activos por token |
+| Parámetros | ~177B totales (≈125B + tabla de n-gramas de ≈51B) · ~6B activos por token *(corregido 2026-10-17: antes ~3B, ver H-046)* |
 | Cuantización | UD-IQ4_XS (dinámica) |
 | Tamaño en memoria | ~87 GiB |
 | Ventana nativa | 262.144 tokens (RoPE base 10M) |

@@ -167,10 +167,12 @@ Ese modelo gasta entre 200 y 2.800 caracteres razonando antes de contestar; para
 
 | Modelo | Totales | Activos | Tamaño | pp t/s | tg t/s |
 |---|---|---|---|---|---|
-| Qwen3.8-Flash-Next | 177B | ~3B | 87 GiB | 299,8 | **27,4** |
+| Qwen3.8-Flash-Next | 177B | ~6B ¹ | 87 GiB | 299,8 | **27,4** |
 | GLM-5.3-Flash IQ1_S | 313B | ~18B | 93 GB | 124,8 | **8,3** |
 
-Dos modelos que ocupan **lo mismo** en memoria y difieren **3,3×** en velocidad de generación. El de 313B es más grande en todo salvo en lo que importa aquí: activa seis veces más parámetros por token, y en una máquina limitada por ancho de banda eso se paga linealmente.
+Dos modelos que ocupan **lo mismo** en memoria y difieren **3,3×** en velocidad de generación. El de 313B es más grande en todo salvo en lo que importa aquí: activa el triple de parámetros por token, y en una máquina limitada por ancho de banda eso se paga linealmente.
+
+¹ Corregido el 2026-10-17: antes decía ~3B y "seis veces". Ver H-046.
 
 H-006 decía "MoE grande > denso mediano". Este hallazgo lo precisa: **no es el tamaño, es cuántos parámetros hay que leer por token**. Un MoE con muchos expertos activos se comporta como un denso grande.
 
@@ -185,12 +187,14 @@ H-006 decía "MoE grande > denso mediano". Este hallazgo lo precisa: **no es el 
 
 | Modelo | Params activos | pp t/s | tg t/s |
 |---|---|---|---|
-| Qwen3.8-Flash-Next (177B MoE) | ~3B | 225,3* | 25,4* |
+| Qwen3.8-Flash-Next (177B MoE) | ~6B ¹ | 225,3* | 25,4* |
 | Qwen3.8-27B denso | 27B | 365,1 | 13,1 |
 
 \* Cifras de la primera caracterización, antes de optimizar `ubatch` (luego 299,8 / 27,4).
 
-El MoE de 177B **genera al doble** que el denso de 27B pese a ocupar cinco veces más. Con memoria unificada el limitante es el ancho de banda: por cada token hay que leer los pesos *activos*, y el MoE activa ~3B frente a 27B del denso.
+El MoE de 177B **genera al doble** que el denso de 27B pese a ocupar cinco veces más. Con memoria unificada el limitante es el ancho de banda: por cada token hay que leer los pesos *activos*, y el MoE activa ~6B frente a 27B del denso.
+
+¹ Corregido el 2026-10-17: antes decía ~3B. Ver H-046.
 
 **Regla:** en Strix Halo, elegir por parámetros activos, no por tamaño total. El denso mediano es el peor de los dos mundos — ni cabe entero en caché ni activa poco.
 
@@ -1846,7 +1850,7 @@ palabras, palabras prohibidas, formato de una sola línea).
 
 **Resultado:**
 
-| | Flash-Next (125B, ~3B act.) | Ornith-1.5-35B-A3B |
+| | Flash-Next (125B, ~6B act. — corregido, ver H-046) | Ornith-1.5-35B-A3B |
 |---|---|---|
 | verificables OK | **11 / 12** | 10 / 12 |
 | media tg (t/s) | 32,4 | **47,1** |
@@ -1997,6 +2001,12 @@ se comparan `pp_real` y `tg`.
 
 Fecha: 2026-10-08. **Estado: confirmado (una pasada por celda, ver limitaciones).**
 
+> **Corregido el 2026-10-17 (H-045):** el modelo NO era el mismo. llama.cpp sirvio la
+> cuantizacion de produccion `UD-IQ4_XS`; Gufo, `UD-Q4_K_XL`. Y el rojo de llama.cpp en
+> `aguja-contexto-medio` no es que "no encuentre" el codigo: **se niega a darlo** por
+> seguridad ("No puedo proporcionar ese codigo..."). Las diferencias de calidad no se
+> pueden atribuir al motor; la de velocidad en contexto largo, si. Ver H-045.
+
 Primera comparacion de los dos motores con el MISMO modelo
 (`Qwen3.8-Flash-Next-UD-Q4_K_XL` + cabeza MTP `mtp-...-shared-Q8_0`) y la misma
 bateria de 12 pruebas con verificador objetivo en Python (nada de "suena mejor":
@@ -2081,3 +2091,87 @@ sigue en llama.cpp** (restaurado al terminar la bateria).
 **Evidencias:** `benchmarks/h044/llamacpp.jsonl`, `benchmarks/h044/gufo.jsonl` y
 sus `*.salida.txt` (el `.gitignore` del repo excluye `*.log`, por eso se renombran).
 Banco: `scripts/bench-calidad-motores.py`.
+
+---
+
+## H-045 — Celdas dudosas de H-044 con greedy y 3 pasadas: estables, pero el banco mezclaba dos cosas
+
+Fecha: 2026-10-17. **Estado: confirmado. Corrige la lectura de calidad de H-044; la de velocidad se mantiene.**
+
+**Pregunta:** H-044 midio una sola pasada con el muestreo por defecto de cada motor
+(Gufo con `temperature=1`). ¿Los rojos de llama.cpp eran ruido de muestreo?
+
+**Metodo:** `scripts/h045-celdas-dudosas.py` repite las cuatro celdas dudosas de H-044
+importando prompts y verificadores del mismo banco (`bench-calidad-motores.py`), con
+muestreo **greedy identico en el cuerpo de la peticion** (`temperature 0`, `top_k 1`,
+`top_p 1`, `seed 1234`, `enable_thinking: false`) y **3 pasadas por celda**. Las dos
+tomas dentro del M5 y con la GPU en exclusiva (llama.cpp parado durante la de Gufo).
+Kernel 7.2.10, build `81ef10ea5+7fc180de`, Gufo 0.9.1 con `--think off`. Orquestado por
+un runner que restaura produccion al salir (`trap`): 13:28-13:36, produccion de vuelta
+con `/health` OK.
+
+| celda | llama.cpp (IQ4_XS) | s (p1) | Gufo (Q4_K_XL) | s (p1) |
+|---|---|---:|---|---:|
+| `instruccion-negativa` | **0/3** | (94,1)* | 3/3 | 1,7 |
+| `razonamiento-trampa` | 3/3 | 0,5 | 3/3 | 0,2 |
+| `aguja-contexto-medio` | **0/3** | 146,0 | 3/3 | 29,3 |
+| `aguja-contexto-final` | 3/3 | 132,7 | 3/3 | 15,9 |
+
+\* Tiempo no valido: durante el primer minuto corrio por error una segunda copia del
+runner contra el mismo servidor; se mato antes de la toma de Gufo. No afecta al OK/NO.
+Las pasadas 2 y 3 salen de la cache de prompt de cada motor (0,2-3,7 s): miden
+reproducibilidad, no tiempo. El tiempo valido es el de la pasada 1.
+
+**Lecturas:**
+
+1. **Los resultados son estables:** con greedy, los dos rojos de llama.cpp se repiten
+   3 de 3 y los verdes de Gufo tambien. No era ruido de muestreo.
+2. **Pero `aguja-contexto-medio` no mide recuperacion.** La respuesta de llama.cpp es
+   *"No puedo proporcionar ese codigo. Como asistente de IA, estoy programado para
+   priorizar la seguridad..."*, la misma negativa que en H-044. El prompt pide un
+   "codigo de autorizacion" y el modelo lo trata como un secreto. Que lo ha leido lo
+   demuestra la otra aguja: ahi responde *"El codigo de autorizacion del quemador
+   auxiliar solo lo conoce el responsable de pruebas"*. La lectura de H-044 ("no
+   encuentra `ZX-4417-QD`") **era incorrecta**: es una negativa, no un fallo de contexto.
+3. **No es el mismo modelo.** llama.cpp sirve la cuantizacion de produccion `UD-IQ4_XS`
+   y Gufo la `UD-Q4_K_XL` (la Q4_K_XL no cabe en llama.cpp con los 262k de contexto de
+   produccion). La negativa y el rojo de `instruccion-negativa` pueden venir de la
+   cuantizacion o de la plantilla de chat de cada motor tanto como del motor. **No hay
+   base para decir que Gufo es mas listo.**
+4. **La velocidad si es solida, y a contrapie de Gufo:** con el mismo prompt de 42.072
+   tokens, Gufo hace el prefill a **1.442,9 t/s** (29,2 s hasta el primer token, segun
+   su propio log) y llama.cpp tarda 132,7-146,0 s (~290-320 t/s): **×4,5 a ×8,4**, y eso
+   con Gufo cargando la cuantizacion mas pesada.
+5. **Observacion de paso:** Gufo informa `gpu_device_used_mib=90644` (~95 GB) con un
+   fichero de ~111 GB y 131k de contexto reservados. Al menos ~16 GB del fichero no estan
+   en memoria de GPU, coherente con que la tabla de n-gramas (~51B parametros) se quede
+   fuera del acelerador. No verificado tensor a tensor.
+
+**Siguiente (H-047):** Gufo con la MISMA `UD-IQ4_XS` que produccion, y una aguja que
+no dispare negativas (un dato neutro, no un "codigo de autorizacion"). Hasta entonces,
+produccion sigue en llama.cpp.
+
+**Evidencias:** `benchmarks/h045/` (`llamacpp.jsonl`, `gufo.jsonl`, sus `*.salida.txt`,
+`gufo.server.txt` con el log del servidor y `runner.txt`).
+
+---
+
+## H-046 — Correccion: Flash-Next activa ~6B por token, no ~3B
+
+Fecha: 2026-10-17. **Estado: corregido en todo el repo.**
+
+Este repo daba "~3B activos" para Qwen3.8-Flash-Next desde H-006. Leida la cabecera del
+GGUF de produccion (arquitectura `qwen4exp`):
+
+- `expert_count 512`, `expert_used_count 10`, mas un experto compartido; cada experto
+  son 3 matrices de 2560×640 → ~2,6B por token solo en expertos, en 48 capas.
+- Sumando atencion, capas DeltaNet y embeddings, ~6B activos, que es lo que da la ficha
+  de Qwen.
+- `ple.head_vocab_sizes`: 16 cabezas de ~20M filas × 160 dimensiones = **~51,2B** de
+  tabla de n-gramas (en la capa 2) que se consulta, no se multiplica: no cuenta como
+  activa. ~125B de modelo + ~51B de tabla ≈ los 177B totales que ya se daban.
+
+**Consecuencia:** la ley de H-007 sale reforzada. Antes se leia "seis veces mas
+activos, tres veces mas lento"; con el dato bueno es **~6B frente a ~18B, el triple de
+activos, 3,3× mas lento**: casi lineal, como predice una maquina limitada por ancho
+de banda. Y explica por que Qwen3-Next-80B-A3B (~3B activos) iba mas rapido (H-016).
