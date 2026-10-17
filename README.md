@@ -159,7 +159,7 @@ Con esa configuración el pool visible para inferencia es de **~124 GB**.
 
 En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más estable que ROCm, que en varias versiones ha dado desde regresiones de rendimiento hasta **logits incorrectos sin llegar a fallar** (el peor tipo de bug: responde, pero mal). Las cifras de llama.cpp de este repo son todas Vulkan.
 
-**Excepción, desde H-049/H-051:** Gufo, el motor de producción actual, va sobre ROCm/HIP con kernels propios para . La advertencia de arriba es sobre llama.cpp con ROCm; a Gufo se le exigió la misma batería de calidad verificable antes de adoptarlo (14/14, salida determinista).
+**Excepción, desde H-049/H-051:** Gufo, el motor de producción actual, va sobre ROCm/HIP con kernels propios para `gfx1151`. La advertencia de arriba es sobre llama.cpp con ROCm; a Gufo se le exigió la misma batería de calidad verificable antes de adoptarlo (14/14, salida determinista).
 👉 [`docs/instalacion.md`](docs/instalacion.md)
 
 ---
