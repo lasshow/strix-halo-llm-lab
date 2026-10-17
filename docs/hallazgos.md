@@ -2439,3 +2439,50 @@ red cableada del M5 a otro aparato (conflicto detectado por NetworkManager a las
 16:15:02, MAC de origen aleatoria) y `eno1` se quedo sin IPv4. El M5 siguio accesible
 por Wi-Fi y por la tailnet, que es por donde le habla Hermes. Arreglo: reserva DHCP
 de la IP para la MAC del M5 en el router.
+
+---
+
+## H-051 — Gufo 0.17.0 pasa a produccion (2026-10-17)
+
+**Estado: desplegado.** Decision tomada con H-047..H-050: prefill ×3,6, primer turno
+×3,7, +57 % con peticiones simultaneas, calidad 14/14 y salida determinista; empate
+en generacion de un usuario.
+
+**Como:** drop-in `scripts/60-gufo.conf` en
+`/etc/systemd/system/llama-flashnext.service.d/`, instalado con
+`scripts/despliega-gufo.sh`, que revierte solo a llama.cpp si en 5 min no hay
+`/health` 200 y el modelo `qwen3.8-flash-next`. **La unidad conserva el nombre**
+`llama-flashnext`: llama-guard, brush-server (`_liberar_ram`) y los scripts de
+reparacion siguen funcionando sin tocarlos, y Hermes sigue llamando a `:8080` con el
+mismo modelo y la misma clave. Imagen fijada por digest (`sha256:a3df87bc…`),
+`UD-Q4_K_XL` + `mmproj-BF16` + MTP Q8_0, 2 sesiones × 262.144, cache RAM 4 GiB.
+
+**Volver a llama.cpp:** `sudo rm /etc/systemd/system/llama-flashnext.service.d/60-gufo.conf
+&& sudo systemctl daemon-reload && sudo systemctl restart llama-flashnext`.
+
+**Trampas del despliegue:**
+1. **Con `--api-key`, Gufo exige la clave tambien en `/health`** (401 sin ella). El
+   primer intento se revirtio solo por eso: Gufo estaba sano a los 15 s y la
+   comprobacion lo dio por muerto. La vuelta atras automatica funciono.
+2. **Logs:** con el driver `journald` de podman cada linea salia duplicada; con `none`
+   se perdian; con `passthrough` salen una vez. Pero podman rootless mete el
+   contenedor en el cgroup del usuario, asi que **no aparecen en
+   `journalctl -u llama-flashnext`**: se leen con `journalctl _COMM=gufo -f`.
+3. Durante la ventana, brush-server lanzo un trabajo y paro `llama-flashnext` como
+   esta programado: el contenedor se paro limpio (`podman stop` del `ExecStop`). La
+   integracion con brush funciona con Gufo sin cambios.
+
+**Pruebas de humo en produccion:**
+
+| prueba | resultado |
+|---|---|
+| vision (rojo / azul) | OK / OK |
+| tool calling | OK (`get_weather` → Bilbao) |
+| desde el A8 por la tailnet con la clave de Hermes | HTTP 200; `17*23` → `391`, razonamiento en `reasoning_content`, 51 t/s |
+| agregado con 1 / 2 / 4 peticiones | **50,3 / 87,3 / 87,8 t/s** (llama.cpp: 32 / 38 / 44) |
+| guard: servicio parado → `llama-guard.sh` | rearrancado, `/health` 200 en 18 s |
+
+**Consecuencias:** el segundo cliente de `api-keys.txt` pierde el acceso (Gufo solo
+admite una clave, H-050b; el usuario lo da por bueno). Los scripts de este repo que
+comprueban `:8080/health` sin clave (runners de H-045..H-050) ya no valen contra
+produccion tal cual.

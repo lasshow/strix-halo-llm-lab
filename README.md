@@ -38,7 +38,8 @@ Medido con `llama.cpp` sobre Vulkan/RADV. `pp` = prefill (leer el prompt), `tg` 
 
 | Modelo | Params (activos) | Cuant. | Tamaño | pp t/s | tg t/s | Veredicto |
 |---|---|---|---|---|---|---|
-| **Qwen3.8-Flash-Next + MTP** | 177B MoE (~6B) | UD-IQ4_XS | 87 GiB | ~400 § | **28,7–45,9** § | ⭐ En producción (MTP n-max 2, `-np 2`, 262k) |
+| **Qwen3.8-Flash-Next + MTP, motor Gufo 0.17.0** | 177B MoE (~6B) | UD-Q4_K_XL | 111 GB | **~1.400** ¶ | 25–67 ¶ | ⭐ En producción desde el 2026-10-17 (2 × 262k, visión) — H-049/H-051 |
+| Qwen3.8-Flash-Next + MTP, llama.cpp | 177B MoE (~6B) | UD-IQ4_XS | 87 GiB | ~400 § | 28,7–45,9 § | Producción hasta el 2026-10-17 (MTP n-max 2, `-np 2`, 262k) |
 | Qwen3.8-Flash-Next sin MTP | 177B MoE (~6B) | UD-IQ4_XS | 87 GiB | 345,0 ‡ | 22,2 ‡ | Configuración anterior |
 | Qwen3.8-27B | 27B denso | Q4 | ~16 GiB | 365,1 | 13,1 | ❌ Inútil aquí |
 | Qwen3-8B | 8B denso | Q4_K_M | 4,7 GiB | 1.286,8 | 45,4 | ✅ Referencia rápida |
@@ -54,6 +55,8 @@ longitud distinta.** El mismo modelo da 27,7 t/s medido a 512 tokens.
 dos pasadas tras calentamiento. 45,9 t/s es la extracción de JSON con ~5,6k tokens; 28,7 t/s,
 el resumen de un documento de 38,9k. Kernel 7.2.9, build `81ef10ea5` + parche MTP
 ([H-043](docs/hallazgos.md)).
+
+¶ Mismo banco de carga real, cifras del log de Gufo (H-049). En generación de un usuario empata con llama.cpp (mediana −2 %); la ventaja está en el prefill (×3,6), el primer turno de una conversación larga (×3,7) y la carga concurrente (87 t/s agregados frente a 38-44).
 
 📄 **Detalle completo, metodología y datos crudos:** [`benchmarks/`](benchmarks/) · [`benchmarks/resultados.csv`](benchmarks/resultados.csv)
 
@@ -146,7 +149,7 @@ reservada, no validada de punta a punta. Es viable porque de sus 48 capas solo 1
 | **SO** | Fedora Server 44 |
 | **Kernel** | 7.2.10-200.fc44 (7.2.7 → 7.2.9 medido sin diferencia, H-043) |
 | **Driver gráfico** | Mesa 26.2.3 · RADV |
-| **Runtime** | `llama.cpp` `81ef10ea5` + parche MTP, compilado con `-DGGML_VULKAN=ON` |
+| **Runtime** | Gufo 0.17.0 (contenedor rootless, ROCm/HIP) desde el 2026-10-17; antes `llama.cpp` `81ef10ea5` + parche MTP sobre Vulkan |
 | **Arranque** | `amd_iommu=off` · `amdgpu.gttsize=126976` · `ttm.pages_limit=32505856` |
 | **Perfil** | `tuned accelerator-performance` |
 
@@ -223,7 +226,7 @@ La hoja de ruta completa (fases: texto → imagen → vídeo, con criterios de d
 - [x] Gufo con el contexto de producción: cabe, sin fugas, visión y herramientas OK, decode con el banco real → H-049
 - [x] Reloj de GPU fijo y carga sin mmap → H-048 (no compensan)
 - [x] Conversaciones largas intercaladas contra 2 slots (patrón de Hermes) → H-050 (la afinidad no hace falta)
-- [ ] Si se adopta Gufo: drop-in listo en [`scripts/60-gufo.conf`](scripts/60-gufo.conf) (mismo nombre de unidad, una sola clave, caché RAM 4 GiB); falta decidir y desplegar
+- [x] **Gufo en producción** con el drop-in [`scripts/60-gufo.conf`](scripts/60-gufo.conf) (mismo nombre de unidad, una sola clave, caché RAM 4 GiB) → H-051
 - [ ] Repetir GLM cuando el soporte `glm5next` entre en upstream y Vulkan implemente las operaciones fusionadas que hoy se desactivan.
 
 ---
