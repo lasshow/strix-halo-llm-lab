@@ -1,0 +1,8 @@
+[2026-10-17 16:14:39] toma llama.cpp (reinicio limpio para partir sin cache)
+[2026-10-17 16:17:20]   rc=0
+[2026-10-17 16:17:20] toma Gufo
+7e84bdde8e3acb0e54c4b79db787944c22464454966da8b36e335331ca3d04a8
+[2026-10-17 16:18:30]   rc=0
+[2026-10-17 16:18:30] restaurando produccion
+[2026-10-17 16:18:56] produccion OK
+[2026-10-17 16:18:56] FIN (salida en ~/campanas/h050-20261017T141439Z)

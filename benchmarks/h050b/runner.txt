@@ -1,0 +1,7 @@
+[2026-10-17 16:19:52] clave='clave-prueba-a'  /v1/models=401  /v1/chat/completions=401
+[2026-10-17 16:19:52] clave='clave-prueba-b'  /v1/models=200  /v1/chat/completions=200
+[2026-10-17 16:19:52] clave='mala'  /v1/models=401  /v1/chat/completions=401
+[2026-10-17 16:19:52] clave='<ninguna>'  /v1/models=401  /v1/chat/completions=401
+2026-10-17 14:19:52 [INFO] [server] event=listening address=http://0.0.0.0:8081 auth=bearer max_connections=16 max_body_bytes=8388608
+[2026-10-17 16:24:13] produccion OK
+[2026-10-17 16:24:13] FIN

@@ -1,0 +1,9 @@
+[llamacpp] ronda 1 conv A    42.27s  prompt=15329 procesados=15329
+[llamacpp] ronda 1 conv B    37.66s  prompt=13771 procesados=13771
+[llamacpp] ronda 1 conv C    44.96s  prompt=15948 procesados=15948
+[llamacpp] ronda 2 conv A     0.92s  prompt=15406 procesados=30
+[llamacpp] ronda 2 conv B     1.00s  prompt=13848 procesados=30
+[llamacpp] ronda 2 conv C     0.96s  prompt=16025 procesados=30
+[llamacpp] ronda 3 conv A     2.16s  prompt=15436 procesados=24
+[llamacpp] ronda 3 conv B     2.17s  prompt=13878 procesados=24
+[llamacpp] ronda 3 conv C     1.97s  prompt=16055 procesados=24

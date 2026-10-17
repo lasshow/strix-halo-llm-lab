@@ -71,6 +71,7 @@ el resumen de un documento de 38,9k. Kernel 7.2.9, build `81ef10ea5` + parche MT
 | H-046 | **Corrección: ~6B activos, no ~3B** | Leído de la cabecera del GGUF. Ver arriba. |
 | H-048 | **El techo es la potencia, no el reloj** | Fijar el reloj de la GPU da +2,3 % (no el ~20 % que se ve en otras máquinas): el SoC está clavado en **85 W** y el reloj sostenido apenas sube. Cuesta +7,5 W en reposo, 24/7. Cargar sin mmap: 0 %. No se adopta ninguno. |
 | H-049 | **Gufo 0.17.0, apto para producción** | Con 2 sesiones × 262k, visión y MTP: prefill **×3,6**, generación de un usuario **empatada**, **+57 %** agregado con peticiones simultáneas, 0 fugas entre sesiones, salida determinista en paralelo, tool calling y visión OK, calidad 14/14. Exige `mmproj` BF16 y la Q4_K_XL. |
+| H-050 | **Afinidad de sesión: no hace falta** | Tres conversaciones de ~15k intercaladas contra 2 slots: llama.cpp no reprocesa nada (su caché en RAM restaura cada conversación; solo procesa los 24-30 tokens nuevos). Lo que cuesta es el primer turno, y ahí Gufo es **×3,7** (11 s frente a 42 s). Gufo solo admite **una** clave de API (H-050b). |
 
 ---
 
@@ -221,8 +222,8 @@ La hoja de ruta completa (fases: texto → imagen → vídeo, con criterios de d
 - [x] Aguja neutra y mismo GGUF → H-047 (la negativa queda confirmada; Gufo 0.9.1 no carga IQ3_S, así que el mismo GGUF no es posible)
 - [x] Gufo con el contexto de producción: cabe, sin fugas, visión y herramientas OK, decode con el banco real → H-049
 - [x] Reloj de GPU fijo y carga sin mmap → H-048 (no compensan)
-- [ ] Conversaciones largas intercaladas contra 2 slots (patrón de Hermes), llama.cpp frente a Gufo → H-050
-- [ ] Si se adopta Gufo: unit systemd con watchdog, clave de API y `--cache-ram-bytes` compatible con brush/ComfyUI
+- [x] Conversaciones largas intercaladas contra 2 slots (patrón de Hermes) → H-050 (la afinidad no hace falta)
+- [ ] Si se adopta Gufo: drop-in listo en [`scripts/60-gufo.conf`](scripts/60-gufo.conf) (mismo nombre de unidad, una sola clave, caché RAM 4 GiB); falta decidir y desplegar
 - [ ] Repetir GLM cuando el soporte `glm5next` entre en upstream y Vulkan implemente las operaciones fusionadas que hoy se desactivan.
 
 ---

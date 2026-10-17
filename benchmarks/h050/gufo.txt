@@ -1,0 +1,9 @@
+[gufo] ronda 1 conv A    11.68s  prompt=15329 procesados=15329
+[gufo] ronda 1 conv B    10.64s  prompt=13771 procesados=13771
+[gufo] ronda 1 conv C    11.91s  prompt=15948 procesados=15948
+[gufo] ronda 2 conv A     0.40s  prompt=15406 procesados=77
+[gufo] ronda 2 conv B     0.40s  prompt=13848 procesados=77
+[gufo] ronda 2 conv C     0.32s  prompt=16025 procesados=29
+[gufo] ronda 3 conv A     1.02s  prompt=15436 procesados=30
+[gufo] ronda 3 conv B     1.63s  prompt=13878 procesados=30
+[gufo] ronda 3 conv C     1.48s  prompt=16055 procesados=30

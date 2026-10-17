@@ -2381,3 +2381,61 @@ Contras: sin autenticacion por fichero (solo `--api-key` en argv), contenedor en
 de binario, cuantizacion mas pesada (111 GB) y solo la Q4_K_XL.
 
 **Evidencias:** `benchmarks/h049/` y `benchmarks/h049b/`.
+
+---
+
+## H-050 — Conversaciones largas intercaladas: la afinidad de sesion no hace falta; Gufo gana el primer turno ×3,7
+
+Fecha: 2026-10-17. **Estado: confirmado.**
+
+**Pregunta:** drluoto baja el arranque en frio de 44 s a menos de 1 s fijando cada
+conversacion a un slot. Hermes manda al M5 vision, delegacion y el agregador de MoA
+sin ninguna afinidad. Con 2 slots y 3 conversaciones largas, ¿se reprocesa el
+historial entero cada vez que vuelve una conversacion desalojada?
+
+**Metodo:** `scripts/h050-afinidad.py` + `h050-runner.sh`. Tres conversaciones, cada
+una con un tercio de `docs/hallazgos.md` (13,8-16k tokens), intercaladas
+**A B C A B C A B C**; cada turno anade la respuesta anterior y una pregunta nueva,
+`max_tokens 48`. llama.cpp de produccion tras un reinicio limpio; despues Gufo 0.17.0
+con las opciones de H-049.
+
+| ronda | llama.cpp: tiempo (tokens procesados) | Gufo: tiempo (tokens procesados) |
+|---|---|---|
+| 1 (frio) A / B / C | 42,3 / 37,7 / 45,0 s (15.329 / 13.771 / 15.948) | **11,7 / 10,6 / 11,9 s** (los mismos) |
+| 2 A / B / C | 0,9 / 1,0 / 1,0 s (30 cada una) | 0,4 / 0,4 / 0,3 s (29-77) |
+| 3 A / B / C | 2,2 / 2,2 / 2,0 s (24 cada una) | 1,0 / 1,6 / 1,5 s (30) |
+
+**Lecturas:**
+
+1. **No hay reprocesado.** Con tres conversaciones y dos slots, llama.cpp solo procesa
+   los 24-30 tokens nuevos de cada turno: el `--cache-ram 4096` de produccion guarda el
+   estado de la conversacion desalojada en RAM y la restaura. **La afinidad de sesion
+   no aporta nada con esta configuracion**, al menos con tres conversaciones de ~15k.
+   (Con muchas mas, o mas largas, los 4 GiB de cache se llenarian: no medido.)
+2. **El coste esta en el primer turno**, y ahi Gufo es **×3,6-3,8** mas rapido
+   (11-12 s frente a 38-45 s con ~15k tokens), coherente con H-047/H-049.
+3. En los turnos calientes los dos van en 0,3-2,2 s.
+
+**Evidencias:** `benchmarks/h050/`.
+
+---
+
+## H-050b — Gufo 0.17.0 solo acepta UNA clave de API
+
+Fecha: 2026-10-17. **Estado: confirmado.**
+
+`gufo serve --api-key A --api-key B` arranca sin quejarse, pero **solo vale la
+ultima**: con A, `/v1/models` y `/v1/chat/completions` dan 401; con B, 200; con una
+clave mala o sin clave, 401 (claves ficticias, `scripts/h050b-claves.sh`). En el M5,
+`/etc/llama-server/api-keys.txt` tiene dos claves: la primera la usan Hermes y
+LiteLLM, la segunda otro cliente. **Con Gufo, ese segundo cliente pierde el acceso**
+salvo que se ponga un proxy delante. El drop-in propuesto (`scripts/60-gufo.conf`)
+pasa solo la primera.
+
+**Evidencias:** `benchmarks/h050b/runner.txt`.
+
+**Incidencia ajena a la prueba:** durante la ventana, el router entrego la IP de la
+red cableada del M5 a otro aparato (conflicto detectado por NetworkManager a las
+16:15:02, MAC de origen aleatoria) y `eno1` se quedo sin IPv4. El M5 siguio accesible
+por Wi-Fi y por la tailnet, que es por donde le habla Hermes. Arreglo: reserva DHCP
+de la IP para la MAC del M5 en el router.
