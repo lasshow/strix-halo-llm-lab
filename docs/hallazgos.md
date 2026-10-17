@@ -2245,3 +2245,139 @@ con `bench-real.py`, vision, unit systemd con watchdog, y comprobar que la Q4_K_
 **Evidencias:** `benchmarks/h047/` (`llamacpp.*`, `gufo.*`, `gufo-iq4xs-error.txt` con
 el fallo de carga, `gufo.server.txt` con `prefill_tokens`/`cached_tokens` y los dos
 `runner*.txt`).
+
+---
+
+## H-048 — Reloj de GPU fijo y carga sin mmap: +2,3 % y 0 %. El techo es el limite de potencia (85 W)
+
+Fecha: 2026-10-17. **Estado: confirmado. No se adopta ninguno de los dos.**
+
+**Pregunta:** drluoto (`flash-next-strix-halo`) mide que con
+`power_dpm_force_performance_level=auto` la GPU se queda en 2.340-2.540 MHz en vez de
+2.900 y que eso cuesta ~20 %, y que cargar sin mmap (`-lm dio` en su fork) da +9-12 %.
+¿Se reproduce en el M5?
+
+**Metodo:** `scripts/h048-runner.sh`. Banco de carga real (`bench-real.py`, 6 tareas,
+calentamiento + 2 pasadas) contra el servidor de produccion, tres brazos con UNA
+variable por salto: **A** base (`auto`, mmap), **B** reloj `high`, **C** `high` +
+`LLAMA_ARG_LOAD_MODE=none` (esta build no tiene `dio`; `none` es lo mas parecido).
+Orden **A B C C B A** para compensar deriva termica, reinicio del servicio en cada
+tanda, y muestreo cada 2 s de `amdgpu_pm_info` (SCLK, MCLK, potencia, carga). Copia
+congelada del repo para que los prompts sean identicos en las seis tandas.
+
+| tarea | prompt | A (t/s) | B (t/s) | C (t/s) | B/A | C/B |
+|---|---:|---:|---:|---:|---:|---:|
+| codigo-explica | 4.296 | 39,68 | 40,56 | 40,56 | +2,2 % | −0,0 % |
+| codigo-cambio | 3.738 | 41,09 | 41,06 | 41,96 | −0,1 % | +2,2 % |
+| codigo-largo | 6.791 | 42,50 | 43,14 | 42,83 | +1,5 % | −0,7 % |
+| prosa-resume | 5.798 | 36,28 | 37,37 | 37,01 | +3,0 % | −1,0 % |
+| prosa-hallazgos | 45.026 | 27,25 | 28,14 | 28,51 | +3,3 % | +1,3 % |
+| json-extrae | 5.606 | 46,25 | 47,36 | 47,65 | +2,4 % | +0,6 % |
+| **mediana** | | | | | **+2,3 %** | **+0,3 %** |
+
+| tanda | SCLK bajo carga (mediana, min-max) | MCLK | potencia SoC |
+|---|---|---:|---:|
+| A | 2.504-2.538 MHz (2.244-2.738) | 1.000 MHz | **85,1 W** |
+| B | 2.524-2.559 MHz (2.375-2.874) | 1.000 MHz | **85,1 W** |
+| C | 2.528-2.537 MHz (2.374-2.863) | 1.000 MHz | **85,1 W** |
+
+**Lecturas:**
+
+1. **Lo que limita el reloj no es el gobernador, es la potencia.** El SoC esta clavado
+   en 85,1 W en las seis tandas; fijar `high` solo sube el reloj sostenido unos
+   20 MHz. El ~20 % de drluoto no se reproduce aqui: su maquina tendra otro limite de
+   potencia o otra BIOS. El M5 (BIOS 3.11) no expone `power1_cap` ni hay `ryzenadj`:
+   el techo de 85 W lo pone la BIOS.
+2. **`high` cuesta el doble en reposo:** 15,3 W frente a 7,6-7,9 W, medido. Son +7,5 W
+   las 24 horas (~65 kWh al ano) por +2,3 % de generacion. **No se adopta.**
+3. **`-lm none` no aporta nada (+0,3 %, ruido).** Con `--lazy-mode off` el proceso ya
+   tiene 28,4 GB en memoria anonima (la tabla de n-gramas) y solo 71 MB mapeados de
+   fichero: no queda mmap que quitar. **No se adopta.**
+4. El prefill sube ~1 % con `high` (290 → 294 t/s en el prompt de 45k).
+
+**Siguiente palanca de hardware:** un modo de rendimiento en la BIOS que suba el
+limite de potencia por encima de 85 W. Beneficiaria sobre todo al prefill (limitado
+por computo); la generacion depende del ancho de banda y el MCLK ya va a 1.000 MHz.
+
+**Evidencias:** `benchmarks/h048/` (`real-N-BRAZO.jsonl`, `bench-*.txt`, `reloj-*.txt`,
+`runner.txt`).
+
+---
+
+## H-049 — Gufo 0.17.0 con el contexto de produccion: apto para produccion, ×3,6 en prefill, empate en generacion
+
+Fecha: 2026-10-17. **Estado: confirmado. Pendiente de decision de despliegue (y de H-050).**
+
+**Pregunta:** H-044..H-047 se midieron con Gufo 0.9.1, una sesion y 131k. Gufo va por
+la 0.17.0 (publicada hoy) y su README declara 73,8 t/s de generacion y 194 t/s con 8
+usuarios. ¿Con la configuracion de produccion (2 sesiones × 262.144, vision, MTP) es
+apto para sustituir a llama.cpp?
+
+**Metodo:** `scripts/h049-runner.sh` (+ `h049b-runner.sh` para `--draft-tokens`).
+Gufo `0.17.0 (2af314b)`, imagen `sha256:a3df87bc…`, `UD-Q4_K_XL` + MTP Q8_0 +
+`mmproj-BF16.gguf`, `--sessions 2 --context 262144 --cache-ram-bytes 8 GiB --think off`,
+GPU en exclusiva. Pruebas:
+- banco de carga real con `h049-bench-real-gufo.py`: las MISMAS tareas y prompts que
+  `bench-real.py` (importados), con las cifras del log del servidor (`prefill_tps`,
+  `decode_tps`) porque Gufo no devuelve `timings`;
+- bateria de calidad de H-047 (14 celdas, greedy, 3 pasadas);
+- `h049-pruebas.py` contra los dos motores: fugas entre sesiones, concurrencia,
+  vision y tool calling.
+
+**Trampas:**
+1. Gufo 0.17.0 **rechaza el `mmproj-F16.gguf`** que usa llama.cpp
+   (`invalid BF16 Qwen vision tensor`): exige el sidecar BF16 (`unsloth/...`
+   `mmproj-BF16.gguf`, 907 MB, sha256 `2e788f8c…` verificado contra HF).
+2. Gufo sigue sin cargar la `UD-IQ4_XS` (H-047): produccion con Gufo implica la
+   `UD-Q4_K_XL` (111 GB).
+
+**Carga:** arranca con 2 × 262.144 en **15 s** (llama.cpp: 26 s), `gpu_device_used`
+105 GB, 18 GB de RAM libres (llama.cpp deja 14,6). **Ojo:** al llenarse la cache de
+RAM (8 GiB) la memoria libre bajo a **5,3 GB**; con brush o ComfyUI a la vez hay que
+bajar `--cache-ram-bytes`.
+
+**Banco de carga real (t/s, mediana):**
+
+| tarea | prompt | pp llama.cpp | pp Gufo | tg llama.cpp | tg Gufo d7 | d3 | d2 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| codigo-explica | 4.296 | 404 | 1.235 | 39,68 | 38,10 | 22,85* | 37,25 |
+| codigo-cambio | 3.738 | 392 | 1.430 | 41,09 | 34,70 | 34,70 | 33,90 |
+| codigo-largo | 6.791 | 387 | 1.360 | 42,50 | 42,20 | 41,10 | 41,55 |
+| prosa-resume | 5.798 | 398 | 1.433 | 36,28 | 25,55 | 33,20 | 33,50 |
+| prosa-hallazgos | 45.026 | 290 | 1.185 | 27,25 | 31,70 | 38,00 | 38,30 |
+| json-extrae | 5.606 | 393 | 846 | 46,25 | 67,45 | 62,95 | 53,35 |
+
+\* primera peticion tras arrancar; anomala.
+
+- **Prefill: ×3,6 de mediana** (×2,2 a ×4,1).
+- **Generacion de un usuario: empate.** Frente a llama.cpp, mediana −2,3 % (d7),
+  −5,9 % (d3), −4,2 % (d2); media +2,1 / +1,0 / +3,7 %. Gufo gana en JSON (aceptacion
+  del borrador 93-100 %) y en prosa con contexto largo; pierde en algo de codigo.
+  Los **73,8 t/s del README de Gufo no aparecen con esta carga**: solo los roza el
+  JSON, cuya salida es casi una copia de la entrada.
+- `--draft-tokens` corto (2-3) mejora la prosa (25 → 33 t/s) y empeora el JSON;
+  en conjunto da igual. Se queda el defecto.
+
+**Calidad (greedy, 3 pasadas):** Gufo **14/14 estables** (llama.cpp 13/14 en H-047).
+
+**Aptitud para produccion:**
+
+| prueba | llama.cpp (produccion) | Gufo 0.17.0 |
+|---|---|---|
+| fugas: 8 conversaciones con clave propia, a la vez | 0 fugas, 8/8 con su clave; **2/8** identicas a la serie | 0 fugas, 8/8 con su clave; **8/8** identicas a la serie |
+| agregado con 1 / 2 / 4 peticiones simultaneas | 32,2 / 38,4 / **43,6 t/s** | 38,3 / 60,3 / **68,8 t/s** |
+| vision (rojo / azul) | OK / OK | OK / OK |
+| tool calling (`get_weather` → Bilbao) | OK | OK |
+
+Ningun motor mezcla sesiones. llama.cpp en paralelo no reproduce su propia salida
+greedy en serie (6 de 8 cambian, siguen siendo correctas): el batching altera la
+aritmetica. Gufo si la reproduce. Con carga concurrente Gufo rinde **+57 %**
+agregado con 2 peticiones y **+58 %** con 4.
+
+**Lectura:** Gufo 0.17.0 es apto para produccion y mejor que llama.cpp en todo lo que
+no es generacion de un solo usuario, donde empatan: prefill ×3,6, cache de prefijo
+parcial (H-047), concurrencia +57 %, salida determinista en paralelo y calidad 14/14.
+Contras: sin autenticacion por fichero (solo `--api-key` en argv), contenedor en vez
+de binario, cuantizacion mas pesada (111 GB) y solo la Q4_K_XL.
+
+**Evidencias:** `benchmarks/h049/` y `benchmarks/h049b/`.

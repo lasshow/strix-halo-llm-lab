@@ -1,0 +1,22 @@
+[2026-10-17 14:15:27] kernel 7.2.10-200.fc44.x86_64; build /models/llama-builds/81ef10ea58fcc8a591cec50dc4b45e0bb00d9022+7fc180de
+[2026-10-17 14:15:27] tanda 1 brazo A (reloj=auto, load=mmap)
+[2026-10-17 14:15:53]   arranque 26 s; dpm=auto; MemAvailable=14698 MB; RssAnon=28440184 kB
+[2026-10-17 14:22:14]   tanda 1 terminada (rc=0)
+[2026-10-17 14:22:14] tanda 2 brazo B (reloj=high, load=mmap)
+[2026-10-17 14:22:40]   arranque 26 s; dpm=high; MemAvailable=14634 MB; RssAnon=28440180 kB
+[2026-10-17 14:28:58]   tanda 2 terminada (rc=0)
+[2026-10-17 14:28:58] tanda 3 brazo C (reloj=high, load=none)
+[2026-10-17 14:29:24]   arranque 26 s; dpm=high; MemAvailable=14667 MB; RssAnon=28440204 kB
+[2026-10-17 14:35:43]   tanda 3 terminada (rc=0)
+[2026-10-17 14:35:43] tanda 4 brazo C (reloj=high, load=none)
+[2026-10-17 14:36:09]   arranque 26 s; dpm=high; MemAvailable=14651 MB; RssAnon=28440188 kB
+[2026-10-17 14:42:23]   tanda 4 terminada (rc=0)
+[2026-10-17 14:42:23] tanda 5 brazo B (reloj=high, load=mmap)
+[2026-10-17 14:42:49]   arranque 26 s; dpm=high; MemAvailable=14652 MB; RssAnon=28440184 kB
+[2026-10-17 14:49:08]   tanda 5 terminada (rc=0)
+[2026-10-17 14:49:08] tanda 6 brazo A (reloj=auto, load=mmap)
+[2026-10-17 14:49:34]   arranque 26 s; dpm=auto; MemAvailable=14641 MB; RssAnon=28440188 kB
+[2026-10-17 14:55:54]   tanda 6 terminada (rc=0)
+[2026-10-17 14:55:54] restaurando configuracion BASE (auto + mmap)
+[2026-10-17 14:56:20] produccion OK
+[2026-10-17 14:56:20] FIN (salida en ~/campanas/h048-20261017T121527Z)

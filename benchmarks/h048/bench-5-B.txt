@@ -1,0 +1,20 @@
+[i] brazo=mtp modelo=qwen3.8-flash-next pasadas=2
+[i] registro: ~/campanas/h048-snap/benchmarks/real-mtp-20261017T124249Z.jsonl
+[*] codigo-explica calentamiento prompt_n=4296 pp=402.5 tg=40.22
+    pasada 1: prompt_n=4 pp=40.7 tg=40.53 gen=400 wall=9.96s
+    pasada 2: prompt_n=4 pp=40.6 tg=40.57 gen=400 wall=9.95s
+[*] codigo-cambio calentamiento prompt_n=3738 pp=390.0 tg=40.96
+    pasada 1: prompt_n=4 pp=40.4 tg=41.08 gen=400 wall=9.83s
+    pasada 2: prompt_n=4 pp=39.5 tg=41.11 gen=400 wall=9.82s
+[*] codigo-largo calentamiento prompt_n=6791 pp=386.1 tg=43.08
+    pasada 1: prompt_n=4 pp=37.9 tg=43.40 gen=400 wall=9.32s
+    pasada 2: prompt_n=4 pp=40.6 tg=43.21 gen=400 wall=9.35s
+[*] prosa-resume calentamiento prompt_n=5798 pp=398.1 tg=37.16
+    pasada 1: prompt_n=4 pp=36.3 tg=37.17 gen=296 wall=8.06s
+    pasada 2: prompt_n=4 pp=37.2 tg=37.20 gen=296 wall=8.06s
+[*] prosa-hallazgos calentamiento prompt_n=45026 pp=294.4 tg=28.24
+    pasada 1: prompt_n=4 pp=27.5 tg=28.44 gen=370 wall=13.18s
+    pasada 2: prompt_n=4 pp=27.3 tg=28.41 gen=370 wall=13.2s
+[*] json-extrae calentamiento prompt_n=5606 pp=396.0 tg=47.54
+    pasada 1: prompt_n=4 pp=36.8 tg=47.73 gen=116 wall=2.54s
+    pasada 2: prompt_n=4 pp=36.4 tg=47.74 gen=116 wall=2.53s

@@ -69,6 +69,8 @@ el resumen de un documento de 38,9k. Kernel 7.2.9, build `81ef10ea5` + parche MT
 | H-043 | **Resultado nulo: el kernel** | Kernel 7.2.9 frente a 7.2.7: tg +0,00 %, pp −0,01 %. Actualizar el kernel es decisión de seguridad, no de rendimiento. |
 | H-044 · H-045 · H-047 | **Gufo frente a llama.cpp** | **Prefill en frío ×4,5**: 42k tokens en 29 s frente a ~133 s (~1.440 frente a ~316 t/s). Además Gufo guarda puntos de control cada 10.240 tokens y reaprovecha un **prefijo parcial** (8,5-16 s cuando el prompt comparte la mitad); llama.cpp, con este modelo híbrido, solo reaprovecha el prompt idéntico. Con prompts cortos empatan. En calidad, la ventaja que parecía tener **no se sostiene**: el "fallo de contexto" de llama.cpp era el modelo **negándose** a dar un "código de autorización"; con una aguja neutra acierta 3/3 a 42k. Con greedy: llama.cpp 13/14, Gufo 14/14, con cuantizaciones distintas (Gufo 0.9.1 no carga la IQ4_XS: tensores IQ3_S). |
 | H-046 | **Corrección: ~6B activos, no ~3B** | Leído de la cabecera del GGUF. Ver arriba. |
+| H-048 | **El techo es la potencia, no el reloj** | Fijar el reloj de la GPU da +2,3 % (no el ~20 % que se ve en otras máquinas): el SoC está clavado en **85 W** y el reloj sostenido apenas sube. Cuesta +7,5 W en reposo, 24/7. Cargar sin mmap: 0 %. No se adopta ninguno. |
+| H-049 | **Gufo 0.17.0, apto para producción** | Con 2 sesiones × 262k, visión y MTP: prefill **×3,6**, generación de un usuario **empatada**, **+57 %** agregado con peticiones simultáneas, 0 fugas entre sesiones, salida determinista en paralelo, tool calling y visión OK, calidad 14/14. Exige `mmproj` BF16 y la Q4_K_XL. |
 
 ---
 
@@ -217,7 +219,10 @@ La hoja de ruta completa (fases: texto → imagen → vídeo, con criterios de d
 - [x] **Qwen3-Next-80B-A3B** (IQ4_XS, 42,6 GB): más rápido (~3B activos frente a ~6B, coherente con la ley), pero 15,5/20 frente a 18,5/20 en calidad, sobre todo en castellano/euskera. → H-016
 - [x] Repetir las celdas dudosas de H-044 con muestreo igualado y 3 pasadas → H-045
 - [x] Aguja neutra y mismo GGUF → H-047 (la negativa queda confirmada; Gufo 0.9.1 no carga IQ3_S, así que el mismo GGUF no es posible)
-- [ ] **Gufo como motor de producción**: `--sessions 2` sin fugas entre sesiones, decode con `bench-real.py`, visión, y unit systemd con watchdog. Producción seguiría con Q4_K_XL (111 GB): comprobar que cabe con el contexto de producción.
+- [x] Gufo con el contexto de producción: cabe, sin fugas, visión y herramientas OK, decode con el banco real → H-049
+- [x] Reloj de GPU fijo y carga sin mmap → H-048 (no compensan)
+- [ ] Conversaciones largas intercaladas contra 2 slots (patrón de Hermes), llama.cpp frente a Gufo → H-050
+- [ ] Si se adopta Gufo: unit systemd con watchdog, clave de API y `--cache-ram-bytes` compatible con brush/ComfyUI
 - [ ] Repetir GLM cuando el soporte `glm5next` entre en upstream y Vulkan implemente las operaciones fusionadas que hoy se desactivan.
 
 ---

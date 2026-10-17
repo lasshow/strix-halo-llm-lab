@@ -1,0 +1,4 @@
+[llamacpp] fugas: {"propias_en_paralelo": 8, "propias_en_serie": 8, "fugas": 0, "identicas_a_serie": 2, "errores": 0, "n": 8}
+[llamacpp] concurrencia: {"1": {"tokens": 400, "wall_s": 12.41, "agregado_tps": 32.22, "errores": 0}, "2": {"tokens": 800, "wall_s": 20.82, "agregado_tps": 38.42, "errores": 0}, "4": {"tokens": 1600, "wall_s": 36.72, "agregado_tps": 43.57, "errores": 0}}
+[llamacpp] vision: {"rojo": {"ok": true, "respuesta": "rojo"}, "azul": {"ok": true, "respuesta": "azul"}}
+[llamacpp] herramientas: {"ok": true, "tool_calls": [{"type": "function", "function": {"name": "get_weather", "arguments": "{\"city\":\"Bilbao\"}"}, "id": "zgcmhHWWVhv35prYBWtXGvF9Ff3ltXxe"}], "content": "", "finish_reason": "tool_calls"}

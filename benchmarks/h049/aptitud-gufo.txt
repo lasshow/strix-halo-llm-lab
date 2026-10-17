@@ -1,0 +1,4 @@
+[gufo] fugas: {"propias_en_paralelo": 8, "propias_en_serie": 8, "fugas": 0, "identicas_a_serie": 8, "errores": 0, "n": 8}
+[gufo] concurrencia: {"1": {"tokens": 400, "wall_s": 10.43, "agregado_tps": 38.34, "errores": 0}, "2": {"tokens": 800, "wall_s": 13.28, "agregado_tps": 60.25, "errores": 0}, "4": {"tokens": 1600, "wall_s": 23.26, "agregado_tps": 68.79, "errores": 0}}
+[gufo] vision: {"rojo": {"ok": true, "respuesta": "Rojo"}, "azul": {"ok": true, "respuesta": "azul"}}
+[gufo] herramientas: {"ok": true, "tool_calls": [{"id": "call_219utodmyxocxokqo7ti", "type": "function", "function": {"name": "get_weather", "arguments": "{\"city\":\"Bilbao\"}"}}], "content": null, "finish_reason": "tool_calls"}

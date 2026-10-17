@@ -1,0 +1,22 @@
+[2026-10-17 15:00:00] pull de ghcr.io/gufo-org/toolboxes/gufo-runtime:latest
+68612dc7ab02c0b4385e21bff6dd34373a57ff284570e96f2d564abbfe27e9de
+[2026-10-17 15:00:03] imagen: sha256:a3df87bca3d33aef3df6f5c509ee54f743c0cb6e2cb5dbc83f2ebac2289349d2
+[2026-10-17 15:00:03] version: gufo version 0.17.0 (2af314b)
+[2026-10-17 15:00:19] MemAvailable antes de Gufo: 119877 MB
+84adeb0d7a8a8abf9b553147bdcc55739433f492afd8980f0e6c3b6365ef477a
+[2026-10-17 15:00:34] Gufo arriba con --sessions 2 --context 262144
+2026-10-17 13:00:34 [INFO] [loader] event=load_completed kind=text elapsed_ms=14938 model=Qwen3.8 Flash Next sessions=2 context_tokens=262144 speculative=mtp draft_limit=7 disk_cache=off rss_mib=3727 host_available_mib=18022 gpu_device_used_mib=105327 gpu_device_total_mib=126976
+2026-10-17 13:00:34 [INFO] [server] event=listening address=http://0.0.0.0:8081 auth=off max_connections=16 max_body_bytes=8388608
+[2026-10-17 15:00:34] MemAvailable con Gufo: 18018 MB
+[2026-10-17 15:00:34] banco de carga real (Gufo)
+[2026-10-17 15:04:28]   rc=0
+[2026-10-17 15:04:28] bateria de calidad H-047 (Gufo)
+[2026-10-17 15:07:07]   rc=0
+[2026-10-17 15:07:07] pruebas de aptitud (Gufo)
+[2026-10-17 15:08:53]   rc=0
+[2026-10-17 15:08:53] MemAvailable al final de Gufo: 5294 MB
+[2026-10-17 15:08:55] toma de referencia: llama.cpp de produccion
+[2026-10-17 15:11:30]   rc=0
+[2026-10-17 15:11:30] restaurando produccion
+[2026-10-17 15:11:30] produccion OK
+[2026-10-17 15:11:30] FIN (salida en ~/campanas/h049-20261017T130000Z)

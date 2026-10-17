@@ -1,0 +1,126 @@
+{
+ "motor": "llamacpp",
+ "fugas": {
+  "propias_en_paralelo": 8,
+  "propias_en_serie": 8,
+  "fugas": 0,
+  "identicas_a_serie": 2,
+  "errores": 0,
+  "n": 8,
+  "filas": [
+   {
+    "clave": "ALFA-3141",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento preventivo del horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar regularmente los elementos calefactores y los sistemas de control para evitar fallos críticos. La limpieza periódica de los conductos de ventilación ayuda a mantener la eficiencia energética del equipo. ALFA-3141",
+    "serie": "El mantenimiento preventivo del horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar regularmente los elementos calefactores y los sistemas de control para detectar desgastes o fallos potenciales. La limpieza periódica de los conductos de ventilación evita la acumulación de residuos que podrían afectar la calidad del tratamiento térmico. Es fundamental registrar cada intervención en el libro de mantenimiento para asegurar la trazabilidad del equipo ALFA-3141."
+   },
+   {
+    "clave": "BRAVO-2718",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento regular del horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar periódicamente los elementos calefactores y los sistemas de control para evitar fallos críticos. La limpieza profunda de los conductos de ventilación previene la acumulación de residuos que podrían afectar la calidad del tratamiento térmico. BRAVO-2718",
+    "serie": "El mantenimiento regular del horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar periódicamente los elementos calefactores y los sistemas de control para evitar fallos críticos. La limpieza profunda de los conductos de ventilación previene la acumulación de residuos que podrían afectar la calidad del tratamiento. Es fundamental registrar cada intervención en el historial técnico asociado a la BRAVO-2718."
+   },
+   {
+    "clave": "CHARLIE-1618",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": true,
+    "respuesta": "El mantenimiento regular de un horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar periódicamente los elementos calefactores y los sistemas de control para evitar fallos críticos. La limpieza profunda de los conductos de ventilación previene la acumulación de residuos que podrían afectar la calidad del tratamiento térmico. CHARLIE-1618",
+    "serie": "El mantenimiento regular de un horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar periódicamente los elementos calefactores y los sistemas de control para evitar fallos críticos. La limpieza profunda de los conductos de ventilación previene la acumulación de residuos que podrían afectar la calidad del tratamiento térmico. CHARLIE-1618"
+   },
+   {
+    "clave": "DELTA-1414",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": true,
+    "respuesta": "El mantenimiento regular de un horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar periódicamente los elementos calefactores y los sistemas de control para evitar fallos críticos. La limpieza profunda de los conductos de ventilación previene la acumulación de residuos que podrían afectar la calidad del tratamiento térmico. DELTA-1414",
+    "serie": "El mantenimiento regular de un horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar periódicamente los elementos calefactores y los sistemas de control para evitar fallos críticos. La limpieza profunda de los conductos de ventilación previene la acumulación de residuos que podrían afectar la calidad del tratamiento térmico. DELTA-1414"
+   },
+   {
+    "clave": "ECO-1732",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento regular de un horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar periódicamente los elementos calefactores y los sistemas de control para evitar fallos críticos. La limpieza profunda de los conductos de ventilación previene la acumulación de residuos que podrían afectar la calidad del tratamiento térmico. ECO-1732",
+    "serie": "El mantenimiento regular del horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar periódicamente los elementos calefactores y los sistemas de control para evitar fallos inesperados. La limpieza profunda de los conductos de ventilación ayuda a prevenir la acumulación de residuos que podrían afectar la calidad del tratamiento térmico. Es fundamental registrar cada intervención técnica en el sistema de gestión para mantener un historial preciso del equipo ECO-1732."
+   },
+   {
+    "clave": "FOXTROT-2236",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento regular del horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar periódicamente los elementos calefactores y los sistemas de control para evitar fallos críticos. La limpieza profunda de los conductos de ventilación previene la acumulación de residuos que podrían afectar la calidad del tratamiento. Es fundamental registrar cada intervención técnica en el sistema de gestión correspondiente. FOXTROT-2236",
+    "serie": "El mantenimiento regular del horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar periódicamente los elementos calefactores y los sistemas de control para evitar fallos inesperados. La limpieza profunda de los conductos de ventilación ayuda a prevenir la acumulación de residuos que podrían afectar la calidad del tratamiento. Es fundamental registrar cada intervención técnica en el sistema de gestión correspondiente. FOXTROT-2236"
+   },
+   {
+    "clave": "GOLF-2645",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento regular de un horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar periódicamente los elementos calefactores y los sistemas de control para evitar fallos inesperados. La limpieza profunda de los conductos de ventilación previene la acumulación de residuos que podrían afectar la calidad del tratamiento térmico. GOLF-2645",
+    "serie": "El mantenimiento regular de un horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar periódicamente los elementos calefactores y los sistemas de control para evitar fallos críticos. La limpieza profunda de los conductos de ventilación previene la acumulación de residuos que podrían afectar la calidad del tratamiento térmico. GOLF-2645"
+   },
+   {
+    "clave": "HOTEL-3316",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento regular del horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar periódicamente los elementos calefactores y los sistemas de control para evitar fallos críticos. La limpieza profunda de los conductos de aire y las juntas de sellado previene la contaminación y las pérdidas de calor. HOTEL-3316",
+    "serie": "El mantenimiento preventivo de un horno de templado es crucial para garantizar la uniformidad térmica y la seguridad operativa. Se deben inspeccionar regularmente los elementos calefactores y los sistemas de control para evitar fallos críticos. La limpieza profunda de los conductos de ventilación previene la acumulación de residuos que podrían afectar la calidad del producto. HOTEL-3316"
+   }
+  ]
+ },
+ "fugas_s": 41.5,
+ "concurrencia": {
+  "1": {
+   "tokens": 400,
+   "wall_s": 12.41,
+   "agregado_tps": 32.22,
+   "errores": 0
+  },
+  "2": {
+   "tokens": 800,
+   "wall_s": 20.82,
+   "agregado_tps": 38.42,
+   "errores": 0
+  },
+  "4": {
+   "tokens": 1600,
+   "wall_s": 36.72,
+   "agregado_tps": 43.57,
+   "errores": 0
+  }
+ },
+ "concurrencia_s": 70.0,
+ "vision": {
+  "rojo": {
+   "ok": true,
+   "respuesta": "rojo"
+  },
+  "azul": {
+   "ok": true,
+   "respuesta": "azul"
+  }
+ },
+ "vision_s": 1.6,
+ "herramientas": {
+  "ok": true,
+  "tool_calls": [
+   {
+    "type": "function",
+    "function": {
+     "name": "get_weather",
+     "arguments": "{\"city\":\"Bilbao\"}"
+    },
+    "id": "zgcmhHWWVhv35prYBWtXGvF9Ff3ltXxe"
+   }
+  ],
+  "content": "",
+  "finish_reason": "tool_calls"
+ },
+ "herramientas_s": 1.9
+}

@@ -1,0 +1,19 @@
+[i] brazo=gufo modelo=Qwen3.8 Flash Next pasadas=2
+[*] codigo-explica calentamiento prompt_n=4296 pp=1252.5 tg=30.50
+    pasada 1: prompt_n=0 tg=22.90 gen=400 acept=68.2% wall=17.45s
+    pasada 2: prompt_n=0 tg=22.80 gen=400 acept=68.2% wall=17.56s
+[*] codigo-cambio calentamiento prompt_n=3738 pp=1396.2 tg=34.50
+    pasada 1: prompt_n=0 tg=34.70 gen=400 acept=61.5% wall=11.56s
+    pasada 2: prompt_n=0 tg=34.70 gen=400 acept=61.5% wall=11.55s
+[*] codigo-largo calentamiento prompt_n=6791 pp=1364.1 tg=41.00
+    pasada 1: prompt_n=0 tg=41.10 gen=400 acept=73.6% wall=9.75s
+    pasada 2: prompt_n=0 tg=41.10 gen=400 acept=73.6% wall=9.75s
+[*] prosa-resume calentamiento prompt_n=5798 pp=1433.3 tg=33.10
+    pasada 1: prompt_n=0 tg=33.20 gen=271 acept=62.9% wall=8.18s
+    pasada 2: prompt_n=0 tg=33.20 gen=271 acept=62.9% wall=8.18s
+[*] prosa-hallazgos calentamiento prompt_n=45026 pp=1501.2 tg=37.90
+    pasada 1: prompt_n=0 tg=38.00 gen=400 acept=62.3% wall=10.58s
+    pasada 2: prompt_n=0 tg=38.00 gen=400 acept=62.3% wall=10.57s
+[*] json-extrae calentamiento prompt_n=5606 pp=1429.0 tg=62.30
+    pasada 1: prompt_n=0 tg=62.90 gen=115 acept=100.0% wall=1.85s
+    pasada 2: prompt_n=0 tg=63.00 gen=115 acept=100.0% wall=1.84s
