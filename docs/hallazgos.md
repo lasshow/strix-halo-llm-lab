@@ -2142,6 +2142,8 @@ reproducibilidad, no tiempo. El tiempo valido es el de la pasada 1.
    tokens, Gufo hace el prefill a **1.442,9 t/s** (29,2 s hasta el primer token, segun
    su propio log) y llama.cpp tarda 132,7-146,0 s (~290-320 t/s): **×4,5 a ×8,4**, y eso
    con Gufo cargando la cuantizacion mas pesada.
+   *Corregido en H-047: solo el ×4,5 es prefill en frio. Los 15,9 s de la aguja final
+   salen de reaprovechar la primera mitad del prompt anterior (caché de prefijo parcial).*
 5. **Observacion de paso:** Gufo informa `gpu_device_used_mib=90644` (~95 GB) con un
    fichero de ~111 GB y 131k de contexto reservados. Al menos ~16 GB del fichero no estan
    en memoria de GPU, coherente con que la tabla de n-gramas (~51B parametros) se quede
@@ -2175,3 +2177,71 @@ GGUF de produccion (arquitectura `qwen4exp`):
 activos, tres veces mas lento"; con el dato bueno es **~6B frente a ~18B, el triple de
 activos, 3,3× mas lento**: casi lineal, como predice una maquina limitada por ancho
 de banda. Y explica por que Qwen3-Next-80B-A3B (~3B activos) iba mas rapido (H-016).
+
+---
+
+## H-047 — Aguja neutra: llama.cpp no pierde el contexto, se negaba. Y el ×8 de Gufo era en parte caché
+
+Fecha: 2026-10-17. **Estado: confirmado. Cierra los cabos de H-045.**
+
+**Preguntas:** (1) ¿la aguja que falla llama.cpp es una negativa o un fallo de
+recuperacion?; (2) ¿se pueden comparar los motores con el MISMO GGUF?
+
+**Metodo:** `scripts/h047-mismo-gguf.py` pasa las 12 pruebas de H-044 (importadas del
+banco) mas dos **agujas neutras**: mismo relleno y mismas profundidades (bloque 750 y
+1450 de 1500, ~42k tokens), pero el dato es *"la referencia del lote de ladrillo
+refractario... es ZX-4417-QD"* y las dos preguntan por la referencia. Las agujas
+originales se mantienen como control. Greedy identico y 3 pasadas, como H-045.
+Runners: `h047-runner.sh` (llama.cpp de produccion, `UD-IQ4_XS`) y `h047b-runner.sh`
+(Gufo 0.9.1, `UD-Q4_K_XL`, GPU en exclusiva). Produccion restaurada las dos veces con
+`/health` OK.
+
+**Mismo GGUF: no es posible con Gufo 0.9.1.** Con la `UD-IQ4_XS` de produccion el
+contenedor muere al cargar: `tensor blk.0.ffn_gate_exps.weight has unsupported format
+IQ3_S`. Las cuantizaciones dinamicas de Unsloth mezclan tipos y meten IQ3_S en parte de
+los expertos; Gufo no lo implementa. La comparacion sigue siendo IQ4_XS contra Q4_K_XL.
+
+| celda | llama.cpp (IQ4_XS) | Gufo (Q4_K_XL) |
+|---|---|---|
+| 10 pruebas cortas (JSON, codigo, formato, castellano, razonamiento) | 9/10 estables OK | 10/10 estables OK |
+| `instruccion-negativa` | **0/3** ("sensor de temperatura") | 3/3 |
+| `aguja-contexto-medio` (original, "codigo de autorizacion") | **0/3** (negativa) | 3/3 |
+| `aguja-contexto-final` (original) | 3/3 | 3/3 |
+| **`aguja-neutra-medio`** | **3/3** `ZX-4417-QD` | 3/3 |
+| **`aguja-neutra-final`** | **3/3** `ZX-4417-QD` | 3/3 |
+| **total** | **13/14** | **14/14** |
+
+**Lecturas:**
+
+1. **llama.cpp recupera bien a 42k.** Con el dato neutro acierta 3/3 en el medio y al
+   final. El rojo de H-044/H-045 era el modelo negandose a dar un "codigo de
+   autorizacion" ("No puedo proporcionar ese codigo... seguridad"), con la misma frase
+   en las tres tomas. Es un rasgo de seguridad de la IQ4_XS (o de la plantilla de chat
+   de llama.cpp), no un fallo de contexto. Gufo/Q4_K_XL da el codigo sin pestanear.
+2. **Diferencia de calidad real que queda: una prueba** (`instruccion-negativa`), estable
+   y reproducible, pero con cuantizaciones distintas: no se puede atribuir al motor.
+3. **La velocidad hay que partirla en dos.** El log de Gufo da `prefill_tokens` y
+   `cached_tokens` por peticion:
+
+   | peticion de 42k | Gufo: tokens procesados | Gufo: hasta 1er token | llama.cpp |
+   |---|---:|---:|---:|
+   | primera, en frio | 42.072 | **29,3 s** (1.436 t/s) | **133,8 s** (~316 t/s) |
+   | comparte la 1a mitad con la anterior | 21.586 | 15,6 s | 132,8 s |
+   | comparte ~3/4 con la anterior | 11.356 | 8,5 s | 133,3 s |
+   | identica a la anterior | 0-7 | 0,1 s | 0,4-3,2 s |
+
+   **Prefill en frio: ×4,5.** El resto viene de que Gufo guarda puntos de control del
+   estado cada 10.240 tokens (`cached_tokens=20480`, `30720`) y reaprovecha un **prefijo
+   parcial**; llama.cpp, con este modelo hibrido (capas DeltaNet con estado), solo
+   reaprovecha el prompt identico y si cambia algo en medio vuelve a procesarlo todo.
+   El "×8,4" publicado en H-045 (15,9 s frente a 132,7 s) era en parte esta cache.
+
+**Consecuencia:** se mantiene Gufo como candidato a motor por velocidad (×4,5 en frio,
+y la cache de prefijo parcial ayuda a un agente que reescribe o compacta historial),
+pero **no** por calidad. Pendiente antes de cambiar: `--sessions 2` sin fugas, decode
+con `bench-real.py`, vision, unit systemd con watchdog, y comprobar que la Q4_K_XL
+(111 GB) cabe con el contexto de produccion.
+
+**Evidencias:** `benchmarks/h047/` (`llamacpp.*`, `gufo.*`, `gufo-iq4xs-error.txt` con
+el fallo de carga, `gufo.server.txt` con `prefill_tokens`/`cached_tokens` y los dos
+`runner*.txt`).

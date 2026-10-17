@@ -1,0 +1,58 @@
+[OK ] json-estructura          p1    1.3s  ok (4 claves)
+[OK ] json-estructura          p2    0.9s  ok (4 claves)
+[OK ] json-estructura          p3    0.9s  ok (4 claves)
+[OK ] json-anidado             p1    1.8s  ok (1 claves)
+[OK ] json-anidado             p2    1.5s  ok (1 claves)
+[OK ] json-anidado             p3    1.4s  ok (1 claves)
+[OK ] codigo-python-binaria    p1    2.4s  ejecuta y pasa asserts
+[OK ] codigo-python-binaria    p2    2.1s  ejecuta y pasa asserts
+[OK ] codigo-python-binaria    p3    2.0s  ejecuta y pasa asserts
+[OK ] codigo-python-parser     p1    5.9s  ejecuta y pasa asserts
+[OK ] codigo-python-parser     p2    5.5s  ejecuta y pasa asserts
+[OK ] codigo-python-parser     p3    5.4s  ejecuta y pasa asserts
+[OK ] codigo-python-estado     p1    2.4s  ejecuta y pasa asserts
+[OK ] codigo-python-estado     p2    2.0s  ejecuta y pasa asserts
+[OK ] codigo-python-estado     p3    2.0s  ejecuta y pasa asserts
+[OK ] instruccion-formato      p1    2.8s  ok
+[OK ] instruccion-formato      p2    2.6s  ok
+[OK ] instruccion-formato      p3    2.6s  ok
+[NO ] instruccion-negativa     p1    2.1s  aparece lo prohibido: temperatura
+[NO ] instruccion-negativa     p2    1.8s  aparece lo prohibido: temperatura
+[NO ] instruccion-negativa     p3    1.7s  aparece lo prohibido: temperatura
+[OK ] idioma-castellano        p1    4.8s  ok
+[OK ] idioma-castellano        p2    4.6s  ok
+[OK ] idioma-castellano        p3    4.5s  ok
+[OK ] razonamiento-aritmetico  p1    7.2s  ok
+[OK ] razonamiento-aritmetico  p2    6.9s  ok
+[OK ] razonamiento-aritmetico  p3    6.8s  ok
+[OK ] razonamiento-trampa      p1    0.5s  ok
+[OK ] razonamiento-trampa      p2    0.2s  ok
+[OK ] razonamiento-trampa      p3    0.2s  ok
+[NO ] aguja-contexto-medio     p1  133.7s  faltan: ZX-4417-QD
+[NO ] aguja-contexto-medio     p2    3.2s  faltan: ZX-4417-QD
+[NO ] aguja-contexto-medio     p3    3.2s  faltan: ZX-4417-QD
+[OK ] aguja-contexto-final     p1  132.8s  ok
+[OK ] aguja-contexto-final     p2    0.7s  ok
+[OK ] aguja-contexto-final     p3    0.7s  ok
+[OK ] aguja-neutra-medio       p1  134.5s  ok
+[OK ] aguja-neutra-medio       p2    0.4s  ok
+[OK ] aguja-neutra-medio       p3    0.4s  ok
+[OK ] aguja-neutra-final       p1  133.3s  ok
+[OK ] aguja-neutra-final       p2    0.4s  ok
+[OK ] aguja-neutra-final       p3    0.4s  ok
+
+== llamacpp: estabilidad en 3 pasadas ==
+  json-estructura          3/3  ESTABLE OK
+  json-anidado             3/3  ESTABLE OK
+  codigo-python-binaria    3/3  ESTABLE OK
+  codigo-python-parser     3/3  ESTABLE OK
+  codigo-python-estado     3/3  ESTABLE OK
+  instruccion-formato      3/3  ESTABLE OK
+  instruccion-negativa     0/3  ESTABLE NO
+  idioma-castellano        3/3  ESTABLE OK
+  razonamiento-aritmetico  3/3  ESTABLE OK
+  razonamiento-trampa      3/3  ESTABLE OK
+  aguja-contexto-medio     0/3  ESTABLE NO
+  aguja-contexto-final     3/3  ESTABLE OK
+  aguja-neutra-medio       3/3  ESTABLE OK
+  aguja-neutra-final       3/3  ESTABLE OK

@@ -1,0 +1,9 @@
+[2026-10-17 13:45:13] guard parado; kernel 7.2.10-200.fc44.x86_64; build /models/llama-builds/81ef10ea58fcc8a591cec50dc4b45e0bb00d9022+7fc180de
+[2026-10-17 13:45:13] toma A: llama.cpp
+[2026-10-17 13:55:44] toma A terminada (rc=0)
+[2026-10-17 13:55:44] parando llama-flashnext para dar la GPU en exclusiva a Gufo
+4c48be430e99f6eb1459ad8bea7b29275cee6c53bdc9509ff7cf6079b61f8420
+[2026-10-17 13:56:09] ERROR: Gufo no arranco (contenedor muerto o 25 min sin responder)
+[2026-10-17 13:56:10] restaurando produccion
+[2026-10-17 13:56:35] produccion OK
+[2026-10-17 13:56:35] FIN (salida en ~/campanas/h047-20261017T114513Z)

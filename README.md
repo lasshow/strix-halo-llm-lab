@@ -67,7 +67,7 @@ el resumen de un documento de 38,9k. Kernel 7.2.9, build `81ef10ea5` + parche MT
 | H-039 · H-041 | **Retadores descartados con medida** | Ornith-1.5-35B-A3B: +45 % de t/s pero un acierto menos (10/12 vs 11/12). Nemotron-3.5-Lightning-30B-A3B Q8: igual de lento (31,8 vs 32,4 t/s) y un acierto menos. Batería con verificador objetivo: el código se ejecuta, el JSON se parsea. |
 | H-040 | **El modelo en reposo es gratis** | Con un segundo modelo cargado al lado, el principal no pierde nada (43,96 → 44,15 t/s). Generando los dos a la vez, cada uno cae ~30 % pero el agregado sube a 60,7 t/s. |
 | H-043 | **Resultado nulo: el kernel** | Kernel 7.2.9 frente a 7.2.7: tg +0,00 %, pp −0,01 %. Actualizar el kernel es decisión de seguridad, no de rendimiento. |
-| H-044 · H-045 | **Gufo frente a llama.cpp** | Con un prompt de 42k tokens, Gufo hace el prefill a **~1.440 t/s** frente a ~300 de llama.cpp: **×4,5 a ×8,4** hasta el primer token. Con prompts cortos empatan. La ventaja de calidad que parecía tener (11/12 frente a 9/12) **no se sostiene**: con greedy y 3 pasadas los resultados son estables, pero cada motor llevaba una cuantización distinta y el "fallo de contexto" de llama.cpp era el modelo **negándose** a dar un "código de autorización", no perdiéndolo. Candidato real a motor de producción por velocidad; la calidad queda por medir con el mismo GGUF (H-047). |
+| H-044 · H-045 · H-047 | **Gufo frente a llama.cpp** | **Prefill en frío ×4,5**: 42k tokens en 29 s frente a ~133 s (~1.440 frente a ~316 t/s). Además Gufo guarda puntos de control cada 10.240 tokens y reaprovecha un **prefijo parcial** (8,5-16 s cuando el prompt comparte la mitad); llama.cpp, con este modelo híbrido, solo reaprovecha el prompt idéntico. Con prompts cortos empatan. En calidad, la ventaja que parecía tener **no se sostiene**: el "fallo de contexto" de llama.cpp era el modelo **negándose** a dar un "código de autorización"; con una aguja neutra acierta 3/3 a 42k. Con greedy: llama.cpp 13/14, Gufo 14/14, con cuantizaciones distintas (Gufo 0.9.1 no carga la IQ4_XS: tensores IQ3_S). |
 | H-046 | **Corrección: ~6B activos, no ~3B** | Leído de la cabecera del GGUF. Ver arriba. |
 
 ---
@@ -216,7 +216,8 @@ La hoja de ruta completa (fases: texto → imagen → vídeo, con criterios de d
 - [ ] Empujar la verificación de ventana hasta 131k reales y 262k de punta a punta.
 - [x] **Qwen3-Next-80B-A3B** (IQ4_XS, 42,6 GB): más rápido (~3B activos frente a ~6B, coherente con la ley), pero 15,5/20 frente a 18,5/20 en calidad, sobre todo en castellano/euskera. → H-016
 - [x] Repetir las celdas dudosas de H-044 con muestreo igualado y 3 pasadas → H-045
-- [ ] **Gufo como motor de producción**: calidad con el mismo `UD-IQ4_XS` y una aguja que no dispare negativas (H-047), `--sessions 2` sin fugas entre sesiones, decode con `bench-real.py` y unit systemd con watchdog.
+- [x] Aguja neutra y mismo GGUF → H-047 (la negativa queda confirmada; Gufo 0.9.1 no carga IQ3_S, así que el mismo GGUF no es posible)
+- [ ] **Gufo como motor de producción**: `--sessions 2` sin fugas entre sesiones, decode con `bench-real.py`, visión, y unit systemd con watchdog. Producción seguiría con Q4_K_XL (111 GB): comprobar que cabe con el contexto de producción.
 - [ ] Repetir GLM cuando el soporte `glm5next` entre en upstream y Vulkan implemente las operaciones fusionadas que hoy se desactivan.
 
 ---
