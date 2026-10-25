@@ -14,6 +14,7 @@ Uso:
 import argparse
 import json
 import re
+import uuid
 import subprocess
 import sys
 import tempfile
@@ -95,12 +96,21 @@ def v_lineas_exactas(texto, n):
     return True, "ok"
 
 
+def limpia_think(texto):
+    """Quita bloques <think>...</think> y un <think> abierto sin cierre (truncado)."""
+    texto = re.sub(r"<think>.*?</think>", "", texto, flags=re.DOTALL)
+    texto = re.sub(r"<think>.*$", "", texto, flags=re.DOTALL)
+    return texto.strip()
+
+
 def v_castellano(texto):
-    marcas = [" el ", " la ", " de ", " que ", " con ", " para ", " los "]
-    hits = sum(1 for m in marcas if m in " " + texto.lower() + " ")
+    palabras = set(re.findall(r"\b[a-záéíóúüñ]+\b", texto.lower()))
+    marcas = {"el", "la", "los", "las", "un", "una", "de", "del", "al", "que",
+              "en", "con", "por", "para", "es", "son", "se", "como"}
+    hits = len(palabras & marcas)
     if hits < 3:
         return False, "no parece castellano (%d marcas)" % hits
-    return True, "ok"
+    return True, "ok (%d marcas)" % hits
 
 
 # ---------------------------------------------------------------------- pruebas
@@ -269,6 +279,8 @@ def main():
     p.add_argument("--key-file")
     p.add_argument("--etiqueta", required=True)
     p.add_argument("--salida", required=True)
+    p.add_argument("--bust-cache", action="store_true",
+                   help="antepone un run-id unico a cada prompt para invalidar la cache de prefijos")
     a = p.parse_args()
 
     # La clave puede venir por entorno (MOTOR_KEY) para no exigir permisos de
@@ -284,6 +296,8 @@ def main():
     with open(a.salida, "w") as out:
         for t in PRUEBAS:
             prompt = t["prompt"] if t["prompt"] else t["construye"]()
+            if a.bust_cache:
+                prompt = "[run-id: %s]\n" % uuid.uuid4().hex[:8] + prompt
             try:
                 texto, usage, dt = pide(a.base, a.model, key, prompt)
             except Exception as e:
@@ -293,14 +307,15 @@ def main():
                 out.flush()
                 print("[FALLO] %-26s %s" % (t["id"], e))
                 continue
-            ok, motivo = t["verif"](texto)
+            texto_limpio = limpia_think(texto)
+            ok, motivo = t["verif"](texto_limpio)
             pasa += 1 if ok else 0
             fila = {
                 "id": t["id"], "motor": a.etiqueta, "ok": ok, "motivo": motivo,
                 "segundos": round(dt, 2),
                 "prompt_tokens": usage.get("prompt_tokens"),
                 "completion_tokens": usage.get("completion_tokens"),
-                "vacio": not texto.strip(),
+                "vacio": not texto_limpio.strip(),
                 "respuesta": texto[:4000],
             }
             out.write(json.dumps(fila, ensure_ascii=False) + "\n")
