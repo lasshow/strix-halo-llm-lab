@@ -2510,7 +2510,7 @@ motor Qwen.
 
 ## H-053 — Qwen3.8-Flash-Next (Gufo) vs DeepSeek-V4.1-Flash (Strata), batería de calidad (2026-10-25)
 
-**Estado: abierto (2 puntos pendientes de re-verificación).** Misma batería de 12
+**Estado: cerrado.** Misma batería de 12
 pruebas con verificador objetivo (`scripts/bench-calidad-motores.py`), misma
 máquina, `enable_thinking: false` y `temperature: 0` en ambos motores.
 
@@ -2525,13 +2525,13 @@ DeepSeek, con su lectura honesta:
    `100` (correcto: 3) al clásico de 3 máquinas/3 piezas. La batería corre **sin
    CoT** (`enable_thinking: false`), que es justo la herramienta que resolvería un
    test de razonamiento; Qwen lo pasa igual sin CoT, así que el A/B es válido, pero
-   el "100" no implica "DeepSeek no razona". Pendiente de repetir con CoT activado.
+   el "100" no implica "DeepSeek no razona". **Re-verificado con CoT (`enable_thinking: true`, temp 0, `max_tokens` 4096):** responde `3` (correcto) en 7,11 s con 103 tokens de completion (~102 de razonamiento, 339 caracteres de `<think>`), frente a los 0,3 s de Qwen, que responde `3` sin CoT.
 
 **Caché contaminó las 2 agujas de DeepSeek:** salieron en 0,57 s y 0,63 s para
 46.574/46.567 tokens (imposible). El prompt de aguja es idéntico al de la ronda
 anterior y Strata lo sirve desde su caché de conversación/reuso de prefijo. No
 afecta al marcador (las 10 cortas son genuinas), pero invalida el "aguja OK" de
-esta ronda. La capacidad real de aguja larga ya está en H-052 (acierto a 105k).
+esta ronda. La capacidad real de aguja larga ya está en H-052 (acierto a 105k); se acepta y no se repiten esas dos.
 
 **Detalle:** `evidencias/h053-qwen-vs-deepseek-20261025/NOTAS.md`; ficheros
 `cal-qwen.jsonl` y `cal-deepseek.jsonl` en esa carpeta.

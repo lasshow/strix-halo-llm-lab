@@ -1,6 +1,6 @@
 # H-053 — Qwen3.8-Flash-Next (Gufo) vs DeepSeek-V4.1-Flash (Strata), batería de calidad
 
-**Fecha:** 2026-10-25 · **Estado:** abierto (pendiente de re-verificación de 2 puntos, ver "Salvedades")
+**Fecha:** 2026-10-25 · **Estado:** cerrado (razonamiento-trampa re-verificado con CoT; agujas aceptadas por H-052; castellano = falso negativo)
 
 Ronda A/B con la batería de 12 pruebas con verificador objetivo
 (`scripts/bench-calidad-motores.py`), misma máquina, `enable_thinking: false` en
@@ -43,7 +43,18 @@ El test es precisamente de razonamiento; al quitarle el CoT a un modelo razonado
 (DeepSeek V4.1 Flash) se le quita la herramienta que lo resolvería. Qwen3.8 lo pasó
 igual (respondió 3) sin CoT, así que el A/B sigue siendo válido — pero el "100" no
 debe leerse como "DeepSeek no razona", sino "DeepSeek **sin CoT** da la respuesta
-intuitiva". Pendiente de repetir con CoT activado.
+intuitiva".
+
+**Re-verificación con CoT activado (2026-10-25, `enable_thinking: true`, temp 0,
+`max_tokens` 4096):** DeepSeek responde **`3`** (correcto), `finish_reason: stop`
+(sin truncado). Tiempo total **7,11 s**; `completion_tokens` 103 (el motor no
+desglosa `reasoning`/`content`; la respuesta final es `3`, 1 token, así que ~102
+tokens son de razonamiento — 339 caracteres de `<think>`).
+
+Conclusión: DeepSeek **necesita** el CoT para salvar la trampa (sin pensar daba
+`100`, pensando da `3`), a costa de **7,11 s frente a los 0,3 s** del disparo
+directo de Qwen, que responde `3` sin CoT. Para esta clase de pregunta, el CoT de
+DeepSeek compra el acierto pagando ~24× de latencia.
 
 ## Caché en las 2 pruebas de aguja (dato contaminado)
 
@@ -58,10 +69,8 @@ de DeepSeek ya está verificada en H-052 (acierto a 105.474 tokens).
 No afecta al marcador: las 10 pruebas cortas son genuinas (prompts únicos o sin
 prefijo largo). Pero invalida el "aguja OK" de esta ronda como evidencia de contexto.
 
-## Pendiente (no tocar hasta decidir)
+## Pendiente
 
-- Repetir `razonamiento-trampa` con CoT activado (temp 0) para DeepSeek.
-- Repetir las 2 agujas de DeepSeek con nonce en el relleno (el flag
-  `strata_checkpoint:false` no basta: el código avisa "it still reuses a cached
-  prefix"), o aceptar el dato de H-052.
-- Corregir/documentar el heurístico `v_castellano`.
+- ~~Repetir `razonamiento-trampa` con CoT~~ — **hecho**, ver arriba (`3`, 7,11 s, ~102 tokens de razonamiento).
+- Agujas de DeepSeek: **aceptado H-052** (aguja a 105.474 tokens OK), no se repiten.
+- Heurístico `v_castellano`: **sin tocar por ahora** (decisión de Iker); queda documentado como falso negativo.
