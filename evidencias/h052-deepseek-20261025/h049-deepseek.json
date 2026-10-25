@@ -1,0 +1,94 @@
+{
+ "motor": "deepseek-m5",
+ "fugas": {
+  "propias_en_paralelo": 8,
+  "propias_en_serie": 8,
+  "fugas": 0,
+  "identicas_a_serie": 0,
+  "errores": 0,
+  "n": 8,
+  "filas": [
+   {
+    "clave": "ALFA-3141",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento de un horno de templado debe realizarse de forma periódica para garantizar un funcionamiento seguro y estable. Es importante revisar los elementos de calefacción y los sensores de temperatura para detectar desgastes o fallos antes de que afecten la calidad del proceso. También conviene limpiar el interior del horno y verificar el sistema de ventilación para evitar acumulaciones que reduzcan la eficiencia. Un plan de mantenimiento preventivo, con registros técnicos y revisiones programadas, ayuda a prolongar la vida útil del equipo y a reducir paradas no previstas; ALFA-3141.",
+    "serie": "El mantenimiento de un horno de templado requiere revisiones periódicas de sus elementos calefactores y del sistema de control de temperatura para garantizar un calentamiento uniforme. También es esencial inspeccionar los termopares y los mecanismos de seguridad, ya que cualquier fallo puede comprometer la calidad del templado o provocar accidentes. La limpieza regular de las superficies internas y la verificación de las puertas y sellos ayudan a mantener la eficiencia energética y la estabilidad del proceso. Por último, conviene registrar cada intervención y sustituir las piezas desgastadas según el plan de mantenimiento preventivo, y la clave de inventario asociada es ALFA-3141."
+   },
+   {
+    "clave": "BRAVO-2718",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento de un horno de templado debe realizarse de forma periódica para garantizar un funcionamiento seguro y estable. Es importante revisar los elementos de calefacción y los sensores de temperatura para detectar desviaciones que afecten la calidad del templado. También conviene limpiar los componentes internos y comprobar el sistema de ventilación y aislamiento para evitar pérdidas de calor. Un plan de mantenimiento preventivo, con registros de cada intervención, ayuda a prolongar la vida útil del equipo y a reducir paradas no previstas. BRAVO-2718",
+    "serie": "El mantenimiento de un horno de templado requiere revisiones periódicas de sus elementos de calefacción y del sistema de control de temperatura para garantizar un funcionamiento seguro y uniforme. Es importante inspeccionar los termopares y los mecanismos de ventilación, ya que los fallos en estos componentes pueden provocar un templado irregular del vidrio. También debe comprobarse el estado de las resistencias y el aislamiento térmico, sustituyendo las piezas desgastadas antes de que afecten a la calidad del proceso. Un programa de mantenimiento preventivo, con limpieza y calibración regular, prolonga la vida útil del equipo y reduce paradas no planificadas; BRAVO-2718."
+   },
+   {
+    "clave": "CHARLIE-1618",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento de un horno de templado debe realizarse de forma programada para garantizar la estabilidad del proceso térmico. Es fundamental revisar periódicamente los elementos calefactores y los sensores de temperatura para evitar desviaciones en el perfil de calentamiento. También conviene inspeccionar el sistema de refrigeración y las compuertas de carga para prevenir pérdidas de calor y asegurar una transferencia uniforme. Finalmente, un registro detallado de las intervenciones permite anticipar fallos y prolongar la vida útil del equipo, y la clave de inventario asociada es CHARLIE-1618.",
+    "serie": "El mantenimiento de un horno de templado debe realizarse de forma periódica para garantizar un funcionamiento seguro y estable. Es importante revisar los elementos de calefacción y los sensores de temperatura para detectar desgastes o fallos antes de que afecten la calidad del proceso. También conviene limpiar el interior del horno y comprobar el sistema de ventilación y aislamiento para evitar pérdidas de calor. Un plan de mantenimiento preventivo, con registros de cada intervención, ayuda a prolongar la vida útil del equipo y a reducir paradas no previstas; CHARLIE-1618."
+   },
+   {
+    "clave": "DELTA-1414",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento de un horno de templado debe realizarse de forma periódica para garantizar la uniformidad del proceso térmico. Es fundamental revisar los elementos calefactores y los sensores de temperatura para detectar desviaciones antes de que afecten la calidad del vidrio. También conviene limpiar los residuos y comprobar el sistema de ventilación y aislamiento para evitar pérdidas de calor. Un plan de mantenimiento preventivo documentado prolonga la vida útil del equipo y reduce paradas no planificadas; DELTA-1414.",
+    "serie": "El mantenimiento de un horno de templado debe realizarse de forma periódica para garantizar un funcionamiento seguro y estable. Es importante revisar los elementos de calefacción y los sensores de temperatura para detectar desviaciones que afecten la calidad del proceso. También conviene limpiar y lubricar los mecanismos de transporte y verificar el sistema de control para prevenir fallos inesperados. Un plan de mantenimiento preventivo documentado ayuda a prolongar la vida útil del equipo y a reducir paradas no programadas; DELTA-1414."
+   },
+   {
+    "clave": "ECO-1732",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento de un horno de templado debe realizarse de forma periódica para garantizar un funcionamiento seguro y estable. Es importante revisar los sistemas de control de temperatura y los sensores para evitar desviaciones en el proceso de templado. También conviene inspeccionar los elementos de calefacción, las conexiones eléctricas y los mecanismos de ventilación para prevenir fallos y prolongar la vida útil del equipo. Finalmente, deben registrarse las intervenciones y comprobaciones realizadas, manteniendo como referencia la clave de inventario ECO-1732.",
+    "serie": "El mantenimiento de un horno de templado debe realizarse de forma periódica para garantizar la uniformidad del proceso térmico y la seguridad de los operarios. Es fundamental revisar los elementos calefactores, los termopares y el sistema de control de temperatura para detectar desviaciones antes de que afecten la calidad del vidrio. También conviene inspeccionar el aislamiento, la ventilación y los mecanismos de apertura para evitar pérdidas de calor y riesgos mecánicos. Finalmente, cada intervención debe registrarse y verificarse contra el plan de mantenimiento preventivo, repitiendo la clave de inventario ECO-1732."
+   },
+   {
+    "clave": "FOXTROT-2236",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento de un horno de templado debe realizarse de forma periódica para garantizar un control térmico preciso y uniforme. Es fundamental revisar los elementos calefactores y los sensores de temperatura para detectar desgastes o descalibraciones. También conviene limpiar los residuos y verificar el sistema de ventilación y aislamiento para evitar pérdidas de calor. Un plan de mantenimiento preventivo prolonga la vida útil del equipo y reduce fallos inesperados; FOXTROT-2236.",
+    "serie": "El mantenimiento de un horno de templado requiere revisiones periódicas de sus elementos calefactores y del sistema de control de temperatura para garantizar un calentamiento uniforme. También es esencial inspeccionar los termopares y calibrar los sensores, ya que las desviaciones pueden afectar la calidad del templado. La limpieza regular de las superficies internas y la verificación de las puertas y sellos ayudan a evitar pérdidas de calor y contaminación. Por último, conviene registrar cada intervención y sustituir las piezas desgastadas según el plan de mantenimiento preventivo, y la clave de inventario asociada es FOXTROT-2236."
+   },
+   {
+    "clave": "GOLF-2645",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento de un horno de templado debe realizarse de forma periódica para garantizar un funcionamiento seguro y estable. Es importante revisar los elementos de calefacción y los sensores de temperatura para detectar desgastes o fallos antes de que afecten la calidad del proceso. También conviene limpiar las superficies internas y comprobar el sistema de ventilación para evitar acumulaciones que reduzcan la eficiencia. Un plan de mantenimiento preventivo, con registros actualizados, ayuda a prolongar la vida útil del equipo y a reducir paradas no previstas; GOLF-2645.",
+    "serie": "El mantenimiento de un horno de templado debe realizarse de forma periódica para garantizar un funcionamiento seguro y estable. Es importante revisar los elementos de calefacción y los sensores de temperatura para detectar desgastes o fallos antes de que afecten la calidad del proceso. También conviene limpiar las superficies internas y comprobar el sistema de ventilación para evitar acumulaciones que reduzcan la eficiencia. Un plan de mantenimiento preventivo ayuda a prolongar la vida útil del equipo y a reducir paradas no previstas; GOLF-2645."
+   },
+   {
+    "clave": "HOTEL-3316",
+    "propia": true,
+    "fugas": [],
+    "igual_que_serie": false,
+    "respuesta": "El mantenimiento de un horno de templado debe realizarse de forma periódica para garantizar un funcionamiento seguro y estable. Es importante revisar los sistemas de control de temperatura y los sensores para evitar desviaciones en el proceso. También conviene inspeccionar los elementos de calefacción, las conexiones eléctricas y los mecanismos de ventilación. Finalmente, debe comprobarse el estado de la estructura y las puertas del horno para prevenir pérdidas de calor; HOTEL-3316.",
+    "serie": "El mantenimiento de un horno de templado debe realizarse de forma periódica para garantizar un funcionamiento seguro y estable. Es importante revisar los sistemas de control de temperatura y los elementos de calefacción para detectar desgastes o fallos. También conviene limpiar y lubricar los mecanismos de transporte y verificar las condiciones de aislamiento térmico. Un plan de mantenimiento preventivo ayuda a prolongar la vida útil del equipo y a reducir paradas no previstas; HOTEL-3316."
+   }
+  ]
+ },
+ "fugas_s": 110.3,
+ "herramientas": {
+  "ok": true,
+  "tool_calls": [
+   {
+    "id": "call_d11dcd21d6734fb39beab025",
+    "type": "function",
+    "function": {
+     "name": "get_weather",
+     "arguments": "{\"city\":\"Bilbao\"}"
+    }
+   }
+  ],
+  "content": null,
+  "finish_reason": "tool_calls"
+ },
+ "herramientas_s": 10.2
+}

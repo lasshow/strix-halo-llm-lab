@@ -15,7 +15,7 @@
 *Todo lo que hay aquí está **medido en la máquina**, no copiado de notas de prensa.*
 *Cuando una medición desmiente a la anterior, se corrige y se deja constancia.*
 
-*Estado a **17 de octubre de 2026**: hallazgos H-001…H-051.*
+*Estado a **25 de octubre de 2026**: hallazgos H-001…H-052.*
 
 </div>
 
@@ -47,6 +47,7 @@ Medido con `llama.cpp` sobre Vulkan/RADV. `pp` = prefill (leer el prompt), `tg` 
 | Qwen3.8-27B | 27B denso | Q4 | ~16 GiB | 365,1 | 13,1 | ❌ Inútil aquí |
 | Qwen3-8B | 8B denso | Q4_K_M | 4,7 GiB | 1.286,8 | 45,4 | ✅ Referencia rápida |
 | GLM-5.3-Flash | 313B MoE (~18B) | UD-IQ1_S | 93 GB | 124,8 | 8,3 | ⚠️ Correcto pero 3,3× lento |
+| **DeepSeek-V4.1-Flash, Strata (`strata-dsv41`)** | 763B MoE (~6 activos) | IST-DAS 2.00bpw | 257 GB | 28,8–216 | **20–24** | 🆕 Logrado 2026-10-25, no producción: 128k útil, 1 petición a la vez — H-052 |
 
 ‡ Medido contra `llama-server` con un prompt real de **24.782 tokens**, que es el caso de
 uso de esta máquina. Las demás filas son de `llama-bench` con prompts cortos (512), donde
@@ -79,6 +80,7 @@ el resumen de un documento de 38,9k. Kernel 7.2.9, build `81ef10ea5` + parche MT
 | H-049 | **Gufo 0.17.0, apto para producción** | Con 2 sesiones × 262k, visión y MTP: prefill **×3,6**, generación de un usuario **empatada**, **+57 %** agregado con peticiones simultáneas, 0 fugas entre sesiones, salida determinista en paralelo, tool calling y visión OK, calidad 14/14. Exige `mmproj` BF16 y la Q4_K_XL. |
 | H-050 | **Afinidad de sesión: no hace falta** | Tres conversaciones de ~15k intercaladas contra 2 slots: llama.cpp no reprocesa nada (su caché en RAM restaura cada conversación; solo procesa los 24-30 tokens nuevos). Lo que cuesta es el primer turno, y ahí Gufo es **×3,7** (11 s frente a 42 s). Gufo solo admite **una** clave de API (H-050b). |
 | H-051 | **Gufo pasa a producción** | Drop-in que conserva el nombre de la unidad (guard, brush y Hermes sin cambios) y despliegue con vuelta atrás automática. En producción: visión y herramientas OK, **87 t/s agregados** con 2-4 peticiones (antes 38-44), el guard lo rearranca en 18 s. Gufo exige la clave también en `/health`. |
+| H-052 | **DeepSeek-V4.1-Flash (763B) en Strix Halo** | El motor `strata-dsv41` compilado a mano para `gfx1151` mueve el modelo de 763B a 20-24 t/s (rango multi-GPU R9700). Calidad 10/12, 0 fugas, tool calling OK, aguja a 105k OK. La trampa: `--vram-experts 0.5` (por defecto 1.0 se ahoga en memoria unificada). |
 
 ---
 
@@ -241,6 +243,7 @@ La hoja de ruta completa (fases: texto → imagen → vídeo, con criterios de d
 - [x] Reloj de GPU fijo y carga sin mmap → H-048 (no compensan)
 - [x] Conversaciones largas intercaladas contra 2 slots (patrón de Hermes) → H-050 (la afinidad no hace falta)
 - [x] **Gufo en producción** con el drop-in [`scripts/60-gufo.conf`](scripts/60-gufo.conf) (mismo nombre de unidad, una sola clave, caché RAM 4 GiB) → H-051
+- [x] **DeepSeek-V4.1-Flash (763B) en Strix Halo** vía Strata: compilado a mano para `gfx1151`, 20-24 t/s, 128k útil → H-052
 - [ ] Repetir GLM cuando el soporte `glm5next` entre en upstream y Vulkan implemente las operaciones fusionadas que hoy se desactivan.
 
 ---

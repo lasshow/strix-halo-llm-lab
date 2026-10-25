@@ -2486,3 +2486,22 @@ mismo modelo y la misma clave. Imagen fijada por digest (`sha256:a3df87bc…`),
 admite una clave, H-050b; el usuario lo da por bueno). Los scripts de este repo que
 comprueban `:8080/health` sin clave (runners de H-045..H-050) ya no valen contra
 produccion tal cual.
+
+## H-052 — DeepSeek-V4.1-Flash (763B) corre en el Strix Halo por Strata (2026-10-25)
+
+**Estado: logrado (prueba de concepto; no es producción).** El motor `strata-dsv41`
+se compila desde fuente para `gfx1151` y mueve el modelo de 763B a **24,3 t/s** en
+código y **20,2 t/s** en prosa — el rango de cuatro Radeon R9700, 3-5× un PC de
+gaming. Calidad 10/12 (los 2 fallos: uno falso negativo del verificador, otro real
+en una trampa de razonamiento), 0 fugas entre conversaciones, tool calling OK, y
+contexto útil verificado a **128k** (aguja a 105.474 tok acierta).
+
+**Trampa que lo bloqueaba:** con la config por defecto se atasca para siempre
+(`still starting` 25 min, GTT lleno, GPU al 2 %) — el patrón de las issues #4033,
+#4116 y #4117. `--mmap-experts on` no basta. La clave es **`--vram-experts 0.5`**
+(por defecto 1.0 intenta residenciar ~123 GB de expertos en 124 GB de memoria
+unificada). Ojo: `--resident-experts` **no existe** en el motor DeepSeek, es del
+motor Qwen.
+
+**Detalle:** `docs/H-052-deepseek-v41-flash-gfx1151.md`; evidencias en
+`evidencias/h052-deepseek-20261025/`.

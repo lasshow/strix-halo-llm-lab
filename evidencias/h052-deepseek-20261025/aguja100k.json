@@ -1,0 +1,20 @@
+[
+ {
+  "caso": "100k-medio",
+  "ok": true,
+  "segundos": 494.5,
+  "prompt_tokens": 105474,
+  "pp_t_s": 213.6,
+  "tg_t_s": 12.8,
+  "respuesta": "ZX-4417-QD"
+ },
+ {
+  "caso": "100k-profundo",
+  "ok": true,
+  "segundos": 487.8,
+  "prompt_tokens": 105474,
+  "pp_t_s": 216.4,
+  "tg_t_s": 26.8,
+  "respuesta": "ZX-4417-QD"
+ }
+]
