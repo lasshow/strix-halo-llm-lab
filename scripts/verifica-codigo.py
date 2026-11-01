@@ -161,9 +161,13 @@ fn main() {
 import tempfile, os, collections
 _d = tempfile.mkdtemp()
 _p = os.path.join(_d, "log.txt")
-open(_p, "w").write("a\\nb\\na\\nc\\nb\\na\\n")
+# H-055: lineas de log REALES con IP al principio. Antes eran "a","b","c": una
+# respuesta que valida IPv4 (mas fiel al enunciado) daba falso "COMPILA PERO FALLA".
+_l = lambda ip: ip + ' - - [01/Nov/2026:22:00:00 +0100] "GET / HTTP/1.1" 200 12\\n'
+open(_p, "w").write(_l("10.0.0.1") + _l("10.0.0.2") + _l("10.0.0.1") + _l("10.0.0.3")
+                   + _l("10.0.0.2") + _l("10.0.0.1"))
 _r = top_n(_p, 2)
-assert [t[0] for t in _r] == ["a", "b"], f"orden/claves mal: {_r}"
+assert [t[0] for t in _r] == ["10.0.0.1", "10.0.0.2"], f"orden/claves mal: {_r}"
 assert _r[0][1] == 3 and _r[1][1] == 2, f"cuentas mal: {_r}"
 assert len(top_n(_p, 10)) == 3, "n mayor que el numero de claves"
 print("PRUEBAS-OK")
@@ -609,6 +613,12 @@ def main():
             out[pid] = {"veredicto": "SIN RESPUESTA"}
             cuenta["SIN RESPUESTA"] += 1
             print(f"{pid:3} [{meta['verif']:6}] SIN RESPUESTA")
+            continue
+        if meta["verif"] not in MOTORES:
+            # p.ej. zig/go sin verificador en este banco: antes reventaba con KeyError
+            out[pid] = {"veredicto": "HERRAMIENTA AUSENTE"}
+            cuenta["HERRAMIENTA AUSENTE"] += 1
+            print(f"{pid:3} [{meta['verif']:6}] HERRAMIENTA AUSENTE (sin verificador)")
             continue
         fn, langs = MOTORES[meta["verif"]]
         if usa_sandbox:

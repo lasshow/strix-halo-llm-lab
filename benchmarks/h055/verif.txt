@@ -1,0 +1,19 @@
+[i] bateria: ~/strix-halo-llm-lab/private/prompts.json (8 casos con verificador)
+[i] toolchains montadas ro en /opt/tc: cargo, rustup, nvm, node_modules
+[i] sandbox verificado: sin red, sin HOME, /usr solo lectura
+
+C1  [rustc ] [OK] PASA LAS PRUEBAS
+C2  [rustc ] [~] COMPILA (sin pruebas)
+C3  [tsc   ] [~] COMPILA (sin pruebas)
+C4  [node  ] [OK] PASA LAS PRUEBAS
+C5  [python] [X] COMPILA PERO FALLA
+      Traceback (most recent call last):
+C6  [sqlite] [OK] PASA LAS PRUEBAS
+Traceback (most recent call last):
+  File "~/strix-halo-llm-lab/scripts/verifica-codigo.py", line 684, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "~/strix-halo-llm-lab/scripts/verifica-codigo.py", line 613, in main
+    fn, langs = MOTORES[meta["verif"]]
+                ~~~~~~~^^^^^^^^^^^^^^^
+KeyError: 'zig'

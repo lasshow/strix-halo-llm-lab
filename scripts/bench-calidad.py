@@ -26,6 +26,8 @@ def key(path):
 
 def ask(url, api_key, prompt, max_tokens, temp, sin_razonamiento=False):
     payload = {
+        # Gufo exige "model" (400 missing_model); llama-server lo ignora.
+        "model": os.environ.get("LLAMA_MODEL", "qwen3.8-flash-next"),
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": max_tokens,
         "temperature": temp,
@@ -56,8 +58,9 @@ def ask(url, api_key, prompt, max_tokens, temp, sin_razonamiento=False):
         "vacia": not txt.strip(),
         "prompt_n": u.get("prompt_tokens"),
         "gen_n": u.get("completion_tokens"),
-        "pp": tim.get("prompt_per_second"),
-        "tg": tim.get("predicted_per_second"),
+        # llama-server: timings; Gufo: usage.*_tokens_per_second
+        "pp": tim.get("prompt_per_second") or u.get("prompt_tokens_per_second"),
+        "tg": tim.get("predicted_per_second") or u.get("completion_tokens_per_second"),
         "wall_s": round(wall, 2),
     }
 
