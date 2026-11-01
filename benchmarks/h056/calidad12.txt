@@ -1,0 +1,14 @@
+[OK ] json-estructura               0.7s  ok (4 claves)
+[OK ] json-anidado                  1.1s  ok (1 claves)
+[OK ] codigo-python-binaria         1.4s  ejecuta y pasa asserts
+[OK ] codigo-python-parser          3.8s  ejecuta y pasa asserts
+[OK ] codigo-python-estado          1.2s  ejecuta y pasa asserts
+[OK ] instruccion-formato           2.4s  ok
+[NO ] instruccion-negativa          1.4s  aparece lo prohibido: temperatura
+[OK ] idioma-castellano             2.5s  ok (9 marcas)
+[OK ] razonamiento-aritmetico       4.4s  ok
+[OK ] razonamiento-trampa           0.2s  ok
+[OK ] aguja-contexto-medio         27.1s  ok
+[OK ] aguja-contexto-final         27.2s  ok
+
+uncen: 11/12 pruebas pasadas

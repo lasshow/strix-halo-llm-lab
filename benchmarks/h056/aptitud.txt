@@ -1,0 +1,4 @@
+[uncen] fugas: {"propias_en_paralelo": 8, "propias_en_serie": 8, "fugas": 0, "identicas_a_serie": 8, "errores": 0, "n": 8}
+[uncen] concurrencia: {"1": {"tokens": 400, "wall_s": 6.39, "agregado_tps": 62.57, "errores": 0}, "2": {"tokens": 800, "wall_s": 7.93, "agregado_tps": 100.84, "errores": 0}, "4": {"tokens": 1600, "wall_s": 15.43, "agregado_tps": 103.69, "errores": 0}}
+[uncen] vision: {"rojo": {"ok": true, "respuesta": "Rojo"}, "azul": {"ok": true, "respuesta": "Azul"}}
+[uncen] herramientas: {"ok": true, "tool_calls": [{"id": "call_v9fygck39msxou5dzu6c", "type": "function", "function": {"name": "get_weather", "arguments": "{\"city\":\"Bilbao\"}"}}], "content": null, "finish_reason": "tool_calls"}

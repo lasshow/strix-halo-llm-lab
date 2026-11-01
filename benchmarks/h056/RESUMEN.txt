@@ -1,0 +1,50 @@
+PRODUCCION tras la prueba: servicio=active  /v1/models=200
+
+--- negativas produccion
+negativas 7/8
+--- negativas uncensored
+negativas 0/8
+
+--- velocidad
+    pasada 2: cache=4296 tg=42.93 gen=400 acept=64.0% wall=9.33s
+    pasada 2: cache=3738 tg=58.43 gen=400 acept=77.5% wall=6.86s
+    pasada 2: cache=6791 tg=44.73 gen=400 acept=60.4% wall=8.95s
+    pasada 2: cache=6080 tg=40.8 gen=304 acept=58.9% wall=7.46s
+    pasada 2: cache=48153 tg=38.88 gen=400 acept=56.0% wall=10.34s
+    pasada 2: cache=5606 tg=90.84 gen=115 acept=94.3% wall=1.28s
+
+--- calidad 12
+uncen: 11/12 pruebas pasadas
+
+--- aptitud
+[uncen] fugas: {"propias_en_paralelo": 8, "propias_en_serie": 8, "fugas": 0, "identicas_a_serie": 8, "errores": 0, "n": 8}
+[uncen] concurrencia: {"1": {"tokens": 400, "wall_s": 6.39, "agregado_tps": 62.57, "errores": 0}, "2": {"tokens": 800, "wall_s": 7.93, "agregado_tps": 100.84, "errores": 0}, "4": {"tokens": 1600, "wall_s": 15.43, "agregado_tps": 103.69, "errores": 0}}
+[uncen] vision: {"rojo": {"ok": true, "respuesta": "Rojo"}, "azul": {"ok": true, "respuesta": "Azul"}}
+[uncen] herramientas: {"ok": true, "tool_calls": [{"id": "call_v9fygck39msxou5dzu6c", "type": "function", "function": {"name": "get_weather", "arguments": "{\"city\":\"Bilbao\"}"}}], "content": null, "finish_reason": "tool_calls"}
+
+--- celdas
+== uncen: estabilidad en 3 pasadas ==
+  instruccion-negativa     3/3  ESTABLE OK
+  razonamiento-trampa      3/3  ESTABLE OK
+  aguja-contexto-medio     3/3  ESTABLE OK
+  aguja-contexto-final     3/3  ESTABLE OK
+
+--- contexto
+| objetivo | prompt_n | pp t/s | tg t/s | latencia (mediana) | aguja |
+|---|---|---|---|---|---|
+| 2000 | 1537 | 1504.7 | 22.64 | 1.1s | OK |
+| 16000 | 12025 | 1612.4 | 22.39 | 7.5s | OK |
+| 32000 | 24001 | 1594.3 | 22.37 | 15.1s | OK |
+| 60000 | 44977 | 1576.1 | 22.25 | 28.6s | OK |
+
+--- bateria 27
+27/27 respuestas
+tg mediana 55.2 t/s | pp mediana 399.6 t/s
+vacias: ninguna
+-> ~/strix-halo-llm-lab/private/resp-uncen.json
+
+--- codigo
+  PASA LAS PRUEBAS      4   (compila y da el resultado correcto)
+  COMPILA (sin pruebas) 2   (no hay banco de pruebas para este)
+  COMPILA PERO FALLA    0   (el compilador lo acepta, el resultado es malo)
+  NO COMPILA            0

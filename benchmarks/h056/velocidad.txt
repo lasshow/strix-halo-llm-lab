@@ -1,0 +1,18 @@
+[*] codigo-explica frio: prompt=4296 pp=1411.4 tg=42.83
+    pasada 1: cache=4296 tg=42.9 gen=400 acept=64.0% wall=9.33s
+    pasada 2: cache=4296 tg=42.93 gen=400 acept=64.0% wall=9.33s
+[*] codigo-cambio frio: prompt=3738 pp=1463.8 tg=58.37
+    pasada 1: cache=3738 tg=58.46 gen=400 acept=77.5% wall=6.85s
+    pasada 2: cache=3738 tg=58.43 gen=400 acept=77.5% wall=6.86s
+[*] codigo-largo frio: prompt=6791 pp=1500.3 tg=44.64
+    pasada 1: cache=6791 tg=44.72 gen=400 acept=60.4% wall=8.96s
+    pasada 2: cache=6791 tg=44.73 gen=400 acept=60.4% wall=8.95s
+[*] prosa-resume frio: prompt=6080 pp=1503.6 tg=40.71
+    pasada 1: cache=6080 tg=40.82 gen=304 acept=58.9% wall=7.46s
+    pasada 2: cache=6080 tg=40.8 gen=304 acept=58.9% wall=7.46s
+[*] prosa-hallazgos frio: prompt=48153 pp=1535.5 tg=38.79
+    pasada 1: cache=48146 tg=38.87 gen=400 acept=56.0% wall=10.43s
+    pasada 2: cache=48153 tg=38.88 gen=400 acept=56.0% wall=10.34s
+[*] json-extrae frio: prompt=5606 pp=1475.3 tg=90.52
+    pasada 1: cache=5606 tg=90.82 gen=115 acept=94.3% wall=1.31s
+    pasada 2: cache=5606 tg=90.84 gen=115 acept=94.3% wall=1.28s

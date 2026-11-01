@@ -1,0 +1,10 @@
+2026-11-01 22:13:15 [INFO] [gpu] event=queue_budget kind=llm observed=2 budget=8 expected_max=3 cap=2
+2026-11-01 22:13:15 [INFO] [loader] event=load_started kind=text artifact=/models/gguf/qwen38-flash-next/uncensored-vmlinux/Qwen3.8-Flash-Next-Uncensored-Gufo-Q4Mix.gguf rss_mib=136 host_available_mib=118646
+2026-11-01 22:13:29 [WARN] [loader] event=q8_0_expanded tensors=168 reason=hc_inject_and_ssm_alpha_beta_are_q8_0 (the official GGUF keeps them F32; expanded to F32 at load, re-quantize them as F32)
+2026-11-01 22:13:29 [INFO] [loader] event=vision_prepared resident_bytes=903984064 identity_ms=383.731634 upload_ms=71.948696 device_heap_free_bytes=42401878016 rss_mib=1388 host_available_mib=34637
+2026-11-01 22:13:30 [INFO] [cache] schema=component-cache-v1 event=backing_prepared committed_bytes=2229338112 long_term_pinned_bytes=0
+2026-11-01 22:13:30 [INFO] [cache] schema=component-cache-v1 event=configured sessions=2 snapshot_entries=128 capacity_bytes=4294967296 staging_capacity_bytes=0 automatic_bytes=15842074624 max_bytes=27389181952 disk_capacity_bytes=0 slot_pinned_bytes=0 ram_cache=on disk_backing_bytes=0
+2026-11-01 22:13:30 [INFO] [loader] event=structured_output_prepared vocabulary_tokens=248320 prepare_ms=31.8 rss_delta_kib=29944 rss_mib=3551 host_available_mib=28054
+2026-11-01 22:13:30 [INFO] [sampling] event=defaults thinking=on temperature=1 top_k=20 top_p=0.95 min_p=0 min_keep=0 seed=-1 repeat_penalty=1 repeat_last_n=64 frequency_penalty=0 presence_penalty=0
+2026-11-01 22:13:30 [INFO] [loader] event=load_completed kind=text elapsed_ms=14618 monotonic_us=6228956281 model=qwen3.8-flash-next sessions=2 context_tokens=65536 speculative=mtp draft_limit=7 disk_cache=off rss_mib=3531 host_available_mib=28054 gpu_device_used_mib=93068 gpu_device_total_mib=126976
+2026-11-01 22:13:30 [INFO] [server] event=listening monotonic_us=6228956614 address=http://0.0.0.0:8081 auth=bearer max_connections=16 max_body_bytes=8388608
