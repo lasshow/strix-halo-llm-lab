@@ -2561,3 +2561,23 @@ descartando la pasada fría:
   :8085 de Strata), ya corregidos.
 
 **Detalle:** `evidencias/h057-ds41-gufo-vs-strata-20261103/NOTAS.md`.
+
+---
+
+## H-058 — llama-swap v269 como puerta única del M5 (2026-11-03)
+
+**Estado: en producción.** En :8080 hay ahora llama-swap con el router `capacity`
+(pool de 118 GiB) delante de Qwen, Qwen sin censura, DeepSeek-Gufo y los modelos pequeños. Al
+pedir un modelo por su nombre se carga solo y se descarga lo que no quepa. Los motores grandes
+siguen en sus unidades systemd y se arrancan a través de `m5-model`, así que brush-server y
+llama-guard no cambian.
+
+- Sobrecoste del proxy: ninguno medible (36 t/s por la puerta frente a 36,4 directo).
+- Cambio de motor: DeepSeek 34 s, vuelta a Qwen 29 s.
+- E2E 12/13 + 1 falso negativo del test, repetido a mano y OK.
+- Dos fallos reales corregidos: (1) el vigía leía `/v1/models[0]` y forzaba DeepSeek cada
+  10 min; ahora mira `/running`. (2) Dos clientes con modelos grandes distintos atascaban el
+  cambio ~10 min; `m5-swap-stop` mata el `m5-model` a medio cargar. Tras el arreglo, la misma
+  carrera responde en 34 s y 49 s.
+
+**Detalle:** `evidencias/h058-llama-swap-puerta-unica-20261103/NOTAS.md`; scripts en `scripts/llama-swap/`.

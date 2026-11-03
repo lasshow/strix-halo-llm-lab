@@ -1,0 +1,15 @@
+[OK ] rechaza-sin-clave                  chat sin=401 falsa=401 | /v1/models sin clave=401
+[OK ] lista-modelos                      ['deepseek-v4.1-flash', 'embeddings', 'jev-2b', 'qwen3-8b', 'qwen3.8-flash-next', 'qwen3.8-flash-next-uncensored']
+[OK ] qwen-clave-qwen                    'OK' 0.2s
+[OK ] qwen-clave-ds                      'OK' 0.1s
+[OK ] sobrecoste-proxy                   puerta [35.7, 36.4] t/s vs directo [36.4, 36.4] t/s (extremo a extremo)
+[OK ] pequeno-convive                    'OK' 5.4s running={'qwen3-8b': 'ready', 'qwen3.8-flash-next': 'ready'}
+[OK ] conmuta-a-deepseek                 'OK' primera respuesta en 34s running={'deepseek-v4.1-flash': 'ready'} centinela=/etc/llama-guard.disable
+[OK ] deepseek-ya-cargado                'OK' 0.0s
+[OK ] vuelve-a-qwen                      583s running={'qwen3.8-flash-next': 'ready'} centinela=no
+[OK ] parada-externa-detectada           running={}
+[NO ] brush-bloquea-carga                rc=1 | inactive
+[OK ] recarga-tras-parada                16s running={'qwen3.8-flash-next': 'ready'}
+[OK ] pausa-reanuda                      pause=200 running={} chat_en_pausa=503 resume=200 chat=200 16s
+
+12/13 casos OK

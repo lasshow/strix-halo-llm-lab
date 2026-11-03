@@ -15,7 +15,7 @@
 *Todo lo que hay aquí está **medido en la máquina**, no copiado de notas de prensa.*
 *Cuando una medición desmiente a la anterior, se corrige y se deja constancia.*
 
-*Estado a **3 de noviembre de 2026**: hallazgos H-001…H-057.*
+*Estado a **3 de noviembre de 2026**: hallazgos H-001…H-058.*
 
 </div>
 
@@ -85,6 +85,7 @@ el resumen de un documento de 38,9k. Kernel 7.2.9, build `81ef10ea5` + parche MT
 | H-051 | **Gufo pasa a producción** | Drop-in que conserva el nombre de la unidad (guard, brush y Hermes sin cambios) y despliegue con vuelta atrás automática. En producción: visión y herramientas OK, **87 t/s agregados** con 2-4 peticiones (antes 38-44), el guard lo rearranca en 18 s. Gufo exige la clave también en `/health`. |
 | H-052 | **DeepSeek-V4.1-Flash (763B) en Strix Halo** | El motor `strata-dsv41` compilado a mano para `gfx1151` mueve el modelo de 763B a 20-24 t/s (rango multi-GPU R9700). Calidad 10/12, 0 fugas, tool calling OK, aguja a 105k OK. La trampa: `--vram-experts 0.5` (por defecto 1.0 se ahoga en memoria unificada). |
 | H-057 | **DeepSeek por Gufo IQ1_M sustituye a Strata** | Mismo modelo de 763B: prosa 24,6 frente a 20,2 t/s, edición 66,8 frente a 28,7 (prompt lookup), prefill ×3,2 y calidad 12/12 frente a 11/12. El borrador DSpark no cabe en este M5 (faltan 1,8 GiB). Mismo puerto, nombre y clave que Strata: los clientes no cambian. |
+| H-058 | **llama-swap como puerta única** | Un único :8080 con clave para todos los modelos; pedir uno por su nombre lo carga y descarga los que no quepan (router `capacity`, 118 GiB). Sin sobrecoste medible. Receta para modelos de 100+ GiB en podman/systemd que comparten máquina con otros trabajos: [`scripts/llama-swap/`](scripts/llama-swap/). |
 
 ---
 
@@ -210,6 +211,7 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
     ├── despliega-gufo.sh        Instala el drop-in y revierte solo si no queda sano en 5 min
     ├── llama-ds41.service       Unidad de DeepSeek-V4.1-Flash por Gufo IQ1_M en :8085 (H-057)
     ├── h057-*                   Cliente en streaming, campañas Gufo/Strata/DSpark y E2E del servicio (H-057)
+    ├── llama-swap/              Puerta unica :8080: config capacity, wrappers m5-swap-run/stop, despliegue, rollback y E2E (H-058)
     ├── modelos/                 Batería de 14 prompts y verificador de H-039/H-041, coexistencia H-040
     ├── bench-calidad.py         Lanza la batería de calidad y guarda respuestas crudas
     ├── verifica-codigo.py       Compila y ejecuta el código que genera el modelo
@@ -252,6 +254,7 @@ La hoja de ruta completa (fases: texto → imagen → vídeo, con criterios de d
 - [x] **DeepSeek-V4.1-Flash (763B) en Strix Halo** vía Strata: compilado a mano para `gfx1151`, 20-24 t/s, 128k útil → H-052
 - [x] **DeepSeek-V4.1-Flash por Gufo IQ1_M** (fork `feat/ds41`) en lugar de Strata: más rápido y 12/12; unidad [`scripts/llama-ds41.service`](scripts/llama-ds41.service) → H-057
 - [ ] DSpark para DeepSeek: liberar ~2 GiB en el host o probar `--stream-experts`.
+- [x] **Puerta única con llama-swap v269** (router `capacity`) delante de los motores grandes → H-058
 - [ ] Repetir GLM cuando el soporte `glm5next` entre en upstream y Vulkan implemente las operaciones fusionadas que hoy se desactivan.
 
 ---

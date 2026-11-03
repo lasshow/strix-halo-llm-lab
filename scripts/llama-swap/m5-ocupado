@@ -1,0 +1,26 @@
+#!/bin/bash
+# m5-ocupado [brush|todo] — sale 0 e imprime el motivo si el M5 esta ocupado a proposito.
+#   brush: solo jobs vivos de brush-server (lo que impide cargar un LLM grande).
+#   todo : ademas el actualizador nocturno y el centinela de mantenimiento.
+set -u
+modo=${1:-todo}
+JOBS=${BRUSH_JOBS_DIR:-/srv/brush-server/jobs}
+J=$(python3 - "$JOBS" <<'PY'
+import glob, json, os, sys, time
+vivos = []
+for f in glob.glob(os.path.join(sys.argv[1], '*/meta.json')):
+    try:
+        m = json.load(open(f))
+    except Exception:
+        continue
+    # mismo criterio que m5-engines-update: no terminado y tocado en las ultimas 6 h
+    if m.get('state') not in ('done', 'error') and time.time() - os.path.getmtime(f) < 6 * 3600:
+        vivos.append(str(m.get('job_id', os.path.basename(os.path.dirname(f)))))
+print(' '.join(vivos))
+PY
+)
+[ -n "$J" ] && { echo "job de brush vivo ($J)"; exit 0; }
+[ "$modo" = brush ] && exit 1
+systemctl is-active -q m5-engines-update.service && { echo "actualizador nocturno en marcha"; exit 0; }
+[ -e /etc/llama-guard.disable ] && { echo "centinela /etc/llama-guard.disable"; exit 0; }
+exit 1

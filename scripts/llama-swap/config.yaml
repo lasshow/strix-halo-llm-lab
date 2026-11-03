@@ -1,0 +1,86 @@
+# llama-swap en el M5 — puerta unica OpenAI-compatible en :8080 (H-058, 03-nov-2026).
+#
+# Los motores grandes (~100-118 GiB cada uno) NO los lanza llama-swap: su `cmd` es
+# m5-swap-run, que se los pide a m5-model (autoridad de exclusion, centinela, llama-guard)
+# y se queda vivo mientras la unidad systemd exista. Escuchan solo en loopback y sin clave
+# (:18080 qwen / sin censura, :18085 DeepSeek); la clave la exige llama-swap.
+# Pedir un modelo por su nombre lo carga, descargando antes lo que no quepa (router capacity).
+
+healthCheckTimeout: 900
+startPort: 9400
+globalTTL: 0
+unloadTimeout: 150
+sendLoadingState: false
+logLevel: info
+
+apiKeys:
+  - "${env.M5_KEY_QWEN}"
+  - "${env.M5_KEY_DS}"
+
+macros:
+  server: /models/llama-current/build/bin/llama-server
+
+routing:
+  router:
+    use: capacity
+    settings:
+      capacity:
+        pools:
+          ram: 118          # GiB utiles para modelos (124 - sistema y servicios)
+
+models:
+  qwen3.8-flash-next:
+    name: Qwen3.8-Flash-Next (Gufo, MTP, vision) — produccion
+    cmd: /usr/local/bin/m5-swap-run qwen
+    cmdStop: /usr/local/bin/m5-swap-stop qwen
+    proxy: http://127.0.0.1:18080
+    capacities: {ram: 104}
+    evict_cost: 100         # el de siempre: lo ultimo que se quiere descargar
+
+  qwen3.8-flash-next-uncensored:
+    name: Qwen3.8-Flash-Next Uncensored (Gufo Q4Mix)
+    cmd: /usr/local/bin/m5-swap-run sincensura
+    cmdStop: /usr/local/bin/m5-swap-stop sincensura
+    proxy: http://127.0.0.1:18080
+    capacities: {ram: 112}
+    evict_cost: 50
+    ttl: 3600               # 1 h sin uso -> se descarga y llama-guard devuelve qwen
+
+  deepseek-v4.1-flash:
+    name: DeepSeek-V4.1-Flash 763B (Gufo IQ1_M, H-057)
+    cmd: /usr/local/bin/m5-swap-run deepseek
+    cmdStop: /usr/local/bin/m5-swap-stop deepseek
+    proxy: http://127.0.0.1:18085
+    capacities: {ram: 118}  # deja <1 GiB: no convive con nada
+    evict_cost: 50
+    ttl: 3600
+
+  qwen3-8b:
+    name: Qwen3 8B Q4_K_M (ligero)
+    cmd: >
+      ${server} --port ${PORT} --host 127.0.0.1
+      -m /models/gguf/qwen3-8b-q4km.gguf -ngl 99 -c 16384 -fa on
+    capacities: {ram: 7}
+    ttl: 900
+
+  jev-2b:
+    name: Jev-Style Qwen3.5 2B Decision Q8_0
+    cmd: >
+      ${server} --port ${PORT} --host 127.0.0.1
+      -m /models/gguf/jev-style-2b/Jev-Style-Qwen3.5-2B-Decision-Q8_0.gguf -ngl 99 -c 8192 -fa on
+    capacities: {ram: 3}
+    ttl: 900
+
+  embeddings:
+    name: Qwen3-Embedding-0.6B Q8_0
+    cmd: >
+      ${server} --port ${PORT} --host 127.0.0.1
+      -m /models/gguf/qwen3-embedding-0.6b/Qwen3-Embedding-0.6B-Q8_0.gguf --embedding -ngl 99 -c 8192
+    capabilities: {embeddings: true}
+    capacities: {ram: 1}
+    ttl: 900
+
+hooks:
+  on_startup:
+    preload:
+      - qwen3.8-flash-next

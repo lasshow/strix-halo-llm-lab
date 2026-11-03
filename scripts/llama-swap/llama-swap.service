@@ -1,0 +1,25 @@
+[Unit]
+Description=llama-swap - puerta unica de modelos del M5 en :8080 (H-058)
+Documentation=https://github.com/mostlygeek/llama-swap
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__M5_USER__
+WorkingDirectory=/models/llama-swap
+Environment=XDG_RUNTIME_DIR=/run/user/__UID__
+EnvironmentFile=/etc/llama-server/llama-swap.env
+ExecStart=/models/llama-swap/llama-swap --config /models/llama-swap/config.yaml --listen 0.0.0.0:8080
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+TimeoutStopSec=200
+# Los motores grandes viven en sus propias unidades; aqui solo llama-swap y los modelos pequenos.
+MemoryHigh=14G
+MemoryMax=16G
+OOMPolicy=stop
+SupplementaryGroups=video render
+
+[Install]
+WantedBy=multi-user.target

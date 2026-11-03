@@ -1,0 +1,20 @@
+#!/bin/bash
+# m5-swap-stop <qwen|sincensura|deepseek> — `cmdStop` de llama-swap.
+set -u
+export XDG_RUNTIME_DIR=/run/user/$(id -u)
+case "${1:-}" in
+  qwen)       unit=llama-flashnext;  cont=gufo-flashnext ;;
+  sincensura) unit=llama-uncensored; cont=gufo-uncensored ;;
+  deepseek)   unit=llama-ds41;       cont=gufo-ds41 ;;
+  *) exit 2 ;;
+esac
+# Si m5-model sigue esperando a que este motor quede sano (lo descargan a mitad de carga),
+# matarlo: si no, m5-swap-run no termina y llama-swap no arranca el siguiente modelo hasta
+# que m5-model agota su espera de 10 min (visto en H-058 con dos clientes a la vez).
+sudo -n pkill -TERM -f "^/bin/bash /usr/local/bin/m5-model $1\$" 2>/dev/null || true
+sudo -n systemctl stop "$unit"
+podman rm -f "$cont" >/dev/null 2>&1 || true
+# DeepSeek y sin censura ponen el centinela para que llama-guard no levante qwen encima.
+# Al descargarlos se quita: si nadie pide otro modelo, llama-guard devuelve qwen (<=5 min).
+[ "$1" != qwen ] && sudo -n rm -f /etc/llama-guard.disable
+exit 0

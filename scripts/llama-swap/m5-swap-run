@@ -1,0 +1,32 @@
+#!/bin/bash
+# m5-swap-run <qwen|sincensura|deepseek> — `cmd` de llama-swap para los modelos grandes.
+# llama-swap NO lanza el motor directamente: se lo pide a m5-model (que sigue siendo la
+# unica autoridad de "solo un motor grande a la vez", centinela y llama-guard) y luego se
+# queda en primer plano mientras la unidad systemd este viva. Asi brush-server, llama-guard
+# y m5-engines-update siguen parando/arrancando las unidades como siempre: si alguien para
+# la unidad por fuera, este proceso termina y llama-swap marca el modelo como descargado.
+set -u
+case "${1:-}" in
+  qwen)       unit=llama-flashnext ;;
+  sincensura) unit=llama-uncensored ;;
+  deepseek)   unit=llama-ds41 ;;
+  *) echo "uso: m5-swap-run qwen|sincensura|deepseek" >&2; exit 2 ;;
+esac
+trap 'exit 0' TERM INT
+if ! systemctl is-active -q "$unit"; then
+  if motivo=$(/usr/local/bin/m5-ocupado brush); then
+    echo "M5 ocupado, no se carga $1: $motivo" >&2; exit 1
+  fi
+fi
+out=$(sudo -n /usr/local/bin/m5-model "$1" 2>&1); echo "$out" >&2
+grep -q '^OK:' <<<"$out" || exit 1
+malos=0
+while :; do
+  case "$(systemctl is-active "$unit")" in
+    active|activating|reloading) malos=0 ;;
+    *) malos=$((malos + 1)) ;;
+  esac
+  # 3 lecturas seguidas (15 s) para no confundir un restart con una parada
+  [ "$malos" -ge 3 ] && { echo "$unit parada por fuera: fin" >&2; exit 0; }
+  sleep 5
+done

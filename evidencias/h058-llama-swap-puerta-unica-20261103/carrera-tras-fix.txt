@@ -1,0 +1,8 @@
+22:27:08 deepseek-v4.1-flash -> 200 en 34 s
+22:27:26 qwen3.8-flash-next -> 200 en 49 s
+== final
+qwen     (:18080 tras llama-swap) -> 200  modelo: qwen3.8-flash-next
+deepseek (:18085 Gufo IQ1_M) -> 000   strata (:8085) -> 000
+llama-swap (:8080) -> active  cargados: qwen3.8-flash-next=ready
+llama-guard: activo
+1
