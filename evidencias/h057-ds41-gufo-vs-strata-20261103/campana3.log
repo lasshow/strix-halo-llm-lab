@@ -1,0 +1,40 @@
+== INICIO 21:15:25
+Mem:             124           7         114           0           3         116
+[dspark-65536] MUERTO:
+ds41: the model needs 118.59 GiB (112.00 GiB weights, 4.59 GiB drafter, 2 GiB for sessions) but 116.84 GiB of memory is available, excluding free CMA. Free memory, check the GTT limit and CMA (README_DEEPSEEK.md, host setup), or pass --stream-experts to stream routed experts from the SSD, more slowly
+Error loading model '/models/gguf/ds41-gufo/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00001-of-00006.gguf': Failed to create DeepSeek V4.1 model: failed to load DeepSeek V4.1 Flash GGUF
+[dspark-32768] MUERTO:
+ds41: the model needs 118.59 GiB (112.00 GiB weights, 4.59 GiB drafter, 2 GiB for sessions) but 116.80 GiB of memory is available, excluding free CMA. Free memory, check the GTT limit and CMA (README_DEEPSEEK.md, host setup), or pass --stream-experts to stream routed experts from the SSD, more slowly
+Error loading model '/models/gguf/ds41-gufo/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00001-of-00006.gguf': Failed to create DeepSeek V4.1 model: failed to load DeepSeek V4.1 Flash GGUF
+[calidad-gufo] listo en 20 s
+Mem:             124         123           0           0           1           1
+[OK ] json-estructura               1.5s  ok (4 claves)
+[OK ] json-anidado                  1.7s  ok (1 claves)
+[OK ] codigo-python-binaria         4.4s  ejecuta y pasa asserts
+[OK ] codigo-python-parser          9.6s  ejecuta y pasa asserts
+[OK ] codigo-python-estado          3.4s  ejecuta y pasa asserts
+[OK ] instruccion-formato           4.6s  ok
+[OK ] instruccion-negativa          2.5s  ok
+[OK ] idioma-castellano             2.8s  ok (6 marcas)
+[OK ] razonamiento-aritmetico       2.3s  ok
+[OK ] razonamiento-trampa           0.4s  ok
+[OK ] aguja-contexto-medio         36.6s  ok
+[OK ] aguja-contexto-final         37.4s  ok
+
+gufo-iq1m: 12/12 pruebas pasadas
+== STRATA calidad
+OK: deepseek listo en :8085
+[OK ] json-estructura               3.9s  ok (4 claves)
+[OK ] json-anidado                  2.8s  ok (1 claves)
+[OK ] codigo-python-binaria         5.6s  ejecuta y pasa asserts
+[OK ] codigo-python-parser          9.4s  ejecuta y pasa asserts
+[OK ] codigo-python-estado          5.1s  ejecuta y pasa asserts
+[OK ] instruccion-formato           8.2s  ok
+[OK ] instruccion-negativa          6.3s  ok
+[OK ] idioma-castellano             4.6s  ok (7 marcas)
+[OK ] razonamiento-aritmetico       5.2s  ok
+[NO ] razonamiento-trampa           1.5s  cae en la trampa: responde 100
+[OK ] aguja-contexto-medio        117.9s  ok
+[OK ] aguja-contexto-final        121.1s  ok
+
+strata: 11/12 pruebas pasadas

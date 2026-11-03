@@ -1,0 +1,44 @@
+== INICIO 18:31:42
+Mem:             124           8          97           0          19         115
+== BRAZO gufo-dspark
+gufo MUERTO
+Error: no container with name or ID "gufo-ds41" found: no such container
+== BRAZO gufo-plain
+gufo MUERTO
+Error: no container with name or ID "gufo-ds41" found: no such container
+== BRAZO strata
+OK: deepseek listo en :8085
+{"brazo": "strata", "prompt": "prosa", "prompt_tokens": 28, "completion_tokens": 512, "ttft_s": 1.33, "total_s": 31.89, "decode_tps": 16.72, "prefill_tps": 21.0, "gufo_tps": null, "texto_inicio": "El faro de Punta Negra llevaba cuarenta años apagado. Su linterna de hierro, corroída por la sal, ya no
+{"brazo": "strata", "prompt": "prosa", "prompt_tokens": 28, "completion_tokens": 512, "ttft_s": 0.1, "total_s": 25.97, "decode_tps": 19.75, "prefill_tps": 280.4, "gufo_tps": null, "texto_inicio": "El faro de Punta Negra llevaba cuarenta años apagado. Su linterna de hierro, corroída por la sal marina
+{"brazo": "strata", "prompt": "prosa", "prompt_tokens": 28, "completion_tokens": 512, "ttft_s": 0.08, "total_s": 24.91, "decode_tps": 20.58, "prefill_tps": 350.1, "gufo_tps": null, "texto_inicio": "El faro de Punta Negra llevaba cuarenta años apagado. Su linterna de hierro, corroída por la sal marin
+{"brazo": "strata", "prompt": "codigo", "prompt_tokens": 54, "completion_tokens": 512, "ttft_s": 2.32, "total_s": 24.59, "decode_tps": 22.95, "prefill_tps": 23.3, "gufo_tps": null, "texto_inicio": "# Servidor HTTP mínimo con asyncio\n\nAquí tienes una implementación completa: servidor, cliente de pr
+{"brazo": "strata", "prompt": "codigo", "prompt_tokens": 54, "completion_tokens": 512, "ttft_s": 0.11, "total_s": 20.09, "decode_tps": 25.57, "prefill_tps": 513.6, "gufo_tps": null, "texto_inicio": "# Servidor HTTP mínimo con asyncio\n\nAquí tienes una implementación completa: servidor, cliente de p
+{"brazo": "strata", "prompt": "codigo", "prompt_tokens": 54, "completion_tokens": 512, "ttft_s": 2.63, "total_s": 22.43, "decode_tps": 25.8, "prefill_tps": 20.5, "gufo_tps": null, "texto_inicio": "# Servidor HTTP mínimo con asyncio\n\nAquí tienes una implementación completa: servidor, tests y estruc
+{"brazo": "strata", "prompt": "edicion", "prompt_tokens": 2412, "completion_tokens": 512, "ttft_s": 16.52, "total_s": 36.96, "decode_tps": 24.99, "prefill_tps": 146.0, "gufo_tps": null, "texto_inicio": "```bash\n#!/bin/bash\n# m5-model — conmuta el motor LLM del M5 entre qwen (Gufo :8080), sincensur
+{"brazo": "strata", "prompt": "edicion", "prompt_tokens": 2412, "completion_tokens": 512, "ttft_s": 0.13, "total_s": 18.14, "decode_tps": 28.38, "prefill_tps": 18188.6, "gufo_tps": null, "texto_inicio": "```bash\n#!/bin/bash\n# m5-model — conmuta el motor LLM del M5 entre qwen (Gufo :8080), sincensu
+{"brazo": "strata", "prompt": "edicion", "prompt_tokens": 2412, "completion_tokens": 512, "ttft_s": 0.14, "total_s": 17.76, "decode_tps": 29.0, "prefill_tps": 16867.4, "gufo_tps": null, "texto_inicio": "```bash\n#!/bin/bash\n# m5-model — conmuta el motor LLM del M5 entre qwen (Gufo :8080), sincensur
+== INICIO 18:36:48
+Mem:             124           8         111           0           5         115
+== BRAZO gufo-dspark
+gufo MUERTO
+Error: no container with name or ID "gufo-ds41" found: no such container
+== BRAZO gufo-plain
+gufo MUERTO
+Error: no container with name or ID "gufo-ds41" found: no such container
+== INICIO 19:19:12
+Mem:             124           8          95           0          21         116
+== BRAZO gufo-dspark
+gufo MUERTO
+Error: no container with name or ID "gufo-ds41" found: no such container
+== BRAZO gufo-plain
+gufo listo en 21 s; free:
+Mem:             124         123           0           0           1           1
+{"brazo": "gufo-plain", "prompt": "prosa", "prompt_tokens": 28, "completion_tokens": 512, "ttft_s": 0.44, "total_s": 21.3, "decode_tps": 24.5, "prefill_tps": 64.3, "gufo_tps": 24.548320126087823, "texto_inicio": "En la costa de Bizkaia, entre acantilados que el mar golpea con furia, se erguía un far
+{"brazo": "gufo-plain", "prompt": "prosa", "prompt_tokens": 28, "completion_tokens": 512, "ttft_s": 0.0, "total_s": 20.75, "decode_tps": 24.63, "prefill_tps": 10942.0, "gufo_tps": 24.67751828905717, "texto_inicio": "En la costa de Bizkaia, entre acantilados que el mar golpea con furia, se erguía un 
+{"brazo": "gufo-plain", "prompt": "prosa", "prompt_tokens": 28, "completion_tokens": 512, "ttft_s": 0.0, "total_s": 20.77, "decode_tps": 24.6, "prefill_tps": 10775.3, "gufo_tps": 24.653533159535908, "texto_inicio": "En la costa de Bizkaia, entre acantilados que el mar golpea con furia, se erguía un 
+{"brazo": "gufo-plain", "prompt": "codigo", "prompt_tokens": 54, "completion_tokens": 512, "ttft_s": 0.34, "total_s": 21.21, "decode_tps": 24.49, "prefill_tps": 157.9, "gufo_tps": 24.537870593462266, "texto_inicio": "Aquí tienes un servidor HTTP mínimo con `asyncio`, sin dependencias externas, que s
+{"brazo": "gufo-plain", "prompt": "codigo", "prompt_tokens": 54, "completion_tokens": 512, "ttft_s": 0.0, "total_s": 20.88, "decode_tps": 24.48, "prefill_tps": 19967.6, "gufo_tps": 24.526817121987552, "texto_inicio": "Aquí tienes un servidor HTTP mínimo con `asyncio`, sin dependencias externas, que 
+{"brazo": "gufo-plain", "prompt": "codigo", "prompt_tokens": 54, "completion_tokens": 512, "ttft_s": 0.0, "total_s": 20.83, "decode_tps": 24.54, "prefill_tps": 22671.9, "gufo_tps": 24.587626030795494, "texto_inicio": "Aquí tienes un servidor HTTP mínimo con `asyncio`, sin dependencias externas, que 
+{"brazo": "gufo-plain", "prompt": "edicion", "prompt_tokens": 2412, "completion_tokens": 512, "ttft_s": 2.65, "total_s": 10.3, "decode_tps": 66.81, "prefill_tps": 911.0, "gufo_tps": 66.945056376086, "texto_inicio": "```bash\n#!/bin/bash\n# m5-model — conmuta el motor LLM del M5 entre qwen (Gufo :808
+{"brazo": "gufo-plain", "prompt": "edicion", "prompt_tokens": 2412, "completion_tokens": 512, "ttft_s": 0.01, "total_s": 7.65, "decode_tps": 66.8, "prefill_tps": 452707.8, "gufo_tps": 66.93187872819126, "texto_inicio": "```bash\n#!/bin/bash\n# m5-model — conmuta el motor LLM del M5 entre qwen (Gufo 
+{"brazo": "gufo-plain", "prompt": "edicion", "prompt_tokens": 2412, "completion_tokens": 512, "ttft_s": 0.01, "total_s": 7.65, "decode_tps": 66.81, "prefill_tps": 445256.0, "gufo_tps": 66.9347630003967, "texto_inicio": "```bash\n#!/bin/bash\n# m5-model — conmuta el motor LLM del M5 entre qwen (Gufo 

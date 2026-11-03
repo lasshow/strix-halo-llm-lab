@@ -2535,3 +2535,29 @@ esta ronda. La capacidad real de aguja larga ya está en H-052 (acierto a 105k);
 
 **Detalle:** `evidencias/h053-qwen-vs-deepseek-20261025/NOTAS.md`; ficheros
 `cal-qwen.jsonl` y `cal-deepseek.jsonl` en esa carpeta.
+
+---
+
+## H-057 — DeepSeek-V4.1-Flash por Gufo IQ1_M sustituye a Strata (2026-11-03)
+
+**Estado: cerrado; adoptado como motor de DeepSeek a demanda.** El fork de Gufo
+`franzmoca/gufo` (rama `feat/ds41`, `7549547`) con los pesos `GSQ-RCO-IQ1_M` de
+ISTA-DASLab, contra Strata (H-052) en la misma máquina, greedy, sin razonamiento y
+descartando la pasada fría:
+
+- **Generación:** prosa 24,6 frente a 20,2 t/s; código 24,5 frente a 25,7 (empate); editar un
+  script de 2.412 tokens **66,8 frente a 28,7** (borrador por *prompt lookup*, 97,8 % aceptado,
+  sin DSpark).
+- **Prefill:** 46.586 tokens en 36,6 s frente a 117,9 s (**×3,2**); primer token en frío de
+  2.412 tokens 2,65 s frente a 16,52 s.
+- **Calidad** (12 pruebas, `--bust-cache`): **Gufo 12/12, Strata 11/12** (Strata vuelve a caer
+  sin CoT en la trampa de las 3 máquinas). No prueba que IQ1_M sea mejor; prueba que no se ve
+  pérdida.
+- **DSpark no cabe:** pide 118,59 GiB y hay 116,8. El bloque de sesiones es fijo (2 GiB),
+  así que bajar `--context` a 32k no ayuda.
+- **Servicio** `llama-ds41` en :8085 con el mismo nombre de modelo y la misma clave que Strata:
+  E2E 7/7 (clave, vigía, CoT, herramientas, sin fugas) y 7 conmutaciones seguidas en 18-23 s.
+  Al integrarlo salieron dos fallos de `m5-model` (Gufo pide clave en `/health`; esperaba al
+  :8085 de Strata), ya corregidos.
+
+**Detalle:** `evidencias/h057-ds41-gufo-vs-strata-20261103/NOTAS.md`.

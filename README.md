@@ -15,7 +15,7 @@
 *Todo lo que hay aquí está **medido en la máquina**, no copiado de notas de prensa.*
 *Cuando una medición desmiente a la anterior, se corrige y se deja constancia.*
 
-*Estado a **25 de octubre de 2026**: hallazgos H-001…H-052.*
+*Estado a **3 de noviembre de 2026**: hallazgos H-001…H-057.*
 
 </div>
 
@@ -47,7 +47,8 @@ Medido con `llama.cpp` sobre Vulkan/RADV. `pp` = prefill (leer el prompt), `tg` 
 | Qwen3.8-27B | 27B denso | Q4 | ~16 GiB | 365,1 | 13,1 | ❌ Inútil aquí |
 | Qwen3-8B | 8B denso | Q4_K_M | 4,7 GiB | 1.286,8 | 45,4 | ✅ Referencia rápida |
 | GLM-5.3-Flash | 313B MoE (~18B) | UD-IQ1_S | 93 GB | 124,8 | 8,3 | ⚠️ Correcto pero 3,3× lento |
-| **DeepSeek-V4.1-Flash, Strata (`strata-dsv41`)** | 763B MoE (~6 activos) | IST-DAS 2.00bpw | 257 GB | 28,8–216 | **20–24** | 🆕 Logrado 2026-10-25, no producción: 128k útil, 1 petición a la vez — H-052 |
+| **DeepSeek-V4.1-Flash, Gufo fork `feat/ds41`** | 763B MoE (~6 activos) | GSQ-RCO IQ1_M | 112 GiB + Engram en SSD | ~910–1.270 ◊ | **24,5–66,8** ◊ | ⭐ Motor de DeepSeek a demanda desde el 2026-11-03 (`m5-model deepseek`), calidad 12/12 — H-057 |
+| DeepSeek-V4.1-Flash, Strata (`strata-dsv41`) | 763B MoE (~6 activos) | IST-DAS 2.00bpw | 257 GB | 28,8–216 (≈395 a 46k ◊) | 20–29 ◊ | Reserva (`m5-model strata`): Gufo lo supera en prefill ×3 y en edición ×2,3 — H-052/H-057 |
 
 ‡ Medido contra `llama-server` con un prompt real de **24.782 tokens**, que es el caso de
 uso de esta máquina. Las demás filas son de `llama-bench` con prompts cortos (512), donde
@@ -61,6 +62,8 @@ el resumen de un documento de 38,9k. Kernel 7.2.9, build `81ef10ea5` + parche MT
 ([H-043](docs/hallazgos.md)).
 
 ¶ Mismo banco de carga real, cifras del log de Gufo (H-049). En generación de un usuario empata con llama.cpp (mediana −2 %); la ventaja está en el prefill (×3,6), el primer turno de una conversación larga (×3,7) y la carga concurrente (87 t/s agregados frente a 38-44).
+
+◊ H-057: cliente en streaming, greedy, 512 tokens, pasada fría descartada. El 66,8 es reescribir un script de 2.412 tokens (borrador por *prompt lookup*); en prosa y código libres son ~24,5. El prefill sale de prompts de 2.412 y 46.586 tokens contra el servidor.
 
 📄 **Detalle completo, metodología y datos crudos:** [`benchmarks/`](benchmarks/) · [`benchmarks/resultados.csv`](benchmarks/resultados.csv)
 
@@ -81,6 +84,7 @@ el resumen de un documento de 38,9k. Kernel 7.2.9, build `81ef10ea5` + parche MT
 | H-050 | **Afinidad de sesión: no hace falta** | Tres conversaciones de ~15k intercaladas contra 2 slots: llama.cpp no reprocesa nada (su caché en RAM restaura cada conversación; solo procesa los 24-30 tokens nuevos). Lo que cuesta es el primer turno, y ahí Gufo es **×3,7** (11 s frente a 42 s). Gufo solo admite **una** clave de API (H-050b). |
 | H-051 | **Gufo pasa a producción** | Drop-in que conserva el nombre de la unidad (guard, brush y Hermes sin cambios) y despliegue con vuelta atrás automática. En producción: visión y herramientas OK, **87 t/s agregados** con 2-4 peticiones (antes 38-44), el guard lo rearranca en 18 s. Gufo exige la clave también en `/health`. |
 | H-052 | **DeepSeek-V4.1-Flash (763B) en Strix Halo** | El motor `strata-dsv41` compilado a mano para `gfx1151` mueve el modelo de 763B a 20-24 t/s (rango multi-GPU R9700). Calidad 10/12, 0 fugas, tool calling OK, aguja a 105k OK. La trampa: `--vram-experts 0.5` (por defecto 1.0 se ahoga en memoria unificada). |
+| H-057 | **DeepSeek por Gufo IQ1_M sustituye a Strata** | Mismo modelo de 763B: prosa 24,6 frente a 20,2 t/s, edición 66,8 frente a 28,7 (prompt lookup), prefill ×3,2 y calidad 12/12 frente a 11/12. El borrador DSpark no cabe en este M5 (faltan 1,8 GiB). Mismo puerto, nombre y clave que Strata: los clientes no cambian. |
 
 ---
 
@@ -204,6 +208,8 @@ En `gfx1151` el backend Vulkan/RADV es hoy más rápido y muchísimo más establ
     ├── h0NN-runner.sh           Runners de cada campaña: paran el guard, restauran producción con trap
     ├── 60-gufo.conf             Drop-in systemd que pone Gufo como motor de llama-flashnext (H-051)
     ├── despliega-gufo.sh        Instala el drop-in y revierte solo si no queda sano en 5 min
+    ├── llama-ds41.service       Unidad de DeepSeek-V4.1-Flash por Gufo IQ1_M en :8085 (H-057)
+    ├── h057-*                   Cliente en streaming, campañas Gufo/Strata/DSpark y E2E del servicio (H-057)
     ├── modelos/                 Batería de 14 prompts y verificador de H-039/H-041, coexistencia H-040
     ├── bench-calidad.py         Lanza la batería de calidad y guarda respuestas crudas
     ├── verifica-codigo.py       Compila y ejecuta el código que genera el modelo
@@ -244,6 +250,8 @@ La hoja de ruta completa (fases: texto → imagen → vídeo, con criterios de d
 - [x] Conversaciones largas intercaladas contra 2 slots (patrón de Hermes) → H-050 (la afinidad no hace falta)
 - [x] **Gufo en producción** con el drop-in [`scripts/60-gufo.conf`](scripts/60-gufo.conf) (mismo nombre de unidad, una sola clave, caché RAM 4 GiB) → H-051
 - [x] **DeepSeek-V4.1-Flash (763B) en Strix Halo** vía Strata: compilado a mano para `gfx1151`, 20-24 t/s, 128k útil → H-052
+- [x] **DeepSeek-V4.1-Flash por Gufo IQ1_M** (fork `feat/ds41`) en lugar de Strata: más rápido y 12/12; unidad [`scripts/llama-ds41.service`](scripts/llama-ds41.service) → H-057
+- [ ] DSpark para DeepSeek: liberar ~2 GiB en el host o probar `--stream-experts`.
 - [ ] Repetir GLM cuando el soporte `glm5next` entre en upstream y Vulkan implemente las operaciones fusionadas que hoy se desactivan.
 
 ---

@@ -1,0 +1,44 @@
+# /etc/systemd/system/llama-ds41.service  (H-057, 03-nov-2026)
+# Sustituir USUARIO/UID_USUARIO por el usuario dueno del podman rootless.
+# DeepSeek-V4.1-Flash IQ1_M servido por Gufo (fork franzmoca feat/ds41, build nix
+# en el volumen podman gufo-nix). Sustituye a Strata en `m5-model deepseek`:
+# mismo puerto :8085, mismo nombre de modelo y misma clave, para que Hermes,
+# opencode y el vigia no cambien nada. NO convive con qwen (deja ~1,7 GiB libres):
+# solo lo arranca m5-model, que antes pone el centinela de llama-guard.
+# Sin DSpark: el drafter no cabe en el M5 (pide 118,59 GiB, hay 116,8).
+[Unit]
+Description=Gufo DeepSeek-V4.1-Flash IQ1_M (fork feat/ds41) en :8085
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=USUARIO
+Group=USUARIO
+Environment=XDG_RUNTIME_DIR=/run/user/UID_USUARIO
+Environment=NIX_IMG=docker.io/nixos/nix@sha256:05fe61395588e8a11452e9ba4602d4f0eb0ce5db8f7b9fa417c4ec07af79ca42
+ExecStartPre=-/usr/bin/podman rm -f gufo-ds41
+ExecStart=/bin/bash -c '\
+  M=/models/gguf/ds41-gufo; \
+  CLAVE=$$(tr -d "[:space:]" < /etc/llama-server/ds41.key); \
+  [ -n "$$CLAVE" ] || { echo "sin clave en /etc/llama-server/ds41.key" >&2; exit 1; }; \
+  exec /usr/bin/podman run --rm --name gufo-ds41 --log-driver passthrough \
+    --device /dev/kfd --device /dev/dri --group-add keep-groups --ipc=host \
+    --ulimit memlock=-1 --security-opt label=disable \
+    -v gufo-nix:/nix:ro -v /models:/models:ro -p 0.0.0.0:8085:8080 "$NIX_IMG" \
+    /nix/var/gufo/bin/gufo serve llm --host 0.0.0.0 --port 8080 --api-key "$$CLAVE" \
+      --served-model-name deepseek-v4.1-flash \
+      -m $$M/DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00001-of-00006.gguf \
+      --context 131072'
+ExecStop=/usr/bin/podman stop -t 30 gufo-ds41
+ExecStopPost=-/usr/bin/podman rm -f gufo-ds41
+Restart=on-failure
+RestartSec=30
+TimeoutStartSec=900
+TimeoutStopSec=120
+LimitMEMLOCK=infinity
+
+[Install]
+# No se habilita: solo bajo demanda con `m5-model deepseek`.

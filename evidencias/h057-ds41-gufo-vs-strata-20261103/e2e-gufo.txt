@@ -1,0 +1,9 @@
+[OK ] models-nombre                ['deepseek-v4.1-flash']
+[OK ] rechaza-sin-clave            sin=401 falsa=401
+[OK ] chat-vigia                   200 'OK' fin=stop 1.1s
+[OK ] razonamiento-cot             content='3' razonamiento=1732 car 18.3s
+[OK ] tool-calling                 {'name': 'leer_temperatura', 'arguments': '{"zona":"3"}'}
+[OK ] tool-resultado               'La temperatura en la zona 3 del horno es **847 °C**.'
+[OK ] sin-fuga-entre-chats         'NO LO SE'
+
+7/7 casos OK

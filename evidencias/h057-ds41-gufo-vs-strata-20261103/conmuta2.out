@@ -1,0 +1,29 @@
+strata: OK: deepseek (Strata) listo en :8085 (20 s)
+   qwen     (:8080, Gufo)    -> 000  modelo: 
+   deepseek (:8085, Strata) -> 200
+   llama-guard: DESACTIVADO (/etc/llama-guard.disable)
+qwen: OK: qwen listo en :8080 (21 s)
+   qwen     (:8080, Gufo)    -> 200  modelo: qwen3.8-flash-next
+   deepseek (:8085, -) -> 000
+   llama-guard: activo
+strata: OK: deepseek (Strata) listo en :8085 (21 s)
+   qwen     (:8080, Gufo)    -> 000  modelo: 
+   deepseek (:8085, Strata) -> 200
+   llama-guard: DESACTIVADO (/etc/llama-guard.disable)
+deepseek: OK: deepseek (Gufo) listo en :8085 (23 s)
+   qwen     (:8080, Gufo)    -> 000  modelo: 
+   deepseek (:8085, Gufo IQ1_M) -> 200
+   llama-guard: DESACTIVADO (/etc/llama-guard.disable)
+strata: OK: deepseek (Strata) listo en :8085 (21 s)
+   qwen     (:8080, Gufo)    -> 000  modelo: 
+   deepseek (:8085, Strata) -> 200
+   llama-guard: DESACTIVADO (/etc/llama-guard.disable)
+deepseek: OK: deepseek (Gufo) listo en :8085 (23 s)
+   qwen     (:8080, Gufo)    -> 000  modelo: 
+   deepseek (:8085, Gufo IQ1_M) -> 200
+   llama-guard: DESACTIVADO (/etc/llama-guard.disable)
+qwen: OK: qwen listo en :8080 (19 s)
+   qwen     (:8080, Gufo)    -> 200  modelo: qwen3.8-flash-next
+   deepseek (:8085, -) -> 000
+   llama-guard: activo
+FIN_CONMUTA
