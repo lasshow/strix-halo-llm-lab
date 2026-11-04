@@ -1,0 +1,18 @@
+[OK ] instruccion-negativa     p1    1.3s  ok
+[OK ] instruccion-negativa     p2    1.3s  ok
+[OK ] instruccion-negativa     p3    1.2s  ok
+[OK ] razonamiento-trampa      p1    0.2s  ok
+[OK ] razonamiento-trampa      p2    0.1s  ok
+[OK ] razonamiento-trampa      p3    0.1s  ok
+[OK ] aguja-contexto-medio     p1   26.3s  ok
+[OK ] aguja-contexto-medio     p2    0.2s  ok
+[OK ] aguja-contexto-medio     p3    0.2s  ok
+[OK ] aguja-contexto-final     p1   14.2s  ok
+[OK ] aguja-contexto-final     p2    0.2s  ok
+[OK ] aguja-contexto-final     p3    0.2s  ok
+
+== gufo-0.29.0: estabilidad en 3 pasadas ==
+  instruccion-negativa     3/3  ESTABLE OK
+  razonamiento-trampa      3/3  ESTABLE OK
+  aguja-contexto-medio     3/3  ESTABLE OK
+  aguja-contexto-final     3/3  ESTABLE OK

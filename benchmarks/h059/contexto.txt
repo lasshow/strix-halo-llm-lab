@@ -1,0 +1,35 @@
+[i] 2 pasadas medidas + 1 de calentamiento por punto
+[i] registro crudo: ~/campanas/h059-20261104T195232Z/contexto.jsonl
+
+[*] objetivo 2000 tokens
+    calentamiento: prompt_n=1537 pp=1678.4 tg=23.19 wall=1.0s
+    pasada 1: prompt_n=1537 pp=1675.2 tg=23.13 wall=1.0s
+    pasada 2: prompt_n=1537 pp=1677.8 tg=23.10 wall=1.0s
+    aguja K2X7: OK
+[*] objetivo 16000 tokens
+    calentamiento: prompt_n=12025 pp=1687.1 tg=22.54 wall=7.2s
+    pasada 1: prompt_n=12025 pp=1673.0 tg=22.60 wall=7.2s
+    pasada 2: prompt_n=12025 pp=1666.0 tg=22.55 wall=7.3s
+    aguja K16X7: OK
+[*] objetivo 32000 tokens
+    calentamiento: prompt_n=24001 pp=1633.2 tg=22.51 wall=14.8s
+    pasada 1: prompt_n=24001 pp=1644.8 tg=22.54 wall=14.7s
+    pasada 2: prompt_n=24001 pp=1645.3 tg=22.38 wall=14.7s
+    aguja K32X7: OK
+[*] objetivo 60000 tokens
+    calentamiento: prompt_n=44977 pp=1623.4 tg=22.47 wall=27.8s
+    pasada 1: prompt_n=44977 pp=1622.6 tg=22.42 wall=27.8s
+    pasada 2: prompt_n=44977 pp=1619.5 tg=22.45 wall=27.9s
+    aguja K60X7: OK
+
+| objetivo | prompt_n | pp t/s | tg t/s | latencia (mediana) | aguja |
+|---|---|---|---|---|---|
+| 2000 | 1537 | 1676.5 | 23.11 | 1.0s | OK |
+| 16000 | 12025 | 1669.5 | 22.58 | 7.3s | OK |
+| 32000 | 24001 | 1645.1 | 22.46 | 14.7s | OK |
+| 60000 | 44977 | 1621.0 | 22.44 | 27.8s | OK |
+
+De 1537 a 44977 tokens: prefill 1676.5 -> 1621.0 t/s (-3%), generacion 23.11 -> 22.44 t/s (-3%)
+
+Registro crudo: ~/campanas/h059-20261104T195232Z/contexto.jsonl
+rc=0

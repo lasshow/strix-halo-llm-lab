@@ -2581,3 +2581,20 @@ llama-guard no cambian.
   carrera responde en 34 s y 49 s.
 
 **Detalle:** `evidencias/h058-llama-swap-puerta-unica-20261103/NOTAS.md`; scripts en `scripts/llama-swap/`.
+
+## H-059 — Gufo 0.29.0 + kernel 7.2.15: igual o mejor, sin regresiones (2026-11-04)
+
+**Estado: en producción.** El actualizador nocturno rechazó la 0.29.0 por un falso negativo de su
+propia puerta: esperaba /health en :8080, que desde H-058 es llama-swap y responde 200 aunque Gufo
+siga cargando (502 a los 10 s). Corregido: la puerta espera al backend real en loopback. Con la
+puerta arreglada la 0.29.0 pasó a la primera.
+
+- Carga real: código-cambio 41,3 → 55,4 t/s (+34 %, aceptación MTP 61 → 80 %); el resto en ruido
+  (±3 %). Prosa no comparable (el corpus crece).
+- Prefill +3-6 % (1.620-1.678 t/s hasta 45k); aguja 4/4.
+- Concurrencia 1/2/4 igual (60,7 / 101,4 / 103,0); 0 fugas; visión y herramientas OK.
+- Calidad 12/12 (antes 11/12; instrucción-negativa sigue sin darse por arreglada, una pasada).
+- Batería 27 y código compilado idénticos a 0.28.1.
+- Tres errores del banco declarados en `benchmarks/h059/NOTAS.md` (módulo sin copiar, batería con
+  razonamiento, reanudación desde un fichero viejo).
+

@@ -1,0 +1,34 @@
+[i] bateria: ~/strix-halo-llm-lab/private/prompts.json (27 casos)
+[1/27] R1 (razonamiento) ... 414 tok, pp 402.8 tg 61.3, 6.98s
+[2/27] R2 (razonamiento) ... 1630 tok, pp 429.5 tg 56.7, 28.94s
+[3/27] R3 (logica) ... 48 tok, pp 369.0 tg 38.3, 1.45s
+[4/27] C1 (codigo) ... 460 tok, pp 539.3 tg 79.5, 6.03s
+[5/27] C2 (codigo) ... 105 tok, pp 493.1 tg 46.3, 2.51s
+[6/27] C3 (codigo) ... 354 tok, pp 482.2 tg 70.2, 5.26s
+[7/27] C4 (codigo) ... 100 tok, pp 406.5 tg 92.8, 1.28s
+[8/27] C5 (codigo) ... 272 tok, pp 468.9 tg 70.8, 4.06s
+[9/27] C6 (codigo) ... 280 tok, pp 399.8 tg 76.8, 3.86s
+[10/27] N1 (codigo-nuevo) ... 398 tok, pp 436.5 tg 53.7, 7.63s
+[11/27] N2 (codigo-nuevo) ... 194 tok, pp 430.7 tg 88.1, 2.42s
+[12/27] N3 (codigo-nuevo) ... 404 tok, pp 420.7 tg 46.0, 9.0s
+[13/27] N4 (codigo-nuevo) ... 160 tok, pp 345.6 tg 74.8, 2.33s
+[14/27] J1 (json) ... 89 tok, pp 490.2 tg 91.0, 1.21s
+[15/27] J2 (json) ... 105 tok, pp 529.8 tg 87.4, 1.45s
+[16/27] E1 (castellano) ... 36 tok, pp 373.9 tg 54.6, 0.86s
+[17/27] E2 (castellano) ... 97 tok, pp 394.6 tg 42.7, 2.49s
+[18/27] E3 (castellano) ... 61 tok, pp 397.1 tg 53.5, 1.35s
+[19/27] G1 (ingles) ... 32 tok, pp 378.3 tg 50.2, 0.86s
+[20/27] G2 (ingles) ... 59 tok, pp 324.9 tg 47.1, 1.45s
+[21/27] Z1 (chino) ... 22 tok, pp 307.5 tg 49.3, 0.63s
+[22/27] Z2 (chino) ... 41 tok, pp 273.3 tg 47.6, 1.03s
+[23/27] I1 (instrucciones) ... 29 tok, pp 419.3 tg 52.8, 0.74s
+[24/27] I2 (instrucciones) ... 35 tok, pp 330.8 tg 68.2, 0.69s
+[25/27] I3 (instrucciones) ... 27 tok, pp 282.6 tg 56.5, 0.65s
+[26/27] K1 (conocimiento) ... 184 tok, pp 319.1 tg 34.8, 5.47s
+[27/27] K2 (conocimiento) ... 196 tok, pp 358.0 tg 41.4, 4.93s
+
+27/27 respuestas
+tg mediana 54.6 t/s | pp mediana 399.8 t/s
+vacias: ninguna
+-> ~/strix-halo-llm-lab/private/resp-gufo-0290.json
+rc=0
