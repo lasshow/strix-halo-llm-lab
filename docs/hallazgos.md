@@ -2598,3 +2598,18 @@ puerta arreglada la 0.29.0 pasó a la primera.
 - Tres errores del banco declarados en `benchmarks/h059/NOTAS.md` (módulo sin copiar, batería con
   razonamiento, reanudación desde un fichero viejo).
 
+
+---
+
+## H-061 — Contexto de producción devuelto a 2 × 262.144 (2026-11-05)
+
+**Estado: aplicado y verificado.** La unidad de Qwen (Gufo) llevaba `--context 65536` desde
+el 27-oct (reescritura de `60-gufo.conf`, heredado luego por `70-tras-llama-swap.conf` en
+H-058) sin hallazgo que lo justificara: H-050 se desplegó y verificó con 2 × 262.144.
+Un cliente con prompt base grande recibía `HTTP 400: prompt exceeds the 65536-token context`.
+
+- Cambio: `--context 262144` en ambos drop-ins (backups `*.bak-ctx65k-*`).
+- `/slots`: `n_ctx` 262.144 en las dos sesiones.
+- Aguja a mitad de un prompt de **198.126 tokens**: acierta (`ZX-4417-QD`), prefill 132 s
+  (~1.500 t/s), sin OOM; RAM disponible tras la prueba 14 GiB (antes del cambio 23 GiB).
+- Coste de memoria: +7 GiB usados respecto a 65k; el pool `ram: 104` de llama-swap no cambia.
