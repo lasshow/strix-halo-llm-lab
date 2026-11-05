@@ -1,0 +1,34 @@
+[i] 2 pasadas medidas + 1 de calentamiento por punto
+[i] registro crudo: /home/lasso/campanas/ronda-gufo-0.30.0-20261105T052934Z/contexto.jsonl
+
+[*] objetivo 2000 tokens
+    calentamiento: prompt_n=1537 pp=1608.0 tg=22.65 wall=1.0s
+    pasada 1: prompt_n=1537 pp=1558.6 tg=22.81 wall=1.0s
+    pasada 2: prompt_n=1537 pp=1550.1 tg=22.85 wall=1.0s
+    aguja K2X7: OK
+[*] objetivo 16000 tokens
+    calentamiento: prompt_n=12025 pp=1665.3 tg=22.25 wall=7.3s
+    pasada 1: prompt_n=12025 pp=1673.9 tg=22.53 wall=7.2s
+    pasada 2: prompt_n=12025 pp=1673.2 tg=22.54 wall=7.3s
+    aguja K16X7: OK
+[*] objetivo 32000 tokens
+    calentamiento: prompt_n=24001 pp=1653.8 tg=22.51 wall=14.6s
+    pasada 1: prompt_n=24001 pp=1653.6 tg=22.53 wall=14.6s
+    pasada 2: prompt_n=24001 pp=1652.1 tg=22.52 wall=14.6s
+    aguja K32X7: OK
+[*] objetivo 60000 tokens
+    calentamiento: prompt_n=44977 pp=1632.6 tg=22.40 wall=27.7s
+    pasada 1: prompt_n=44977 pp=1634.3 tg=22.43 wall=27.6s
+    pasada 2: prompt_n=44977 pp=1635.3 tg=22.41 wall=27.6s
+    aguja K60X7: OK
+
+| objetivo | prompt_n | pp t/s | tg t/s | latencia (mediana) | aguja |
+|---|---|---|---|---|---|
+| 2000 | 1537 | 1554.4 | 22.83 | 1.0s | OK |
+| 16000 | 12025 | 1673.6 | 22.53 | 7.2s | OK |
+| 32000 | 24001 | 1652.8 | 22.53 | 14.6s | OK |
+| 60000 | 44977 | 1634.8 | 22.42 | 27.6s | OK |
+
+De 1537 a 44977 tokens: prefill 1554.4 -> 1634.8 t/s (+5%), generacion 22.83 -> 22.42 t/s (-2%)
+
+Registro crudo: /home/lasso/campanas/ronda-gufo-0.30.0-20261105T052934Z/contexto.jsonl

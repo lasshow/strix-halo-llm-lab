@@ -1,0 +1,2 @@
+7.2.15-200.fc44.x86_64
+GUFO_IMG=ghcr.io/gufo-org/toolboxes/gufo-runtime@sha256:9d22f4ca87d8406ffbfadab283fe24d08e670c66a8b01e357ea4080e5da50ba0
