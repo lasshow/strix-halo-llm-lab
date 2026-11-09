@@ -2613,3 +2613,16 @@ Un cliente con prompt base grande recibía `HTTP 400: prompt exceeds the 65536-t
 - Aguja a mitad de un prompt de **198.126 tokens**: acierta (`ZX-4417-QD`), prefill 132 s
   (~1.500 t/s), sin OOM; RAM disponible tras la prueba 14 GiB (antes del cambio 23 GiB).
 - Coste de memoria: +7 GiB usados respecto a 65k; el pool `ram: 104` de llama-swap no cambia.
+
+
+---
+
+## H-062 — Strata frente a Gufo con Qwen y DeepSeek: Gufo gana en los dos (2026-11-09)
+
+**Estado: medido; no cambia nada en producción.** Mismo banco y misma sesión para los cuatro motores (detalle y datos en `benchmarks/h062/`).
+
+- Lectura de prompt de ~95k tokens: qwen-gufo 1.540 t/s frente a qwen-strata 464 t/s (3,3×); ds-gufo 1.110 t/s frente a ds-strata 391 t/s (2,8×).
+- Escritura: qwen-gufo 44-72 t/s frente a qwen-strata 30-45 t/s; con DeepSeek empatan en código corto (~25 t/s) y Strata pierde con contexto largo (18-23 frente a 23-24).
+- Calidad: Qwen 12/12 con los dos motores; DeepSeek 10/12 con los dos (fallan las mismas dos pruebas → es el modelo, no el motor).
+- La afirmación de un vídeo (32k en ~12 s con Strata) no se reproduce: aquí son 59 s.
+- Strata (v0.2.12, motor Qwen 0.1.58 compilado a mano) queda instalado y apagado como reserva.
