@@ -2626,3 +2626,15 @@ Un cliente con prompt base grande recibía `HTTP 400: prompt exceeds the 65536-t
 - Calidad: Qwen 12/12 con los dos motores; DeepSeek 10/12 con los dos (fallan las mismas dos pruebas → es el modelo, no el motor).
 - La afirmación de un vídeo (32k en ~12 s con Strata) no se reproduce: aquí son 59 s.
 - Strata (v0.2.12, motor Qwen 0.1.58 compilado a mano) queda instalado y apagado como reserva.
+
+
+---
+
+## H-063 — La configuración de Gufo no tiene margen; Strata v0.2.13.1 tampoco gana en DeepSeek (2026-11-10)
+
+**Estado: medido; no cambia nada en producción.** Detalle en `benchmarks/h063/`.
+
+- `gufo bench` en las condiciones de la tabla oficial: pp2048 1.882 t/s (publican 1.735) y tg128 con MTP 62,6 t/s (publican "hasta 117", que no se reproduce ni con su propio banco); sin MTP 30,2.
+- Cuatro variantes del servidor (1 o 2 sesiones, borrador máximo 4, mínimo 3): todas dentro de ±3-4 t/s de la producción. La producción ya está en su punto.
+- DeepSeek: Gufo 24 t/s estable; Strata v0.2.13.1 26 en código, 19 en prosa, 21,5 tras 10k, y lee los prompts 3,5 veces más lento. Los 31 t/s del cron eran una medida suelta.
+- El cron de actualizaciones pasa a mediana de 3 pasadas con calentamiento y umbral 0,92.
