@@ -1,0 +1,22 @@
+[i] bateria: /home/lasso/strix-halo-llm-lab/private/prompts.json (8 casos con verificador)
+[i] toolchains montadas ro en /opt/tc: cargo, rustup, nvm, node_modules
+[i] sandbox verificado: sin red, sin HOME, /usr solo lectura
+
+C1  [rustc ] [OK] PASA LAS PRUEBAS
+C2  [rustc ] [~] COMPILA (sin pruebas)
+C3  [tsc   ] herramienta ausente, salto
+C4  [node  ] [X] NO COMPILA
+      tsc fallo (codigo 1):
+C5  [python] [OK] PASA LAS PRUEBAS
+C6  [sqlite] [OK] PASA LAS PRUEBAS
+N1  [zig   ] HERRAMIENTA AUSENTE (sin verificador)
+N2  [go    ] HERRAMIENTA AUSENTE (sin verificador)
+
+------------------------------------------------------
+  PASA LAS PRUEBAS      3   (compila y da el resultado correcto)
+  COMPILA (sin pruebas) 1   (no hay banco de pruebas para este)
+  COMPILA PERO FALLA    0   (el compilador lo acepta, el resultado es malo)
+  NO COMPILA            1
+  --- no evaluados por el banco: 3 (sin respuesta 0, herramienta ausente 3, error del banco 0)
+------------------------------------------------------
+-> /home/lasso/strix-halo-llm-lab/private/verif-gufo-0.34.0.json

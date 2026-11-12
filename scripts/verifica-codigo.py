@@ -118,8 +118,15 @@ def monta_toolchains():
         if not origen.exists():
             continue
         subprocess.run(["sudo", "-n", "mkdir", "-p", str(destino)], check=True)
-        ya = subprocess.run(["findmnt", "-rno", "TARGET", str(destino)],
-                            capture_output=True, text=True).returncode == 0
+        fm = subprocess.run(["findmnt", "-rno", "SOURCE", str(destino)],
+                            capture_output=True, text=True)
+        ya = fm.returncode == 0
+        # Montaje rancio: si el origen se reemplazo (p. ej. `hermes update` rehace
+        # node_modules), el bind sigue apuntando al inodo borrado y la carpeta sale
+        # vacia -> "NO COMPILA" falso. Se detecta por '//deleted' y se remonta.
+        if ya and "deleted" in fm.stdout:
+            subprocess.run(["sudo", "-n", "umount", str(destino)], check=True)
+            ya = False
         if not ya:
             subprocess.run(["sudo", "-n", "mount", "--bind", "-o", "ro",
                             str(origen), str(destino)], check=True)

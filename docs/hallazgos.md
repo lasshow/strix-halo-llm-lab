@@ -2638,3 +2638,13 @@ Un cliente con prompt base grande recibía `HTTP 400: prompt exceeds the 65536-t
 - Cuatro variantes del servidor (1 o 2 sesiones, borrador máximo 4, mínimo 3): todas dentro de ±3-4 t/s de la producción. La producción ya está en su punto.
 - DeepSeek: Gufo 24 t/s estable; Strata v0.2.13.1 26 en código, 19 en prosa, 21,5 tras 10k, y lee los prompts 3,5 veces más lento. Los 31 t/s del cron eran una medida suelta.
 - El cron de actualizaciones pasa a mediana de 3 pasadas con calentamiento y umbral 0,92.
+
+## H-064 — Gufo 0.34.0 neutro frente a 0.30.0; banco de código arreglado tras `hermes update` (2026-11-12)
+
+**Estado: medido; 0.34.0 se queda en producción.** Detalle en `benchmarks/h064-gufo-0340-20261112/`.
+
+- Carga real, contexto, aguja, celdas x3 y batería 27: todo dentro del 1-2 % de 0.30.0; aceptaciones MTP idénticas al dígito.
+- Calidad 11/12: `instruccion-negativa` falla 2 de 4 tomas con prefijo (ya visto en H-054/H-056): celda sensible, no regresión.
+- Concurrencia 2: 90,3 -> 86,2 t/s (0.29.0 daba 101,4). Una pasada; hipótesis abierta.
+- Error del banco: el bind mount de node_modules quedó apuntando a una carpeta borrada por `hermes update` y dio un "NO COMPILA" falso. `verifica-codigo.py` ahora lo detecta y remonta.
+
