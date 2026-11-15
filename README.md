@@ -158,9 +158,9 @@ reservada, no validada de punta a punta. Es viable porque de sus 48 capas solo 1
 | | |
 |---|---|
 | **SO** | Fedora Server 44 |
-| **Kernel** | 7.2.10-200.fc44 (7.2.7 → 7.2.9 medido sin diferencia, H-043) |
-| **Driver gráfico** | Mesa 26.2.3 · RADV |
-| **Runtime** | Gufo 0.17.0 (contenedor rootless, ROCm/HIP) desde el 2026-10-17; antes `llama.cpp` `81ef10ea5` + parche MTP sobre Vulkan |
+| **Kernel** | 7.3.3-200.fc44 (7.2.7 → 7.2.9 sin diferencia, H-043; 7.2.15 → 7.3.3 sin diferencia en generación, H-065) |
+| **Driver gráfico** | Mesa 26.2.6 · RADV · linux-firmware 20261019 |
+| **Runtime** | Gufo 0.34.0 (contenedor rootless, ROCm/HIP; Gufo desde el 2026-10-17, actualizado por la puerta nocturna); antes `llama.cpp` `81ef10ea5` + parche MTP sobre Vulkan |
 | **Arranque** | `amd_iommu=off` · `amdgpu.gttsize=126976` · `ttm.pages_limit=32505856` |
 | **Perfil** | `tuned accelerator-performance` |
 

@@ -2648,3 +2648,11 @@ Un cliente con prompt base grande recibía `HTTP 400: prompt exceeds the 65536-t
 - Concurrencia 2: 90,3 -> 86,2 t/s (0.29.0 daba 101,4). Una pasada; hipótesis abierta.
 - Error del banco: el bind mount de node_modules quedó apuntando a una carpeta borrada por `hermes update` y dio un "NO COMPILA" falso. `verifica-codigo.py` ahora lo detecta y remonta.
 
+## H-065 — Kernel 7.3.3 neutro en generación (2026-11-15)
+
+**Estado: medido solo en generación; prefill sin medir.**
+
+- Fedora instaló `kernel-7.3.3-200.fc44` el 2026-11-12 (antes 7.2.15) y la máquina arrancó con él. Mesa 26.2.6, linux-firmware 20261019.
+- Misma medida que la puerta nocturna de actualizaciones (Gufo 0.34.0, Qwen3.8-Flash-Next, greedy, 1 pasada de calentamiento + mediana de 3): **74,9 t/s** (74,1/74,9/75,0, 234 tokens, `finish=stop`). Con 7.2.15 la puerta dio 74,9 (74,3/74,9/75,0).
+- Mesa no interviene en este número: Gufo corre sobre ROCm/HIP dentro de su contenedor.
+- Sin medir: prefill largo, aguja y batería de calidad con el kernel nuevo.
