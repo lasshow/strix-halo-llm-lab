@@ -1,0 +1,44 @@
+{
+ "C1": {
+  "veredicto": "PASA LAS PRUEBAS",
+  "con_pruebas": true,
+  "log": "PRUEBAS-OK",
+  "lineas_codigo": 53
+ },
+ "C2": {
+  "veredicto": "COMPILA (sin pruebas)",
+  "con_pruebas": false,
+  "log": "(envuelto en fn main: la respuesta era un fragmento)\n",
+  "lineas_codigo": 5
+ },
+ "C3": {
+  "veredicto": "COMPILA (sin pruebas)",
+  "con_pruebas": false,
+  "log": "",
+  "lineas_codigo": 43
+ },
+ "C4": {
+  "veredicto": "PASA LAS PRUEBAS",
+  "con_pruebas": true,
+  "log": "PRUEBAS-OK",
+  "lineas_codigo": 14
+ },
+ "C5": {
+  "veredicto": "PASA LAS PRUEBAS",
+  "con_pruebas": true,
+  "log": "PRUEBAS-OK",
+  "lineas_codigo": 32
+ },
+ "C6": {
+  "veredicto": "PASA LAS PRUEBAS",
+  "con_pruebas": false,
+  "log": "2024,8400.0,6200.0,26.1904761904762,\n2025,9700.0,7060.0,27.2164948453608,15.4761904761905\n2026,5200.0,3800.0,26.9230769230769,-46.3917525773196",
+  "lineas_codigo": 31
+ },
+ "N1": {
+  "veredicto": "HERRAMIENTA AUSENTE"
+ },
+ "N2": {
+  "veredicto": "HERRAMIENTA AUSENTE"
+ }
+}

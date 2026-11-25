@@ -2665,13 +2665,13 @@ Un cliente con prompt base grande recibía `HTTP 400: prompt exceeds the 65536-t
 - Rollback automático correcto: código en v0.2.13.1 y binario idéntico al respaldo (`cmp`).
 - La puerta solo considera ya las versiones < v0.2.14 para `strata-dsv41`, que queda congelado en v0.2.13.1. DeepSeek en producción sigue siendo Gufo IQ1_M (H-057), así que no se pierde nada en uso.
 
-## H-067 — Gufo 0.35.0 y 0.36.0, kernel 7.3.4 y Mesa 26.2.7: generación estable (2026-11-25)
+## H-067 — Gufo 0.36.0 + kernel 7.3.4 + Mesa 26.2.7: igual o mejor, y la sombra de concurrencia 2 desaparece (2026-11-25)
 
-**Estado: medido solo en generación corta (función de la puerta nocturna, mediana de 3, 234 tokens).**
+**Estado: medido con la ronda completa; 0.36.0 se queda en producción.** Detalle en `benchmarks/h067-gufo-0360-20261125/`.
 
-- Gufo 0.34.0 → 0.35.0 (puerta del 18-nov): 75,0 → 76,8 t/s.
-- Gufo 0.35.0 → 0.36.0 (puerta del 24-nov, ya con kernel 7.3.4): 77,2 → 76,9 t/s. En producción.
-- 25-nov, tras actualizar el resto de paquetes del SO (sin kernel nuevo): 77,0 t/s (76,5 / 77,0 / 77,3), `finish=stop`.
-- Conclusión: ninguna de las tres capas mueve la generación fuera del ruido (±1 %).
-- **Sin medir** con esta combinación: prefill largo, aguja, concurrencia 2/4 (la sombra de H-060/H-064) y batería de calidad. Quedan para la próxima ronda comparativa completa.
-
+- Puerta nocturna: 0.34.0 → 0.35.0 (75,0 → 76,8 t/s) y 0.35.0 → 0.36.0 (77,2 → 76,9). Tras actualizar el SO el 25-nov: 77,0.
+- Carga real: igual o mejor en las 6 tareas (codigo-cambio 54,3 → 58,7; json-extrae 89,2 → 95,2); aceptación MTP igual (±1 punto).
+- Concurrencia 2 repetida x3: 106,1 / 107,6 / 109,2 t/s (0.34.0: 86,2; 0.29.0: 101,4). Concurrencia 4: ~92 → ~107. Sombra de H-060/H-064 cerrada.
+- Contexto hasta 45k: prefill 1.570-1.687 t/s, aguja 4/4; celdas x3 4/4; batería 27 tg 55,0 / pp 382,9; código 4 pasan + 2 compilan.
+- Calidad 11/12: la misma celda sensible (`instruccion-negativa` con prefijo).
+- Cambian motor, kernel y Mesa a la vez: la mejora no se atribuye a una sola capa.

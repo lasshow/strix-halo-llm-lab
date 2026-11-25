@@ -1,0 +1,1 @@
+[gufo-0.36.0-c3] concurrencia: {"1": {"tokens": 400, "wall_s": 6.19, "agregado_tps": 64.59, "errores": 0}, "2": {"tokens": 800, "wall_s": 7.32, "agregado_tps": 109.23, "errores": 0}, "4": {"tokens": 1600, "wall_s": 14.96, "agregado_tps": 106.97, "errores": 0}}

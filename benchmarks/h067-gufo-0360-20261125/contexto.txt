@@ -1,0 +1,34 @@
+[i] 2 pasadas medidas + 1 de calentamiento por punto
+[i] registro crudo: /home/lasso/campanas/h067-20261125T211728Z/contexto.jsonl
+
+[*] objetivo 2000 tokens
+    calentamiento: prompt_n=1537 pp=1611.1 tg=23.32 wall=1.0s
+    pasada 1: prompt_n=1537 pp=1570.5 tg=23.57 wall=1.0s
+    pasada 2: prompt_n=1537 pp=1568.5 tg=23.47 wall=1.0s
+    aguja K2X7: OK
+[*] objetivo 16000 tokens
+    calentamiento: prompt_n=12025 pp=1685.4 tg=22.99 wall=7.2s
+    pasada 1: prompt_n=12025 pp=1687.3 tg=23.23 wall=7.2s
+    pasada 2: prompt_n=12025 pp=1685.9 tg=23.21 wall=7.2s
+    aguja K16X7: OK
+[*] objetivo 32000 tokens
+    calentamiento: prompt_n=24001 pp=1662.3 tg=22.93 wall=14.5s
+    pasada 1: prompt_n=24001 pp=1661.9 tg=23.27 wall=14.5s
+    pasada 2: prompt_n=24001 pp=1661.0 tg=23.22 wall=14.5s
+    aguja K32X7: OK
+[*] objetivo 60000 tokens
+    calentamiento: prompt_n=44977 pp=1644.7 tg=23.10 wall=27.5s
+    pasada 1: prompt_n=44977 pp=1642.7 tg=23.13 wall=27.5s
+    pasada 2: prompt_n=44977 pp=1641.8 tg=23.00 wall=27.5s
+    aguja K60X7: OK
+
+| objetivo | prompt_n | pp t/s | tg t/s | latencia (mediana) | aguja |
+|---|---|---|---|---|---|
+| 2000 | 1537 | 1569.5 | 23.52 | 1.0s | OK |
+| 16000 | 12025 | 1686.6 | 23.22 | 7.2s | OK |
+| 32000 | 24001 | 1661.5 | 23.24 | 14.5s | OK |
+| 60000 | 44977 | 1642.2 | 23.06 | 27.5s | OK |
+
+De 1537 a 44977 tokens: prefill 1569.5 -> 1642.2 t/s (+5%), generacion 23.52 -> 23.06 t/s (-2%)
+
+Registro crudo: /home/lasso/campanas/h067-20261125T211728Z/contexto.jsonl
