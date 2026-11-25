@@ -2664,3 +2664,14 @@ Un cliente con prompt base grande recibía `HTTP 400: prompt exceeds the 65536-t
 - La puerta nocturna rechazó v0.2.14.1 con `ninja: error: unknown target 'strata-dsv41'`. No es un fallo de compilación: upstream retiró el motor DeepSeek V4.1 Flash entero ("DeepSeek out", commit e5806740a, 11-nov-2026; `src/dsv41` pasa de 184 ficheros a 0).
 - Rollback automático correcto: código en v0.2.13.1 y binario idéntico al respaldo (`cmp`).
 - La puerta solo considera ya las versiones < v0.2.14 para `strata-dsv41`, que queda congelado en v0.2.13.1. DeepSeek en producción sigue siendo Gufo IQ1_M (H-057), así que no se pierde nada en uso.
+
+## H-067 — Gufo 0.35.0 y 0.36.0, kernel 7.3.4 y Mesa 26.2.7: generación estable (2026-11-25)
+
+**Estado: medido solo en generación corta (función de la puerta nocturna, mediana de 3, 234 tokens).**
+
+- Gufo 0.34.0 → 0.35.0 (puerta del 18-nov): 75,0 → 76,8 t/s.
+- Gufo 0.35.0 → 0.36.0 (puerta del 24-nov, ya con kernel 7.3.4): 77,2 → 76,9 t/s. En producción.
+- 25-nov, tras actualizar el resto de paquetes del SO (sin kernel nuevo): 77,0 t/s (76,5 / 77,0 / 77,3), `finish=stop`.
+- Conclusión: ninguna de las tres capas mueve la generación fuera del ruido (±1 %).
+- **Sin medir** con esta combinación: prefill largo, aguja, concurrencia 2/4 (la sombra de H-060/H-064) y batería de calidad. Quedan para la próxima ronda comparativa completa.
+
